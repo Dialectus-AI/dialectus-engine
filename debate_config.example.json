@@ -1,0 +1,55 @@
+{
+  "debate": {
+    "topic": "Should artificial intelligence be regulated by government oversight?",
+    "format": "oxford",
+    "time_per_turn": 120,
+    "word_limit": 200
+  },
+  "models": {
+    "model_a": {
+      "name": "qwen2.5:7b",
+      "provider": "ollama",
+      "personality": "analytical",
+      "max_tokens": 300,
+      "temperature": 0.7
+    },
+    "model_b": {
+      "name": "openai/gpt-4o-mini",
+      "provider": "openrouter",
+      "personality": "passionate",
+      "max_tokens": 300,
+      "temperature": 0.8
+    }
+  },
+  "judging": {
+    "method": "ai",
+    "criteria": [
+      "logic",
+      "evidence",
+      "persuasiveness"
+    ],
+    "judge_model": "openthinker:7b"
+  },
+  "system": {
+    "ollama_base_url": "http://localhost:11434",
+    "ollama": {
+      "num_gpu_layers": -1,
+      "gpu_memory_utilization": null,
+      "main_gpu": null,
+      "num_thread": null,
+      "keep_alive": "5m",
+      "repeat_penalty": 1.1
+    },
+    "openrouter": {
+      "api_key": "sk-or-v1-your-openrouter-api-key-here",
+      "base_url": "https://openrouter.ai/api/v1",
+      "site_url": null,
+      "app_name": "Dialectus AI Debate System",
+      "max_retries": 3,
+      "timeout": 60
+    },
+    "save_transcripts": true,
+    "transcript_dir": "transcripts",
+    "log_level": "INFO"
+  }
+}
