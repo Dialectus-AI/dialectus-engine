@@ -1,4 +1,4 @@
-"""FastAPI web application for AI Debate System."""
+"""FastAPI web application for Dialectus AI Debate System."""
 
 import asyncio
 import uuid
@@ -58,7 +58,7 @@ class MessageResponse(BaseModel):
 
 # FastAPI app
 app = FastAPI(
-    title="AI Debate System",
+    title="Dialectus AI Debate System",
     description="Web interface for local AI model debates",
     version="1.0.0"
 )
@@ -308,12 +308,61 @@ debate_manager = DebateManager()
 
 @app.get("/api/models")
 async def get_models():
-    """Get available Ollama models."""
+    """Get available models from all providers."""
     try:
         config = get_default_config()
         model_manager = ModelManager(config.system)
-        models = await model_manager.get_available_models()
-        return {"models": models}
+        models_by_provider = await model_manager.get_available_models()
+        
+        # Format response to include provider information
+        formatted_models = []
+        for provider, models in models_by_provider.items():
+            for model in models:
+                formatted_models.append({
+                    "id": model,
+                    "name": model,
+                    "provider": provider
+                })
+        
+        # Also maintain backward compatibility with flat list
+        flat_models = await model_manager.get_available_models_flat()
+        
+        return {
+            "models": flat_models,  # Backward compatibility
+            "models_detailed": formatted_models,  # New format with provider info
+            "models_by_provider": models_by_provider  # Grouped by provider
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/providers")
+async def get_providers():
+    """Get available model providers and their status."""
+    try:
+        from models.providers import ProviderFactory
+        providers = []
+        
+        for provider_name in ProviderFactory.get_available_providers():
+            provider_info = {
+                "name": provider_name,
+                "status": "available"
+            }
+            
+            # Add provider-specific status information
+            if provider_name == "openrouter":
+                config = get_default_config()
+                import os
+                api_key_configured = bool(
+                    config.system.openrouter.api_key or 
+                    os.getenv("OPENROUTER_API_KEY")
+                )
+                provider_info["api_key_configured"] = api_key_configured
+                if not api_key_configured:
+                    provider_info["status"] = "requires_api_key"
+            
+            providers.append(provider_info)
+        
+        return {"providers": providers}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -618,7 +667,7 @@ async def read_root():
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>AI Debate System - Dev Mode</title>
+            <title>Dialectus AI Debate System - Dev Mode</title>
             <style>
                 {get_dev_styles()}
             </style>
@@ -626,7 +675,7 @@ async def read_root():
         <body>
             <div class="container">
                 <div class="header">
-                    <h1>🎭 AI Debate System</h1>
+                    <h1>🎭 Dialectus AI Debate System</h1>
                     <p class="subtitle">Development Mode</p>
                 </div>
                 
@@ -706,7 +755,7 @@ async def read_root():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>AI Debate System</title>
+        <title>Dialectus AI Debate System</title>
         <style>
             * { box-sizing: border-box; }
             body {
@@ -746,7 +795,7 @@ async def read_root():
     <body>
         <div class="container">
             <div class="header">
-                <h1>🎭 AI Debate System</h1>
+                <h1>🎭 Dialectus AI Debate System</h1>
                 <p>Modern web interface for orchestrating debates between AI models</p>
             </div>
             

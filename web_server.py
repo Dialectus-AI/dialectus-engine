@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Web server entry point for the AI Debate System."""
+"""Web server entry point for the Dialectus AI Debate System."""
 
 import logging
 import sys

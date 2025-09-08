@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Main entry point for the AI Debate System."""
+"""Main entry point for the Dialectus AI Debate System."""
 
 from cli import cli
 
