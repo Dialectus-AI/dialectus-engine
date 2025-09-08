@@ -39,8 +39,3 @@ python web_server.py
 ## Development
 
 This repository was extracted from the original AI-Debate monolith to create a focused, deployable service for the debate engine and API layer.
-
-For multi-repository development workflow, use:
-```bash
-claude-code --add-dir ../dialectus-web --add-dir ../dialectus-cli dialectus-engine
-```
