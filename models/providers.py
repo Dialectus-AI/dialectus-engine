@@ -63,6 +63,10 @@ class OllamaProvider(BaseModelProvider):
     
     async def get_available_models(self) -> List[str]:
         """Get list of available models from Ollama."""
+        if not self._client:
+            logger.error("Ollama client not initialized")
+            return []
+        
         try:
             models = self._client.models.list()
             return [model.id for model in models.data]
