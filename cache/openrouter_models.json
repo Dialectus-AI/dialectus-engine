@@ -1995,8 +1995,8 @@
       }
     }
   ],
-  "timestamp": "2025-09-08T23:20:22.893926",
-  "expires_at": "2025-09-09T05:20:22.893926",
+  "timestamp": "2025-09-09T09:17:08.132012",
+  "expires_at": "2025-09-09T15:17:08.132012",
   "provider": "openrouter",
   "endpoint": "models"
 }
