@@ -100,3 +100,69 @@ class ModelManager:
         for provider, models in all_models.items():
             flat_list.extend(models)
         return flat_list
+    
+    async def get_enhanced_models(self) -> List[Dict[str, Any]]:
+        """Get enhanced model information with metadata, filtering, and classification."""
+        enhanced_models = []
+        
+        for provider_name in ProviderFactory.get_available_providers():
+            try:
+                provider = self._get_provider(provider_name)
+                
+                # Check if provider supports enhanced model information
+                if hasattr(provider, 'get_enhanced_models'):
+                    provider_enhanced = await provider.get_enhanced_models()
+                    
+                    # Convert to dict format for JSON serialization
+                    for model in provider_enhanced:
+                        enhanced_models.append({
+                            "id": model.id,
+                            "name": model.name,
+                            "provider": model.provider,
+                            "description": model.description[:200] + "..." if len(model.description) > 200 else model.description,
+                            "weight_class": model.weight_class.value,
+                            "tier": model.tier.value,
+                            "context_length": model.context_length,
+                            "max_completion_tokens": model.max_completion_tokens,
+                            "pricing": {
+                                "prompt_cost_per_1k": model.pricing.prompt_cost_per_1k,
+                                "completion_cost_per_1k": model.pricing.completion_cost_per_1k,
+                                "avg_cost_per_1k": model.pricing.avg_cost_per_1k,
+                                "is_free": model.pricing.is_free
+                            },
+                            "value_score": round(model.value_score, 2),
+                            "is_preview": model.is_preview,
+                            "is_text_only": model.is_text_only,
+                            "estimated_params": model.estimated_params,
+                            "display_name": model.display_name
+                        })
+                else:
+                    # Fallback for providers without enhanced support
+                    basic_models = await provider.get_available_models()
+                    for model_id in basic_models:
+                        enhanced_models.append({
+                            "id": model_id,
+                            "name": model_id,
+                            "provider": provider_name,
+                            "description": "Standard model",
+                            "weight_class": "middleweight",
+                            "tier": "balanced",
+                            "context_length": 4096,
+                            "max_completion_tokens": 1024,
+                            "pricing": {
+                                "prompt_cost_per_1k": 0.0,
+                                "completion_cost_per_1k": 0.0,
+                                "avg_cost_per_1k": 0.0,
+                                "is_free": True
+                            },
+                            "value_score": 5.0,
+                            "is_preview": False,
+                            "is_text_only": True,
+                            "estimated_params": None,
+                            "display_name": model_id
+                        })
+                        
+            except Exception as e:
+                logger.error(f"Failed to get enhanced models from {provider_name}: {e}")
+        
+        return enhanced_models

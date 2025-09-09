@@ -5,10 +5,13 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Any, TYPE_CHECKING
 import logging
 from openai import OpenAI
+import httpx
 
 if TYPE_CHECKING:
     from openai.types.chat import ChatCompletion
     from config.settings import SystemConfig, ModelConfig
+    from .base_types import ModelWeightClass, BaseEnhancedModelInfo
+    from .openrouter_types import OpenRouterEnhancedModelInfo
 
 logger = logging.getLogger(__name__)
 
@@ -123,6 +126,100 @@ class OllamaProvider(BaseModelProvider):
     def validate_model_config(self, model_config: "ModelConfig") -> bool:
         """Validate Ollama model configuration."""
         return model_config.provider == "ollama"
+    
+    async def get_enhanced_models(self) -> List["BaseEnhancedModelInfo"]:
+        """Get enhanced model information for Ollama models."""
+        basic_models = await self.get_available_models()
+        enhanced_models = []
+        
+        from .base_types import BaseEnhancedModelInfo, ModelWeightClass, ModelTier, ModelPricing
+        
+        for model_id in basic_models:
+            # Classify Ollama models based on name patterns
+            weight_class = self._classify_ollama_model(model_id)
+            tier = ModelTier.BUDGET  # Local models are always budget-friendly
+            
+            # Estimate parameters from model name
+            estimated_params = self._estimate_ollama_params(model_id)
+            
+            # All Ollama models are free and text-only
+            pricing = ModelPricing(
+                prompt_cost_per_1k=0.0,
+                completion_cost_per_1k=0.0,
+                is_free=True,
+                currency="USD"
+            )
+            
+            # High value score for local models (free + private)
+            value_score = 10.0 + (1.0 if weight_class == ModelWeightClass.HEAVYWEIGHT else 0.5)
+            
+            enhanced_model = BaseEnhancedModelInfo(
+                id=model_id,
+                name=model_id,
+                provider='ollama',
+                description=f"Local Ollama model: {model_id}",
+                weight_class=weight_class,
+                tier=tier,
+                context_length=4096,  # Default, could be model-specific
+                max_completion_tokens=2048,
+                pricing=pricing,
+                value_score=value_score,
+                is_preview=False,
+                is_text_only=True,
+                estimated_params=estimated_params,
+                source_info={'local_model': True}
+            )
+            
+            enhanced_models.append(enhanced_model)
+        
+        return enhanced_models
+    
+    def _classify_ollama_model(self, model_id: str) -> "ModelWeightClass":
+        """Classify Ollama model into weight class."""
+        
+        model_lower = model_id.lower()
+        
+        from .base_types import ModelWeightClass
+        
+        # Large models
+        if any(size in model_lower for size in ['70b', '72b', '405b']):
+            return ModelWeightClass.ULTRAWEIGHT
+        elif any(size in model_lower for size in ['34b', '32b']):
+            return ModelWeightClass.HEAVYWEIGHT
+        elif any(size in model_lower for size in ['13b', '14b', '15b', '8b', '9b']):
+            return ModelWeightClass.MIDDLEWEIGHT
+        elif any(size in model_lower for size in ['7b', '3b', '1b']):
+            return ModelWeightClass.LIGHTWEIGHT
+        
+        # Fallback based on model family
+        if any(family in model_lower for family in ['llama', 'mistral', 'qwen']):
+            return ModelWeightClass.MIDDLEWEIGHT
+        
+        return ModelWeightClass.LIGHTWEIGHT
+    
+    def _estimate_ollama_params(self, model_id: str) -> Optional[str]:
+        """Estimate parameter count from Ollama model name."""
+        model_lower = model_id.lower()
+        
+        # Extract parameter size from common patterns
+        import re
+        
+        # Look for patterns like "7b", "13b", "70b", etc.
+        param_match = re.search(r'(\d+(?:\.\d+)?)b', model_lower)
+        if param_match:
+            return param_match.group(1) + "B"
+        
+        # Look for specific model patterns
+        if 'tiny' in model_lower:
+            return "1B"
+        elif 'small' in model_lower:
+            return "7B"
+        elif 'medium' in model_lower:
+            return "13B"
+        elif 'large' in model_lower:
+            return "70B"
+        
+        return None
 
 
 class OpenRouterProvider(BaseModelProvider):
@@ -161,17 +258,67 @@ class OpenRouterProvider(BaseModelProvider):
         return "openrouter"
     
     async def get_available_models(self) -> List[str]:
-        """Get list of available models from OpenRouter."""
+        """Get curated list of available models from OpenRouter with intelligent filtering."""
+        enhanced_models = await self.get_enhanced_models()
+        return [model.id for model in enhanced_models]
+    
+    async def get_enhanced_models(self) -> List["OpenRouterEnhancedModelInfo"]:
+        """Get enhanced model information with filtering and classification."""
         if not self._client:
             logger.warning("OpenRouter client not initialized - no API key")
             return []
         
         try:
-            models = self._client.models.list()
-            return [model.id for model in models.data]
+            from .openrouter_types import OpenRouterModelsResponse, OpenRouterModelFilter
+            
+            # Fetch raw models from OpenRouter API directly
+            api_key = (
+                self.system_config.openrouter.api_key or 
+                os.getenv("OPENROUTER_API_KEY")
+            )
+            
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            }
+            
+            if self.system_config.openrouter.site_url:
+                headers["HTTP-Referer"] = self.system_config.openrouter.site_url
+            if self.system_config.openrouter.app_name:
+                headers["X-Title"] = self.system_config.openrouter.app_name
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.system_config.openrouter.base_url}/models",
+                    headers=headers,
+                    timeout=30.0
+                )
+                response.raise_for_status()
+                
+                models_response = OpenRouterModelsResponse(**response.json())
+                
+                # Apply intelligent filtering
+                enhanced_models = OpenRouterModelFilter.filter_and_enhance_models(
+                    models_response.data,
+                    include_preview=True,  # Include for testing, but mark them clearly
+                    max_cost_per_1k=0.02,  # $0.02 per 1K tokens max
+                    min_context_length=4096,  # At least 4K context
+                    max_models_per_tier=8  # Limit selection to avoid overwhelming UI
+                )
+                
+                logger.info(f"OpenRouter: Filtered {len(models_response.data)} models down to {len(enhanced_models)} curated options")
+                return enhanced_models
+                
         except Exception as e:
-            logger.error(f"Failed to get OpenRouter models: {e}")
-            return []
+            logger.error(f"Failed to get enhanced OpenRouter models: {e}")
+            # Fallback to basic model list if enhanced filtering fails
+            try:
+                models = self._client.models.list()
+                logger.warning("Using fallback basic model list from OpenRouter")
+                return []
+            except Exception as fallback_error:
+                logger.error(f"Fallback also failed: {fallback_error}")
+                return []
     
     async def generate_response(
         self,

@@ -308,28 +308,31 @@ debate_manager = DebateManager()
 
 @app.get("/api/models")
 async def get_models():
-    """Get available models from all providers."""
+    """Get available models from all providers with enhanced metadata."""
     try:
         config = get_default_config()
         model_manager = ModelManager(config.system)
+        
+        # Get enhanced models with full metadata
+        enhanced_models = await model_manager.get_enhanced_models()
+        
+        # Maintain backward compatibility
         models_by_provider = await model_manager.get_available_models()
-        
-        # Format response to include provider information
-        formatted_models = []
-        for provider, models in models_by_provider.items():
-            for model in models:
-                formatted_models.append({
-                    "id": model,
-                    "name": model,
-                    "provider": provider
-                })
-        
-        # Also maintain backward compatibility with flat list
         flat_models = await model_manager.get_available_models_flat()
+        
+        # Create simplified detailed format for compatibility
+        formatted_models = []
+        for model in enhanced_models:
+            formatted_models.append({
+                "id": model["id"],
+                "name": model["name"],
+                "provider": model["provider"]
+            })
         
         return {
             "models": flat_models,  # Backward compatibility
-            "models_detailed": formatted_models,  # New format with provider info
+            "models_detailed": formatted_models,  # Basic format with provider info
+            "models_enhanced": enhanced_models,  # Full enhanced metadata
             "models_by_provider": models_by_provider  # Grouped by provider
         }
     except Exception as e:
