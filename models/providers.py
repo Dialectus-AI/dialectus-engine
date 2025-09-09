@@ -270,8 +270,17 @@ class OpenRouterProvider(BaseModelProvider):
         
         try:
             from .openrouter_types import OpenRouterModelsResponse, OpenRouterModelFilter
+            from .cache_manager import cache_manager
             
-            # Fetch raw models from OpenRouter API directly
+            # Check cache first (6 hour default TTL)
+            cached_models = cache_manager.get('openrouter', 'models')
+            if cached_models is not None:
+                logger.info(f"Using cached OpenRouter models ({len(cached_models)} models)")
+                return cached_models
+            
+            # Cache miss - fetch fresh data from OpenRouter API
+            logger.info("Fetching fresh OpenRouter models from API...")
+            
             api_key = (
                 self.system_config.openrouter.api_key or 
                 os.getenv("OPENROUTER_API_KEY")
@@ -306,7 +315,10 @@ class OpenRouterProvider(BaseModelProvider):
                     max_models_per_tier=8  # Limit selection to avoid overwhelming UI
                 )
                 
-                logger.info(f"OpenRouter: Filtered {len(models_response.data)} models down to {len(enhanced_models)} curated options")
+                # Cache the enhanced models for 6 hours
+                cache_manager.set('openrouter', 'models', enhanced_models, ttl_hours=6)
+                
+                logger.info(f"OpenRouter: Fetched and cached {len(models_response.data)} models, filtered down to {len(enhanced_models)} curated options")
                 return enhanced_models
                 
         except Exception as e:

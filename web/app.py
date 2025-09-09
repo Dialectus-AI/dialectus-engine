@@ -5,6 +5,7 @@ import uuid
 from typing import Dict, List, Optional, Any
 from pathlib import Path
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
@@ -56,11 +57,52 @@ class MessageResponse(BaseModel):
     timestamp: str
     word_count: int
 
+# Cache cleanup scheduler
+cleanup_task = None
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage application lifespan - startup and shutdown."""
+    global cleanup_task
+    
+    # Startup: Start cache cleanup scheduler
+    logger.info("Starting cache cleanup scheduler...")
+    cleanup_task = asyncio.create_task(cache_cleanup_scheduler())
+    
+    yield
+    
+    # Shutdown: Cancel cache cleanup task
+    if cleanup_task:
+        cleanup_task.cancel()
+        try:
+            await cleanup_task
+        except asyncio.CancelledError:
+            pass
+        logger.info("Cache cleanup scheduler stopped")
+
+async def cache_cleanup_scheduler():
+    """Background task to periodically clean up expired cache entries."""
+    while True:
+        try:
+            # Run cleanup every hour
+            await asyncio.sleep(3600)  # 1 hour
+            
+            from models.cache_manager import cache_manager
+            cleaned_count = cache_manager.cleanup_expired()
+            
+            if cleaned_count > 0:
+                logger.info(f"Scheduled cache cleanup: removed {cleaned_count} expired entries")
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"Error in cache cleanup scheduler: {e}")
+
 # FastAPI app
 app = FastAPI(
     title="Dialectus AI Debate System",
     description="Web interface for local AI model debates",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 class DebateManager:
@@ -375,6 +417,39 @@ async def get_formats():
     return {
         "formats": format_registry.get_format_descriptions()
     }
+
+@app.get("/api/cache/stats")
+async def get_cache_stats():
+    """Get cache statistics."""
+    try:
+        from models.cache_manager import cache_manager
+        stats = cache_manager.get_cache_stats()
+        return {"cache_stats": stats}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/cache/cleanup")
+async def cleanup_cache():
+    """Clean up expired cache entries."""
+    try:
+        from models.cache_manager import cache_manager
+        cleaned_count = cache_manager.cleanup_expired()
+        return {"message": f"Cleaned up {cleaned_count} expired cache entries"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/cache/models")
+async def invalidate_models_cache():
+    """Force invalidate the models cache."""
+    try:
+        from models.cache_manager import cache_manager
+        invalidated = cache_manager.invalidate('openrouter', 'models')
+        if invalidated:
+            return {"message": "Models cache invalidated successfully"}
+        else:
+            return {"message": "No models cache found to invalidate"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/debates", response_model=DebateResponse)
 async def create_debate(setup: DebateSetupRequest):

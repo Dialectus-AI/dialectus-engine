@@ -57,16 +57,13 @@ class BaseEnhancedModelInfo(BaseModel):
     
     @property
     def display_name(self) -> str:
-        """User-friendly display name with key info prioritized for dropdowns."""
-        # Start with cost indicator for quick scanning
+        """User-friendly display name without visual indicators (handled by frontend)."""
+        
+        # Cost info as text (no globe emojis)
         if self.pricing.is_free:
-            cost_prefix = "🟢 FREE"
-        elif self.pricing.avg_cost_per_1k <= 0.001:
-            cost_prefix = f"🟡 ${self.pricing.avg_cost_per_1k:.4f}/1K"  # Cheap
-        elif self.pricing.avg_cost_per_1k <= 0.005:
-            cost_prefix = f"🟠 ${self.pricing.avg_cost_per_1k:.4f}/1K"  # Moderate  
+            cost_info = "FREE"
         else:
-            cost_prefix = f"🔴 ${self.pricing.avg_cost_per_1k:.4f}/1K"  # Expensive
+            cost_info = f"${self.pricing.avg_cost_per_1k:.4f}/1K"
         
         # Model name and params
         params_info = f" ({self.estimated_params})" if self.estimated_params else ""
@@ -75,7 +72,7 @@ class BaseEnhancedModelInfo(BaseModel):
         # Flags
         preview_flag = " ⚠️PREVIEW" if self.is_preview else ""
         
-        return f"{cost_prefix} • {model_info}{preview_flag}"
+        return f"{cost_info} • {model_info}{preview_flag}"
     
     @property
     def sort_key(self) -> tuple:

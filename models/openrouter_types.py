@@ -95,9 +95,146 @@ class OpenRouterEnhancedModelInfo(BaseEnhancedModelInfo):
         super().__init__(**data)
 
 
+class OpenRouterCapabilityExtractor:
+    """Extract model capabilities from OpenRouter API data automatically."""
+    
+    @classmethod
+    def extract_parameter_count(cls, model: OpenRouterModel) -> Optional[str]:
+        """Extract parameter count from model name, description, or hugging_face_id."""
+        import re
+        
+        # Common sources to check
+        sources = [model.name, model.id, model.description]
+        if model.hugging_face_id:
+            sources.append(model.hugging_face_id)
+        
+        # Parameter patterns to match (in order of preference)
+        param_patterns = [
+            r'(\d+(?:\.\d+)?)B[^a-zA-Z]',  # "7B ", "70.5B-"
+            r'(\d+(?:\.\d+)?)b[^a-zA-Z]',  # "7b ", "13b-"
+            r'(\d+(?:\.\d+)?)B$',          # "405B" at end
+            r'(\d+(?:\.\d+)?)b$',          # "7b" at end
+            r'(\d+(?:\.\d+)?)T[^a-zA-Z]',  # "1T " (trillion parameters)
+            r'(\d+(?:\.\d+)?)M[^a-zA-Z]',  # "500M " (million parameters)
+        ]
+        
+        for source in sources:
+            source_lower = source.lower()
+            
+            for pattern in param_patterns:
+                match = re.search(pattern, source_lower)
+                if match:
+                    size = float(match.group(1))
+                    
+                    # Determine unit
+                    unit = pattern[-4]  # Get the unit letter (B, T, M)
+                    if 'T' in pattern.upper():
+                        return f"{size:.1f}T" if size != int(size) else f"{int(size)}T"
+                    elif 'M' in pattern.upper():
+                        # Convert millions to billions if over 1000M
+                        if size >= 1000:
+                            return f"{size/1000:.1f}B"
+                        return f"{size:.0f}M"
+                    else:  # B (billions)
+                        return f"{size:.1f}B" if size != int(size) else f"{int(size)}B"
+        
+        # Special case patterns for known model families
+        name_lower = model.name.lower()
+        id_lower = model.id.lower()
+        
+        # Well-known model sizes
+        known_sizes = {
+            'tiny': '1B', 'small': '7B', 'medium': '13B', 'large': '70B', 'xl': '405B',
+            'nano': '1B', 'micro': '3B', 'mini': '7B', 'base': '7B'
+        }
+        
+        for size_name, param_count in known_sizes.items():
+            if size_name in name_lower or size_name in id_lower:
+                return param_count
+        
+        return None
+    
+    @classmethod
+    def determine_weight_class(cls, model: OpenRouterModel, estimated_params: Optional[str] = None) -> ModelWeightClass:
+        """Determine weight class based on context length, parameters, and capabilities."""
+        
+        # Get parameter count if not provided
+        if not estimated_params:
+            estimated_params = cls.extract_parameter_count(model)
+        
+        context_length = model.context_length
+        
+        # Parameter-based classification (takes precedence)
+        if estimated_params:
+            param_value = float(estimated_params.rstrip('BMT'))
+            param_unit = estimated_params[-1].upper()
+            
+            # Convert to billions for comparison
+            if param_unit == 'T':
+                param_billions = param_value * 1000
+            elif param_unit == 'M':
+                param_billions = param_value / 1000
+            else:  # B
+                param_billions = param_value
+            
+            # Parameter-based thresholds for debate models
+            if param_billions >= 100:  # 100B+ parameters
+                return ModelWeightClass.ULTRAWEIGHT
+            elif param_billions >= 30:  # 30B-100B
+                return ModelWeightClass.HEAVYWEIGHT
+            elif param_billions >= 5:  # 5B-30B
+                return ModelWeightClass.MIDDLEWEIGHT
+            else:  # <5B
+                return ModelWeightClass.LIGHTWEIGHT
+        
+        # Context-based fallback classification
+        if context_length >= 128000:  # 128K+ context
+            return ModelWeightClass.ULTRAWEIGHT
+        elif context_length >= 32000:  # 32K-128K
+            return ModelWeightClass.HEAVYWEIGHT
+        elif context_length >= 8000:   # 8K-32K
+            return ModelWeightClass.MIDDLEWEIGHT
+        else:  # <8K context
+            return ModelWeightClass.LIGHTWEIGHT
+    
+    @classmethod
+    def calculate_debate_score(cls, model: OpenRouterModel, weight_class: ModelWeightClass) -> float:
+        """Calculate debate suitability score based on text generation capabilities."""
+        
+        # Base score from context length (important for debate flow)
+        context_score = min(model.context_length / 32000, 3.0)  # Cap at 3x for 32K+ context
+        
+        # Cost efficiency (lower cost = higher score for debates)
+        if model.pricing.is_free:
+            cost_score = 5.0  # High score for free models
+        else:
+            avg_cost = max(model.pricing.avg_cost_per_1k, 0.0001)
+            cost_score = min(0.005 / avg_cost, 5.0)  # Normalize around $0.005/1K
+        
+        # Weight class bonus (larger models generally better at reasoning)
+        weight_bonus = {
+            ModelWeightClass.ULTRAWEIGHT: 1.5,
+            ModelWeightClass.HEAVYWEIGHT: 1.3,
+            ModelWeightClass.MIDDLEWEIGHT: 1.0,
+            ModelWeightClass.LIGHTWEIGHT: 0.8
+        }.get(weight_class, 1.0)
+        
+        # Text-only preference for debates (multimodal is fine but not necessary)
+        text_bonus = 1.0
+        if 'text' in model.architecture.input_modalities and 'text' in model.architecture.output_modalities:
+            # Prefer text-focused models, but don't penalize multimodal heavily
+            if len(model.architecture.input_modalities) == 1:  # Text-only input
+                text_bonus = 1.1
+            else:  # Multimodal but includes text
+                text_bonus = 1.0
+        
+        return context_score * cost_score * weight_bonus * text_bonus
+
+
 class OpenRouterModelFilter:
     """Intelligent filtering for OpenRouter models."""
     
+    # DEPRECATED: Use OpenRouterCapabilityExtractor instead
     # Known model families and their characteristics
     MODEL_FAMILIES = {
         # Meta/LLaMA family
@@ -199,80 +336,76 @@ class OpenRouterModelFilter:
     
     @classmethod
     def classify_model(cls, model: OpenRouterModel) -> tuple[ModelWeightClass, Optional[str]]:
-        """Classify model into weight class and estimate parameters."""
-        model_id_lower = model.id.lower()
+        """Classify model into weight class and estimate parameters using dynamic extraction."""
         
-        for pattern, info in cls.MODEL_FAMILIES.items():
-            if re.search(pattern, model_id_lower):
-                return info['weight_class'], info['params']
+        # Use the new capability extractor for automatic classification
+        estimated_params = OpenRouterCapabilityExtractor.extract_parameter_count(model)
+        weight_class = OpenRouterCapabilityExtractor.determine_weight_class(model, estimated_params)
         
-        # Fallback based on context length and pricing
-        if model.pricing.avg_cost_per_1k > 0.02:  # Very expensive
-            return ModelWeightClass.ULTRAWEIGHT, 'Unknown'
-        elif model.pricing.avg_cost_per_1k > 0.005:  # Expensive
-            return ModelWeightClass.HEAVYWEIGHT, 'Unknown'
-        elif model.pricing.avg_cost_per_1k > 0.001:  # Moderate
-            return ModelWeightClass.MIDDLEWEIGHT, 'Unknown'
-        else:  # Cheap or free
-            return ModelWeightClass.LIGHTWEIGHT, 'Unknown'
+        return weight_class, estimated_params
     
     @classmethod
     def calculate_value_score(cls, model: OpenRouterModel) -> float:
-        """Calculate value score (higher = better value)."""
-        # Base score from context length
-        context_score = min(model.context_length / 32768, 2.0)  # Cap at 2x for 32K+ context
+        """Calculate value score (higher = better value) using debate-focused scoring."""
         
-        # Cost penalty (lower cost = higher score)
-        if model.pricing.is_free:
-            cost_score = 10.0  # High score for free models
-        else:
-            # Inverse relationship: cheaper = higher score
-            avg_cost = max(model.pricing.avg_cost_per_1k, 0.0001)  # Avoid division by zero
-            cost_score = 0.01 / avg_cost  # Normalize around $0.01/1K tokens
-        
-        # Quality bonus for known good models
-        quality_bonus = 1.0
-        model_id_lower = model.id.lower()
-        
-        if any(pattern in model_id_lower for pattern in ['gpt-4', 'claude-3', 'gemini-pro']):
-            quality_bonus = 2.0
-        elif any(pattern in model_id_lower for pattern in ['llama-3.1', 'mixtral']):
-            quality_bonus = 1.5
-        elif any(pattern in model_id_lower for pattern in ['llama-3', 'mistral']):
-            quality_bonus = 1.3
-        
-        return context_score * cost_score * quality_bonus
+        # Use the new debate-focused scoring system
+        weight_class = OpenRouterCapabilityExtractor.determine_weight_class(model)
+        return OpenRouterCapabilityExtractor.calculate_debate_score(model, weight_class)
     
     @classmethod
     def determine_tier(cls, model: OpenRouterModel, value_score: float, weight_class: ModelWeightClass) -> ModelTier:
-        """Determine model tier based on cost and quality."""
+        """Determine model tier based on debate performance, cost efficiency, and capabilities."""
+        
         if cls.is_preview_model(model):
-            return ModelTier.BUDGET  # Preview models are budget tier
+            return ModelTier.BUDGET  # Preview models are always budget tier
         
         avg_cost = model.pricing.avg_cost_per_1k
+        context_length = model.context_length
         
-        if weight_class == ModelWeightClass.ULTRAWEIGHT:
-            if avg_cost > 0.015:
+        # Tier determination based on debate suitability
+        # Consider: context length (debate flow), cost efficiency, and model size
+        
+        # Free models are automatically good value
+        if model.pricing.is_free:
+            if weight_class == ModelWeightClass.ULTRAWEIGHT:
                 return ModelTier.FLAGSHIP
-            else:
+            elif weight_class == ModelWeightClass.HEAVYWEIGHT:
                 return ModelTier.PREMIUM
+            else:
+                return ModelTier.BALANCED
+        
+        # Cost-based tiers with context length consideration
+        if weight_class == ModelWeightClass.ULTRAWEIGHT:
+            # Large models: Premium if reasonably priced, Flagship if expensive but capable
+            if avg_cost <= 0.01:
+                return ModelTier.PREMIUM  # Great large model at good price
+            elif avg_cost <= 0.02:
+                return ModelTier.FLAGSHIP if context_length >= 64000 else ModelTier.PREMIUM
+            else:
+                return ModelTier.FLAGSHIP  # Expensive but most capable
+                
         elif weight_class == ModelWeightClass.HEAVYWEIGHT:
-            if avg_cost > 0.01:
-                return ModelTier.PREMIUM
-            elif avg_cost > 0.002:
-                return ModelTier.BALANCED
+            # Medium-large models: Good balance for debates
+            if avg_cost <= 0.003:
+                return ModelTier.PREMIUM  # Excellent value
+            elif avg_cost <= 0.008:
+                return ModelTier.BALANCED  # Good value
             else:
-                return ModelTier.BUDGET
+                return ModelTier.PREMIUM  # Higher cost but good capabilities
+                
         elif weight_class == ModelWeightClass.MIDDLEWEIGHT:
-            if avg_cost > 0.005:
-                return ModelTier.PREMIUM
-            elif avg_cost > 0.001:
-                return ModelTier.BALANCED
+            # Medium models: Depend heavily on cost
+            if avg_cost <= 0.002:
+                return ModelTier.BALANCED  # Good value for medium model
+            elif avg_cost <= 0.006:
+                return ModelTier.PREMIUM if context_length >= 32000 else ModelTier.BALANCED
             else:
-                return ModelTier.BUDGET
+                return ModelTier.PREMIUM  # Expensive medium model, likely high quality
+                
         else:  # LIGHTWEIGHT
-            if avg_cost > 0.001:
-                return ModelTier.BALANCED
+            # Small models: Mainly for budget tier unless very cheap
+            if avg_cost <= 0.001:
+                return ModelTier.BALANCED if context_length >= 16000 else ModelTier.BUDGET
             else:
                 return ModelTier.BUDGET
     
