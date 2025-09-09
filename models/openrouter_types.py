@@ -199,9 +199,9 @@ class OpenRouterCapabilityExtractor:
     
     @classmethod
     def calculate_debate_score(cls, model: OpenRouterModel, weight_class: ModelWeightClass) -> float:
-        """Calculate debate suitability score based on text generation capabilities."""
+        """Calculate debate suitability score based on conversational and reasoning capabilities."""
         
-        # Base score from context length (important for debate flow)
+        # Base score from context length (important for following debate flow and context)
         context_score = min(model.context_length / 32000, 3.0)  # Cap at 3x for 32K+ context
         
         # Cost efficiency (lower cost = higher score for debates)
@@ -211,24 +211,83 @@ class OpenRouterCapabilityExtractor:
             avg_cost = max(model.pricing.avg_cost_per_1k, 0.0001)
             cost_score = min(0.005 / avg_cost, 5.0)  # Normalize around $0.005/1K
         
-        # Weight class bonus (larger models generally better at reasoning)
+        # Weight class bonus (larger models generally better at reasoning and debate)
         weight_bonus = {
             ModelWeightClass.ULTRAWEIGHT: 1.5,
             ModelWeightClass.HEAVYWEIGHT: 1.3,
             ModelWeightClass.MIDDLEWEIGHT: 1.0,
-            ModelWeightClass.LIGHTWEIGHT: 0.8
+            ModelWeightClass.LIGHTWEIGHT: 0.7  # Lower score for small models in debate context
         }.get(weight_class, 1.0)
         
-        # Text-only preference for debates (multimodal is fine but not necessary)
-        text_bonus = 1.0
-        if 'text' in model.architecture.input_modalities and 'text' in model.architecture.output_modalities:
-            # Prefer text-focused models, but don't penalize multimodal heavily
-            if len(model.architecture.input_modalities) == 1:  # Text-only input
-                text_bonus = 1.1
-            else:  # Multimodal but includes text
-                text_bonus = 1.0
+        # Conversational suitability bonus
+        conversational_bonus = cls._calculate_conversational_bonus(model)
         
-        return context_score * cost_score * weight_bonus * text_bonus
+        # Multimodal input capability bonus (often indicates more sophisticated models)
+        multimodal_bonus = 1.0
+        if 'text' in model.architecture.input_modalities and 'text' in model.architecture.output_modalities:
+            # Count non-text input modalities
+            non_text_inputs = [m for m in model.architecture.input_modalities if m != 'text']
+            non_text_outputs = [m for m in model.architecture.output_modalities if m != 'text']
+            
+            if len(non_text_outputs) == 0:  # Text-only output (required for debate)
+                if len(non_text_inputs) > 0:  # Multimodal input, text output (ideal)
+                    multimodal_bonus = 1.15  # Bonus for advanced multimodal models like GPT-4V, Claude-3
+                else:  # Text-only input and output
+                    multimodal_bonus = 1.0   # Standard text models
+            # Note: Models with non-text outputs filtered out earlier
+        
+        return context_score * cost_score * weight_bonus * conversational_bonus * multimodal_bonus
+    
+    @classmethod
+    def _calculate_conversational_bonus(cls, model: OpenRouterModel) -> float:
+        """Calculate bonus score based on model's conversational capabilities."""
+        model_name_lower = model.name.lower()
+        model_id_lower = model.id.lower() 
+        description_lower = model.description.lower()
+        
+        # Positive indicators for debate/conversation
+        positive_keywords = [
+            'chat', 'instruct', 'assistant', 'conversation', 'dialogue',
+            'gpt', 'claude', 'gemini', 'llama', 'mistral', 'qwen',
+            'roleplay', 'character', 'persona', 'uncensored'  # Good for taking debate positions
+        ]
+        
+        # Negative indicators for debate (specialized models)
+        negative_keywords = [
+            'code', 'math', 'scientific', 'translation', 'embed',
+            'vision', 'image', 'audio', 'video', 'jailbreak'
+        ]
+        
+        bonus = 1.0
+        
+        # Boost for conversational indicators
+        for keyword in positive_keywords:
+            if keyword in model_name_lower or keyword in description_lower:
+                bonus += 0.1
+        
+        # Penalty for specialized/non-conversational indicators  
+        for keyword in negative_keywords:
+            if keyword in model_name_lower or keyword in description_lower:
+                bonus -= 0.2
+        
+        # Bonus for models with "chat" or "instruct" in name (strong conversational indicators)
+        if any(word in model_name_lower for word in ['chat', 'instruct']):
+            bonus += 0.3
+            
+        # Bonus for roleplay models (excellent for taking debate positions/personas)
+        if any(word in model_name_lower for word in ['roleplay', 'character', 'persona']):
+            bonus += 0.2
+            
+        # Bonus for uncensored models (may be more willing to take strong positions)
+        if 'uncensored' in model_name_lower:
+            bonus += 0.15
+            
+        # Penalty for base/raw models (usually not fine-tuned for conversation)
+        if 'base' in model_name_lower and 'instruct' not in model_name_lower:
+            bonus -= 0.3
+        
+        # Ensure bonus stays in reasonable range
+        return max(0.5, min(bonus, 2.0))
 
 
 class OpenRouterModelFilter:
@@ -275,27 +334,66 @@ class OpenRouterModelFilter:
         r'-preview$', r'-beta$', r'-alpha$', r'experimental'
     ]
     
-    # Models to exclude (known problematic or irrelevant)
+    # Models to exclude (known problematic or irrelevant for debate/conversation)
     EXCLUDE_PATTERNS = [
-        r'whisper', r'dall-e', r'tts-', r'stt-', r'vision', r'embed',
-        r'moderation', r'search'
+        # Audio/Speech models
+        r'whisper', r'tts-', r'stt-', r'bark', r'speech', r'audio',
+        # Image/Vision GENERATION models (but allow multimodal INPUT models like GPT-4V, Claude-3)
+        r'dall-e', r'stable-diffusion', r'midjourney', r'flux', r'sdxl', r'imagen', r'firefly',
+        # Video models
+        r'video', r'runway', r'luma', r'pika', r'kling',
+        # Code-specific models (too specialized for general debate)
+        r'code-', r'-code', r'codestral', r'codegeex', r'codegen', r'starcoder',
+        r'deepseek-coder', r'wizardcoder', r'phind-code',
+        # Embedding/Vector models
+        r'embed', r'embedding', r'vector', r'similarity',
+        # Moderation/Safety models
+        r'moderation', r'safety', r'guardrail',
+        # Search/RAG specific models
+        r'search', r'retrieval', r'rag-',
+        # Math/Science specialized models (too narrow for general debate)
+        r'math-', r'scientific-', r'theorem', r'proof-',
+        # Translation-only models (too specific)
+        r'translate-', r'translation-', r'-translator',
+        # Jailbreak variants (truly problematic models)
+        r'jailbreak'
     ]
     
     @classmethod
-    def is_text_only_model(cls, model: OpenRouterModel) -> bool:
-        """Check if model is text-only (no image/audio/video)."""
+    def is_suitable_for_debate(cls, model: OpenRouterModel) -> bool:
+        """Check if model is suitable for text-based conversation and debate."""
         # Must have text input and output
         has_text_input = 'text' in model.architecture.input_modalities
         has_text_output = 'text' in model.architecture.output_modalities
         
-        # Exclude if it has other modalities as primary focus
-        non_text_inputs = [m for m in model.architecture.input_modalities if m != 'text']
-        non_text_outputs = [m for m in model.architecture.output_modalities if m != 'text']
+        if not (has_text_input and has_text_output):
+            return False
         
-        # Allow models that can take images as input but focus on text
-        # Exclude models that output non-text or are primarily multimodal
-        return (has_text_input and has_text_output and 
-                len(non_text_outputs) == 0)
+        # Exclude models that output non-text (images, audio, video)
+        # These are fundamentally different from multimodal models that can INPUT multiple types
+        non_text_outputs = [m for m in model.architecture.output_modalities if m != 'text']
+        if len(non_text_outputs) > 0:
+            return False
+            
+        # Allow multimodal INPUT models - they're often better at reasoning and text generation
+        # Examples: GPT-4V, Claude 3, Gemini Pro Vision - excellent for debates even with image capability
+        
+        # Additional checks based on model name/description for debate suitability
+        model_name_lower = model.name.lower()
+        model_id_lower = model.id.lower()
+        description_lower = model.description.lower()
+        
+        # Exclude models with names suggesting non-conversational focus
+        non_conversational_keywords = [
+            'instruct-only', 'completion-only', 'base-model', 'fine-tuned-only',
+            'retrieval', 'embedding', 'classification'
+        ]
+        
+        for keyword in non_conversational_keywords:
+            if keyword in model_name_lower or keyword in description_lower:
+                return False
+        
+        return True
     
     @classmethod
     def is_preview_model(cls, model: OpenRouterModel) -> bool:
@@ -426,8 +524,8 @@ class OpenRouterModelFilter:
             if cls.should_exclude_model(model):
                 continue
             
-            # Skip non-text models
-            if not cls.is_text_only_model(model):
+            # Skip models not suitable for debate
+            if not cls.is_suitable_for_debate(model):
                 continue
             
             # Skip preview models if not requested
@@ -468,7 +566,7 @@ class OpenRouterModelFilter:
                 pricing=generic_pricing,
                 value_score=value_score,
                 is_preview=is_preview,
-                is_text_only=True,
+                is_text_only=(len([m for m in model.architecture.input_modalities if m != 'text']) == 0),
                 estimated_params=estimated_params,
                 source_info={'openrouter_raw': model.dict()}
             )
