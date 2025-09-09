@@ -18,11 +18,7 @@ def create_judge(
 ) -> Optional[BaseJudge]:
     """Factory function to create appropriate judge based on configuration."""
     
-    if judging_config.method == "human":
-        logger.info("Human judging selected - no automated judge created")
-        return None
-    
-    elif judging_config.method == "none":
+    if judging_config.method == "none":
         logger.info("No judging selected - debate will complete without evaluation")
         return None
     
