@@ -108,6 +108,12 @@ GENERAL RULES:
 5. Maintain a respectful tone
 6. Follow the debate format structure
 
+RESPONSE FORMAT:
+- Use plain text without markdown formatting (avoid **bold**, *italics*, # headers, bullet points)
+- Start directly with your argument - do not begin with labels like "Proposition Opening Statement"
+- Write in natural conversational style as if speaking in a live debate
+- Focus on content over formatting
+
 Current phase will be specified in each turn."""
     
     def _create_participant_prompt(
@@ -381,20 +387,44 @@ Remember: You are {model_id} and should maintain consistency in your argumentati
         if self.context and speaker_id in self.context.participants:
             display_name = self.context.participants[speaker_id].name
         
+        cleaned = response.strip()
+        
+        # Remove position statement prefixes like "Proposition Opening Statement", etc.
+        position_prefixes = [
+            r"^(?:proposition|opposition|pro|con)\s+(?:opening|rebuttal|closing)\s+(?:statement|argument)[\:\-\s]*",
+            r"^(?:opening|rebuttal|closing)\s+(?:statement|argument)[\:\-\s]*",
+            r"^(?:proposition|opposition|pro|con)[\:\-\s]+",
+            r"^\*\*(?:proposition|opposition|pro|con)\s+(?:opening|rebuttal|closing)\s+(?:statement|argument)\*\*[\:\-\s]*",  # **Position Statement**
+            r"^(?:Phase\s+\d+[\:\-\s]*)?(?:proposition|opposition|pro|con)\s+(?:opening|rebuttal|closing)[\:\-\s]*",  # Phase 1: Proposition Opening
+        ]
+        
+        for pattern in position_prefixes:
+            cleaned = re.sub(pattern, "", cleaned, flags=re.IGNORECASE).strip()
+        
         # Remove any echoed conversation prefixes that the model might repeat
-        patterns_to_remove = [
+        conversation_patterns = [
             rf"\[{re.escape(speaker_id)}\s*-\s*\w+\]:\s*",  # [model_a - pro]:
             rf"\[{re.escape(display_name)}\s*-\s*\w+\]:\s*",  # [llama3.2:latest - pro]:
             r"\[.*?\s*-\s*\w+\]:\s*",  # Any [something - position]: pattern
         ]
         
-        cleaned = response.strip()
-        for pattern in patterns_to_remove:
+        for pattern in conversation_patterns:
             # Keep removing the pattern until no more matches (handles multiple prefixes)
             while re.match(pattern, cleaned, re.IGNORECASE):
                 cleaned = re.sub(pattern, "", cleaned, count=1, flags=re.IGNORECASE).strip()
         
-        return cleaned
+        # Remove markdown formatting
+        # Remove headers (# ## ###)
+        cleaned = re.sub(r'^#{1,6}\s+', '', cleaned, flags=re.MULTILINE)
+        
+        # Remove bold and italic markdown (**text**, *text*)
+        cleaned = re.sub(r'\*\*([^*]+)\*\*', r'\1', cleaned)  # **bold** -> bold
+        cleaned = re.sub(r'\*([^*]+)\*', r'\1', cleaned)      # *italic* -> italic
+        
+        # Remove any remaining asterisks that might be formatting attempts
+        cleaned = re.sub(r'^\*+\s*', '', cleaned, flags=re.MULTILINE)  # Remove lines starting with *
+        
+        return cleaned.strip()
 
     def _get_phase_instruction(self, phase: DebatePhase) -> str:
         """Get instruction text for the current phase."""
