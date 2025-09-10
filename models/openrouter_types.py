@@ -39,7 +39,7 @@ class OpenRouterPricing(BaseModel):
     @property
     def is_free(self) -> bool:
         """Check if model is completely free."""
-        return self.prompt == "0" and self.completion == "0"
+        return float(self.prompt) == 0.0 and float(self.completion) == 0.0
 
 
 class OpenRouterArchitecture(BaseModel):
