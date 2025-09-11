@@ -41,7 +41,10 @@ python test_providers.py
 - **`models/`** - LLM provider abstractions and model management
   - `manager.py` - Central ModelManager for multi-provider support
   - `providers.py` - Provider factory and implementations (Ollama, OpenRouter)
+  - `openrouter_types.py` - OpenRouter model filtering and enhancement
+  - `cache_manager.py` - Model data caching with TTL
 - **`config/`** - Configuration management with auto-creation from templates
+  - `openrouter_filters.json` - Configurable model filtering patterns (excludes meta/router models)
 - **`judges/`** - AI judge implementations for debate scoring
 - **`formats/`** - Debate format definitions (Oxford, Parliamentary, Socratic)
 
@@ -72,6 +75,21 @@ Key REST endpoints:
 - `GET /api/models` - Available models across providers
 - `GET /api/providers` - Provider status
 
+## Frontend Integration
+
+The engine provides REST API and WebSocket endpoints consumed by the **dialectus-web** frontend:
+
+**Model Picker Integration** (`dialectus-web/src/components/model-picker-modal.ts`):
+- Fetches models via `/api/models` endpoint (app.py:351)
+- Uses enhanced models from `models/manager.py:104`
+- OpenRouter models filtered by `models/openrouter_types.py:565`
+- Filtering patterns configured in `config/openrouter_filters.json`
+
+**Debate Flow**:
+- Frontend creates debates via `/api/debates` → `web/app.py:454`
+- Real-time updates via WebSocket `/ws/debate/{id}` → `web/app.py:697`
+- Core debate logic in `debate_engine/core.py`
+
 ## Development Notes
 
 - Entry points: `web_server.py` (web server) or `main.py` (CLI)
@@ -79,3 +97,4 @@ Key REST endpoints:
 - Test provider setup with `test_providers.py` 
 - Web interface available at http://localhost:8000 with API docs at `/docs`
 - Uses FastAPI with WebSocket support for real-time debate interactions
+- OpenRouter meta models (auto-router, mixture-of-experts) are filtered out via configurable patterns
