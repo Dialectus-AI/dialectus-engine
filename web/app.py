@@ -2,7 +2,7 @@
 
 import asyncio
 import uuid
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, TYPE_CHECKING
 from pathlib import Path
 import logging
 from contextlib import asynccontextmanager
@@ -18,6 +18,9 @@ from debate_engine.core import DebateEngine
 from debate_engine.transcript import TranscriptManager
 from formats import format_registry
 from judges.factory import create_judge
+
+if TYPE_CHECKING:
+    from models.providers import OllamaProvider
 
 logger = logging.getLogger(__name__)
 
@@ -355,16 +358,25 @@ async def get_models():
         config = get_default_config()
         model_manager = ModelManager(config.system)
         
-        # Get enhanced models with full metadata
+        # Get enhanced models first (this includes all the data we need)
         enhanced_models = await model_manager.get_enhanced_models()
         
-        # Maintain backward compatibility
-        models_by_provider = await model_manager.get_available_models()
-        flat_models = await model_manager.get_available_models_flat()
-        
-        # Create simplified detailed format for compatibility
+        # Build other formats from enhanced_models to avoid redundant API calls
+        models_by_provider = {}
+        flat_models = []
         formatted_models = []
+        
         for model in enhanced_models:
+            # Build models_by_provider
+            provider = model["provider"]
+            if provider not in models_by_provider:
+                models_by_provider[provider] = []
+            models_by_provider[provider].append(model["name"])
+            
+            # Build flat_models
+            flat_models.append(model["name"])
+            
+            # Build formatted_models
             formatted_models.append({
                 "id": model["id"],
                 "name": model["name"],
@@ -388,7 +400,7 @@ async def get_providers():
         providers = []
         
         for provider_name in ProviderFactory.get_available_providers():
-            provider_info = {
+            provider_info: Dict[str, Any] = {
                 "name": provider_name,
                 "status": "available"
             }
@@ -404,6 +416,24 @@ async def get_providers():
                 provider_info["api_key_configured"] = api_key_configured
                 if not api_key_configured:
                     provider_info["status"] = "requires_api_key"
+            elif provider_name == "ollama":
+                # Use the provider's own health check method
+                try:
+                    config = get_default_config()
+                    provider = ProviderFactory.create_provider(provider_name, config.system)
+                    # Type-safe check for OllamaProvider
+                    if provider.provider_name == "ollama":
+                        from models.providers import OllamaProvider
+                        if isinstance(provider, OllamaProvider) and await provider.is_running():
+                            provider_info["status"] = "available"
+                            provider_info["ollama_running"] = True
+                        else:
+                            provider_info["status"] = "offline"
+                            provider_info["ollama_running"] = False
+                except Exception as e:
+                    logger.debug(f"Ollama provider check failed: {e}")
+                    provider_info["status"] = "offline"
+                    provider_info["ollama_running"] = False
             
             providers.append(provider_info)
         
@@ -417,6 +447,33 @@ async def get_formats():
     return {
         "formats": format_registry.get_format_descriptions()
     }
+
+@app.get("/api/ollama/health")
+async def ollama_health():
+    """Quick health check for Ollama service."""
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            response = await client.get("http://localhost:11434/api/version")
+            if response.status_code == 200:
+                version_data = response.json()
+                return {
+                    "status": "available",
+                    "running": True,
+                    "version": version_data.get("version", "unknown")
+                }
+            else:
+                return {
+                    "status": "offline",
+                    "running": False,
+                    "error": f"HTTP {response.status_code}"
+                }
+    except Exception as e:
+        return {
+            "status": "offline", 
+            "running": False,
+            "error": str(e)
+        }
 
 @app.get("/api/cache/stats")
 async def get_cache_stats():
@@ -548,12 +605,14 @@ async def generate_topic():
         judge_model = config.judging.judge_model
         if not judge_model:
             # Fallback to first available model if no judge model configured
-            available_models = await model_manager.get_available_models()
+            available_models = await model_manager.get_available_models_flat()
             if not available_models:
                 raise HTTPException(status_code=500, detail="No models available for topic generation")
             judge_model = available_models[0]
         
         # Create a temporary model configuration for topic generation
+        # At this point judge_model is guaranteed to be a string
+        assert judge_model is not None, "judge_model should not be None at this point"
         topic_gen_config = ModelConfig(
             name=judge_model,
             personality="creative",
