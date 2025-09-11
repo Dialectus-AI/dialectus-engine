@@ -4,7 +4,7 @@ import json
 import logging
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from typing import Dict, Optional, Any
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -25,7 +25,7 @@ class CacheEntry(BaseModel):
 class ModelCacheManager:
     """Manages caching of model API responses with automatic expiry."""
     
-    def __init__(self, cache_dir: Path = None, default_ttl_hours: int = 6):
+    def __init__(self, cache_dir: Optional[Path] = None, default_ttl_hours: int = 6):
         """
         Initialize cache manager.
         
@@ -42,7 +42,7 @@ class ModelCacheManager:
         
         logger.info(f"Model cache manager initialized. Cache dir: {self.cache_dir}, Default TTL: {default_ttl_hours}h")
     
-    def _get_cache_key(self, provider: str, endpoint: str, params: Dict = None) -> str:
+    def _get_cache_key(self, provider: str, endpoint: str, params: Optional[Dict] = None) -> str:
         """Generate cache key from provider, endpoint and parameters."""
         key_parts = [provider, endpoint]
         if params:
@@ -143,7 +143,7 @@ class ModelCacheManager:
                 # If it can't be serialized, convert to string
                 return str(data)
     
-    def get(self, provider: str, endpoint: str, params: Dict = None) -> Optional[Any]:
+    def get(self, provider: str, endpoint: str, params: Optional[Dict] = None) -> Optional[Any]:
         """
         Get cached response if available and not expired.
         
@@ -179,7 +179,7 @@ class ModelCacheManager:
         logger.debug(f"Cache MISS: {cache_key}")
         return None
     
-    def set(self, provider: str, endpoint: str, data: Any, params: Dict = None, ttl_hours: int = None) -> None:
+    def set(self, provider: str, endpoint: str, data: Any, params: Optional[Dict] = None, ttl_hours: Optional[int] = None) -> None:
         """
         Store response in cache with expiry.
         
@@ -210,7 +210,7 @@ class ModelCacheManager:
         
         logger.info(f"Cached {provider}/{endpoint} response (expires: {expires_at.strftime('%Y-%m-%d %H:%M:%S')})")
     
-    def invalidate(self, provider: str, endpoint: str, params: Dict = None) -> bool:
+    def invalidate(self, provider: str, endpoint: str, params: Optional[Dict] = None) -> bool:
         """
         Invalidate cached response.
         

@@ -1,13 +1,18 @@
 """Model manager with multi-provider support."""
 
-from typing import Dict, List, Optional, Any, TYPE_CHECKING, AsyncContextManager
+from typing import Dict, List, Any, TYPE_CHECKING, Protocol, cast
 import logging
 from contextlib import asynccontextmanager
 from config.settings import ModelConfig, SystemConfig
 from models.providers import BaseModelProvider, ProviderFactory
 
 if TYPE_CHECKING:
-    pass
+    from models.base_types import BaseEnhancedModelInfo
+
+class EnhancedModelProvider(Protocol):
+    """Protocol for providers that support enhanced model information."""
+    async def get_enhanced_models(self) -> List["BaseEnhancedModelInfo"]:
+        ...
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +102,7 @@ class ModelManager:
         """Get flat list of available models (backward compatibility)."""
         all_models = await self.get_available_models()
         flat_list = []
-        for provider, models in all_models.items():
+        for models in all_models.values():
             flat_list.extend(models)
         return flat_list
     
@@ -111,7 +116,9 @@ class ModelManager:
                 
                 # Check if provider supports enhanced model information
                 if hasattr(provider, 'get_enhanced_models'):
-                    provider_enhanced = await provider.get_enhanced_models()
+                    # Type-safe call using cast and protocol
+                    enhanced_provider = cast(EnhancedModelProvider, provider)
+                    provider_enhanced = await enhanced_provider.get_enhanced_models()
                     
                     # Convert to dict format for JSON serialization
                     for model in provider_enhanced:
