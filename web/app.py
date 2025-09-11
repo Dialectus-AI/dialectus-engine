@@ -20,7 +20,7 @@ from formats import format_registry
 from judges.factory import create_judge
 
 if TYPE_CHECKING:
-    from models.providers import OllamaProvider
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +64,7 @@ class MessageResponse(BaseModel):
 cleanup_task = None
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_app: FastAPI):
     """Manage application lifespan - startup and shutdown."""
     global cleanup_task
     
@@ -606,14 +606,36 @@ async def generate_topic(format: str = "oxford"):
         messages = debate_format.get_topic_generation_messages()
         
         # Use configured topic generation model
-        topic_model = config.system.suggest_topic_model
-        topic_provider = config.system.suggest_topic_provider
+        topic_model = config.system.debate_topic_model
+        topic_provider = config.system.debate_topic_source
         
         if not topic_model:
             raise HTTPException(
                 status_code=500, 
-                detail="No topic generation model configured. Please set suggest_topic_model in system config."
+                detail="No topic generation model configured. Please set debate_topic_model in system config."
             )
+        
+        # Fast Ollama detection if using Ollama
+        if topic_provider == "ollama":
+            from models.providers import ProviderFactory, OllamaProvider
+            try:
+                provider = ProviderFactory.create_provider("ollama", config.system)
+                if isinstance(provider, OllamaProvider):
+                    if not await provider.is_running():
+                        raise HTTPException(
+                            status_code=500,
+                            detail="Ollama is not running. Please start Ollama or change debate_topic_source to 'openrouter' in your config."
+                        )
+                else:
+                    raise HTTPException(
+                        status_code=500,
+                        detail="Expected OllamaProvider but got different provider type"
+                    )
+            except Exception as e:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to connect to Ollama: {str(e)}"
+                )
         
         # Create model configuration for topic generation
         topic_gen_config = ModelConfig(
