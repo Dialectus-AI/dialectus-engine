@@ -12,6 +12,10 @@ class OxfordFormat(DebateFormat):
     def name(self) -> str:
         return "oxford"
         
+    @property
+    def display_name(self) -> str:
+        return "Oxford"
+        
     @property 
     def description(self) -> str:
         return "Oxford Union-style debate with equal time allocation, formal procedure, and structured argument exchange"
@@ -99,3 +103,17 @@ Remember: You are participating in a prestigious Oxford Union-style debate."""
     def get_max_participants(self) -> int:
         """Oxford format supports up to 4 participants (2 per side)."""
         return 4
+        
+    def get_topic_generation_messages(self) -> List[Dict[str, str]]:
+        """Get Oxford specific messages for AI topic generation."""
+        return [
+            {
+                "role": "system",
+                "content": "You are an expert at generating Oxford Union-style debate topics. Oxford debates are formal, academic discussions that require sophisticated argumentation and evidence-based reasoning. Topics should be intellectually rigorous and suitable for scholarly debate."
+            },
+            {
+                "role": "user", 
+                "content": "Generate a single Oxford Union-style debate topic suitable for formal academic debate. The topic should be phrased as a clear motion that can be argued for or against with scholarly rigor. Make it intellectually challenging and suitable for academic discourse. Respond with just the topic statement, no additional text."
+            }
+        ]
+        

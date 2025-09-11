@@ -13,6 +13,10 @@ class ParliamentaryFormat(DebateFormat):
         return "parliamentary"
         
     @property
+    def display_name(self) -> str:
+        return "Parliamentary"
+        
+    @property
     def description(self) -> str:
         return "Parliamentary debate with Government and Opposition sides, formal procedures and structured speeches"
     
@@ -88,3 +92,17 @@ Remember: You are debating in a formal parliamentary setting."""
     def get_max_participants(self) -> int:
         """Parliamentary can support up to 4 participants (2 per side)."""
         return 4
+        
+    def get_topic_generation_messages(self) -> List[Dict[str, str]]:
+        """Get Parliamentary specific messages for AI topic generation."""
+        return [
+            {
+                "role": "system",
+                "content": "You are an expert at generating Parliamentary debate topics. Parliamentary debates focus on governance, policy implementation, and matters of public administration. Topics should be suitable for formal legislative discussion and policy debate."
+            },
+            {
+                "role": "user", 
+                "content": "Generate a single Parliamentary debate topic suitable for formal policy discussion. The topic should be phrased as a motion that could be debated in a legislature. Focus on governance, policy implementation, and public administration matters. Respond with just the topic statement, no additional text."
+            }
+        ]
+        

@@ -27,6 +27,12 @@ class DebateFormat(ABC):
         """Format name."""
         pass
     
+    @property
+    @abstractmethod
+    def display_name(self) -> str:
+        """Human-readable format name for display in UI."""
+        pass
+    
     @property 
     @abstractmethod
     def description(self) -> str:
@@ -60,3 +66,17 @@ class DebateFormat(ABC):
     def get_min_participants(self) -> int:
         """Minimum number of participants required."""
         return 2
+        
+    def get_topic_generation_messages(self) -> List[Dict[str, str]]:
+        """Get format-specific messages for AI topic generation."""
+        return [
+            {
+                "role": "system",
+                "content": "You are an expert debate topic generator. Create engaging, balanced, and thought-provoking debate topics that have clear pro and con sides. Topics should be contemporary, relevant, and suitable for intellectual discourse."
+            },
+            {
+                "role": "user", 
+                "content": "Generate a single debate topic that would make for an interesting and balanced debate. The topic should be phrased as a clear statement that can be argued for or against. Make it thought-provoking and current. Respond with just the topic statement, no additional text."
+            }
+        ]
+        
