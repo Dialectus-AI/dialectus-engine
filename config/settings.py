@@ -118,6 +118,21 @@ class SystemConfig(BaseModel):
         default="transcripts", description="Directory to save transcripts"
     )
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = Field(default="INFO")
+    
+    # Topic generation settings
+    suggest_topic_provider: Literal["ollama", "openrouter"] = Field(
+        default="ollama", description="Provider for topic generation model"
+    )
+    suggest_topic_model: str = Field(
+        default="qwen2.5:7b", description="Model name for topic generation"
+    )
+    
+    @validator('suggest_topic_provider')
+    def validate_topic_provider(cls, v):
+        valid_providers = {'ollama', 'openrouter'}
+        if v not in valid_providers:
+            raise ValueError(f"suggest_topic_provider must be one of: {valid_providers}")
+        return v
 
 
 class AppConfig(BaseModel):
@@ -237,5 +252,7 @@ def get_template_config() -> AppConfig:
             save_transcripts=True,
             transcript_dir="transcripts",
             log_level="INFO",
+            suggest_topic_provider="ollama",
+            suggest_topic_model="qwen2.5:7b",
         ),
     )

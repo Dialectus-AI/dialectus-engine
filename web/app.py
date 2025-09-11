@@ -594,83 +594,66 @@ async def get_debate(debate_id: str):
         side_labels=side_labels
     )
 
+
 @app.get("/api/generate-topic")
-async def generate_topic():
-    """Generate a debate topic using AI."""
+async def generate_topic(format: str = "oxford"):
+    """Generate a debate topic using AI with format-specific prompts."""
     try:
         config = get_default_config()
-        model_manager = ModelManager(config.system)
         
-        # Use judge model for topic generation
-        judge_model = config.judging.judge_model
-        if not judge_model:
-            # Fallback to first available model if no judge model configured
-            available_models = await model_manager.get_available_models_flat()
-            if not available_models:
-                raise HTTPException(status_code=500, detail="No models available for topic generation")
-            judge_model = available_models[0]
+        # Get the format instance to access format-specific prompts
+        debate_format = format_registry.get_format(format)
+        messages = debate_format.get_topic_generation_messages()
         
-        # Create a temporary model configuration for topic generation
-        # At this point judge_model is guaranteed to be a string
-        assert judge_model is not None, "judge_model should not be None at this point"
+        # Use configured topic generation model
+        topic_model = config.system.suggest_topic_model
+        topic_provider = config.system.suggest_topic_provider
+        
+        if not topic_model:
+            raise HTTPException(
+                status_code=500, 
+                detail="No topic generation model configured. Please set suggest_topic_model in system config."
+            )
+        
+        # Create model configuration for topic generation
         topic_gen_config = ModelConfig(
-            name=judge_model,
+            name=topic_model,
+            provider=topic_provider,
             personality="creative",
             max_tokens=100,
             temperature=0.8
         )
         
-        # Register the model temporarily
+        # Initialize model manager and register the topic generation model
+        model_manager = ModelManager(config.system)
         model_manager.register_model("topic_generator", topic_gen_config)
         
-        # Generate topic with optimized prompt
-        messages = [
-            {
-                "role": "system",
-                "content": "You are an expert debate topic generator. Create engaging, balanced, and thought-provoking debate topics that have clear pro and con sides. Topics should be contemporary, relevant, and suitable for intellectual discourse. Generate topics across diverse domains like technology, society, ethics, environment, education, healthcare, economics, politics, and culture."
-            },
-            {
-                "role": "user", 
-                "content": "Generate a single debate topic that would make for an interesting and balanced debate. The topic should be phrased as a clear statement that can be argued for or against. Make it thought-provoking and current. Respond with just the topic statement, no additional text."
-            }
-        ]
+        # Generate topic using format-specific prompts
+        generated_topic = await model_manager.generate_response(
+            "topic_generator", 
+            messages,
+            max_tokens=100,
+            temperature=0.8
+        )
         
-        try:
-            generated_topic = await model_manager.generate_response(
-                "topic_generator", 
-                messages,
-                max_tokens=100,
-                temperature=0.8
-            )
-            
-            # Clean up the response - remove quotes, extra formatting
-            topic = generated_topic.strip().strip('"').strip("'")
-            
-            # Ensure topic ends with proper punctuation if it's a statement
-            if topic and not topic[-1] in '.?!':
-                if topic.lower().startswith(('should', 'is', 'are', 'can', 'will', 'would')):
-                    topic += '?'
-                else:
-                    topic += '.'
-            
-            return {"topic": topic}
-            
-        finally:
-            # Note: Ollama handles model memory management automatically
-            pass
+        # Clean up the response - remove quotes, extra formatting
+        topic = generated_topic.strip().strip('"').strip("'")
+        
+        # Ensure topic ends with proper punctuation if it's a statement
+        if topic and not topic[-1] in '.?!':
+            if topic.lower().startswith(('should', 'is', 'are', 'can', 'will', 'would')):
+                topic += '?'
+            else:
+                topic += '.'
+        
+        return {"topic": topic}
         
     except Exception as e:
         logger.error(f"Topic generation failed: {e}")
-        # Return fallback topics if generation fails
-        fallback_topics = [
-            "Should artificial intelligence be regulated by government oversight?",
-            "Is remote work more beneficial than office-based work?",
-            "Should social media platforms be liable for user-generated content?",
-            "Is universal basic income a necessary policy for the future?",
-            "Should genetic engineering be used to enhance human capabilities?"
-        ]
-        import random
-        return {"topic": random.choice(fallback_topics)}
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to generate topic: {str(e)}"
+        )
 
 @app.get("/api/transcripts")
 async def get_transcripts(page: int = 1, limit: int = 20):
