@@ -50,6 +50,8 @@
     },
     "save_transcripts": true,
     "transcript_dir": "transcripts",
-    "log_level": "INFO"
+    "log_level": "INFO",
+    "debate_topic_source": "openrouter",
+    "debate_topic_model": "anthropic/claude-3-haiku"
   }
 }
