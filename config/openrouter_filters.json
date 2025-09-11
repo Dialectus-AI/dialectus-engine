@@ -1,0 +1,151 @@
+{
+  "version": "1.0",
+  "description": "OpenRouter model filtering configuration for Dialectus AI debate system",
+  "last_updated": "2025-01-13",
+  "filters": {
+    "exclude_patterns": [
+      {
+        "category": "meta_routing_models",
+        "description": "Meta/Router models that automatically select underlying models",
+        "patterns": [
+          "auto.*router",
+          "router",
+          "meta.*llama.*auto",
+          "mixture.*expert",
+          "moe",
+          "auto.*select",
+          "smart.*router",
+          "dynamic.*router"
+        ]
+      },
+      {
+        "category": "audio_speech_models", 
+        "description": "Audio and speech processing models",
+        "patterns": [
+          "whisper",
+          "tts-",
+          "stt-",
+          "bark",
+          "speech",
+          "audio"
+        ]
+      },
+      {
+        "category": "image_generation_models",
+        "description": "Image/vision generation models (multimodal input models like GPT-4V are allowed)",
+        "patterns": [
+          "dall-e",
+          "stable-diffusion", 
+          "midjourney",
+          "flux",
+          "sdxl",
+          "imagen",
+          "firefly"
+        ]
+      },
+      {
+        "category": "video_models",
+        "description": "Video processing and generation models",
+        "patterns": [
+          "video",
+          "runway",
+          "luma",
+          "pika",
+          "kling"
+        ]
+      },
+      {
+        "category": "code_specialized_models",
+        "description": "Code-specific models (too specialized for general debate)",
+        "patterns": [
+          "code-",
+          "-code",
+          "codestral",
+          "codegeex",
+          "codegen",
+          "starcoder",
+          "deepseek-coder",
+          "wizardcoder",
+          "phind-code"
+        ]
+      },
+      {
+        "category": "embedding_vector_models",
+        "description": "Embedding and vector similarity models",
+        "patterns": [
+          "embed",
+          "embedding",
+          "vector",
+          "similarity"
+        ]
+      },
+      {
+        "category": "moderation_safety_models",
+        "description": "Content moderation and safety models",
+        "patterns": [
+          "moderation",
+          "safety",
+          "guardrail"
+        ]
+      },
+      {
+        "category": "search_rag_models", 
+        "description": "Search and RAG-specific models",
+        "patterns": [
+          "search",
+          "retrieval",
+          "rag-"
+        ]
+      },
+      {
+        "category": "math_science_specialized",
+        "description": "Math/Science specialized models (too narrow for general debate)",
+        "patterns": [
+          "math-",
+          "scientific-",
+          "theorem",
+          "proof-"
+        ]
+      },
+      {
+        "category": "translation_only_models",
+        "description": "Translation-only models (too specific for debate)",
+        "patterns": [
+          "translate-",
+          "translation-",
+          "-translator"
+        ]
+      },
+      {
+        "category": "jailbreak_variants",
+        "description": "Problematic jailbreak model variants",
+        "patterns": [
+          "jailbreak"
+        ]
+      }
+    ],
+    "preview_patterns": [
+      {
+        "category": "preview_anonymous_models",
+        "description": "Preview, anonymous, and experimental models",
+        "patterns": [
+          "^sonoma-",
+          "^preview-", 
+          "^anonymous-",
+          "^beta-",
+          "^test-",
+          "-preview$",
+          "-beta$",
+          "-alpha$",
+          "experimental"
+        ]
+      }
+    ]
+  },
+  "settings": {
+    "allow_preview_models": false,
+    "max_cost_per_1k_tokens": 0.02,
+    "min_context_length": 4096,
+    "max_models_per_tier": 8
+  }
+}

@@ -5,10 +5,91 @@ Handles model selection, pricing analysis, and weight classification.
 
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field
-from enum import Enum
 import re
-from decimal import Decimal
+import json
+from pathlib import Path
+import logging
 from .base_types import ModelWeightClass, ModelTier, ModelPricing, BaseEnhancedModelInfo
+
+logger = logging.getLogger(__name__)
+
+
+class FilterConfig:
+    """Loads and manages OpenRouter filtering configuration from external JSON file."""
+    
+    def __init__(self, config_path: Optional[Path] = None):
+        if config_path is None:
+            # Default to config/openrouter_filters.json relative to this file
+            config_path = Path(__file__).parent.parent / "config" / "openrouter_filters.json"
+        
+        self.config_path = config_path
+        self._config = None
+        self._load_config()
+    
+    def _load_config(self) -> None:
+        """Load configuration from JSON file with fallback to defaults."""
+        try:
+            if self.config_path.exists():
+                with open(self.config_path, 'r', encoding='utf-8') as f:
+                    self._config = json.load(f)
+                logger.info(f"Loaded OpenRouter filter config from {self.config_path}")
+            else:
+                logger.warning(f"Filter config file not found at {self.config_path}, using defaults")
+                self._config = self._get_default_config()
+        except Exception as e:
+            logger.error(f"Failed to load filter config from {self.config_path}: {e}")
+            self._config = self._get_default_config()
+    
+    def _get_default_config(self) -> Dict[str, Any]:
+        """Fallback default configuration if JSON file is missing/invalid."""
+        return {
+            "filters": {
+                "exclude_patterns": [
+                    {
+                        "category": "meta_routing_models",
+                        "patterns": ["auto.*router", "router", "meta.*llama.*auto", "mixture.*expert", "moe"]
+                    }
+                ],
+                "preview_patterns": [
+                    {
+                        "category": "preview_anonymous_models", 
+                        "patterns": ["^preview-", "^anonymous-", "^beta-", "-preview$", "-beta$"]
+                    }
+                ]
+            },
+            "settings": {
+                "allow_preview_models": False,
+                "max_cost_per_1k_tokens": 0.02,
+                "min_context_length": 4096,
+                "max_models_per_tier": 8
+            }
+        }
+    
+    def get_exclude_patterns(self) -> List[str]:
+        """Get all exclusion patterns as a flat list."""
+        patterns = []
+        filters = self._config.get("filters", {}) if self._config else {}
+        for category in filters.get("exclude_patterns", []):
+            patterns.extend(category.get("patterns", []))
+        return patterns
+    
+    def get_preview_patterns(self) -> List[str]:
+        """Get all preview detection patterns as a flat list."""
+        patterns = []
+        filters = self._config.get("filters", {}) if self._config else {}
+        for category in filters.get("preview_patterns", []):
+            patterns.extend(category.get("patterns", []))
+        return patterns
+    
+    def get_setting(self, setting_name: str, default=None):
+        """Get a setting value with fallback to default."""
+        if self._config is None:
+            return default
+        return self._config.get("settings", {}).get(setting_name, default)
+    
+    def reload(self) -> None:
+        """Reload configuration from file."""
+        self._load_config()
 
 
 class OpenRouterPricing(BaseModel):
@@ -126,8 +207,7 @@ class OpenRouterCapabilityExtractor:
                 if match:
                     size = float(match.group(1))
                     
-                    # Determine unit
-                    unit = pattern[-4]  # Get the unit letter (B, T, M)
+                    # Determine unit from pattern
                     if 'T' in pattern.upper():
                         return f"{size:.1f}T" if size != int(size) else f"{int(size)}T"
                     elif 'M' in pattern.upper():
@@ -242,7 +322,6 @@ class OpenRouterCapabilityExtractor:
     def _calculate_conversational_bonus(cls, model: OpenRouterModel) -> float:
         """Calculate bonus score based on model's conversational capabilities."""
         model_name_lower = model.name.lower()
-        model_id_lower = model.id.lower() 
         description_lower = model.description.lower()
         
         # Positive indicators for debate/conversation
@@ -291,7 +370,11 @@ class OpenRouterCapabilityExtractor:
 
 
 class OpenRouterModelFilter:
-    """Intelligent filtering for OpenRouter models."""
+    """Intelligent filtering for OpenRouter models with configurable patterns."""
+    
+    def __init__(self, filter_config: Optional[FilterConfig] = None):
+        """Initialize with optional custom filter configuration."""
+        self.filter_config = filter_config or FilterConfig()
     
     # DEPRECATED: Use OpenRouterCapabilityExtractor instead
     # Known model families and their characteristics
@@ -328,37 +411,6 @@ class OpenRouterModelFilter:
         r'mixtral.*8x22b': {'weight_class': ModelWeightClass.ULTRAWEIGHT, 'params': '8x22B'},
     }
     
-    # Preview/anonymous model patterns
-    PREVIEW_PATTERNS = [
-        r'^sonoma-', r'^preview-', r'^anonymous-', r'^beta-', r'^test-',
-        r'-preview$', r'-beta$', r'-alpha$', r'experimental'
-    ]
-    
-    # Models to exclude (known problematic or irrelevant for debate/conversation)
-    EXCLUDE_PATTERNS = [
-        # Audio/Speech models
-        r'whisper', r'tts-', r'stt-', r'bark', r'speech', r'audio',
-        # Image/Vision GENERATION models (but allow multimodal INPUT models like GPT-4V, Claude-3)
-        r'dall-e', r'stable-diffusion', r'midjourney', r'flux', r'sdxl', r'imagen', r'firefly',
-        # Video models
-        r'video', r'runway', r'luma', r'pika', r'kling',
-        # Code-specific models (too specialized for general debate)
-        r'code-', r'-code', r'codestral', r'codegeex', r'codegen', r'starcoder',
-        r'deepseek-coder', r'wizardcoder', r'phind-code',
-        # Embedding/Vector models
-        r'embed', r'embedding', r'vector', r'similarity',
-        # Moderation/Safety models
-        r'moderation', r'safety', r'guardrail',
-        # Search/RAG specific models
-        r'search', r'retrieval', r'rag-',
-        # Math/Science specialized models (too narrow for general debate)
-        r'math-', r'scientific-', r'theorem', r'proof-',
-        # Translation-only models (too specific)
-        r'translate-', r'translation-', r'-translator',
-        # Jailbreak variants (truly problematic models)
-        r'jailbreak'
-    ]
-    
     @classmethod
     def is_suitable_for_debate(cls, model: OpenRouterModel) -> bool:
         """Check if model is suitable for text-based conversation and debate."""
@@ -380,7 +432,6 @@ class OpenRouterModelFilter:
         
         # Additional checks based on model name/description for debate suitability
         model_name_lower = model.name.lower()
-        model_id_lower = model.id.lower()
         description_lower = model.description.lower()
         
         # Exclude models with names suggesting non-conversational focus
@@ -395,15 +446,15 @@ class OpenRouterModelFilter:
         
         return True
     
-    @classmethod
-    def is_preview_model(cls, model: OpenRouterModel) -> bool:
-        """Detect preview/anonymous models."""
+    def is_preview_model(self, model: OpenRouterModel) -> bool:
+        """Detect preview/anonymous models using configurable patterns."""
         model_id_lower = model.id.lower()
         model_name_lower = model.name.lower()
         description_lower = model.description.lower()
         
-        # Check name patterns
-        for pattern in cls.PREVIEW_PATTERNS:
+        # Check configurable preview patterns
+        preview_patterns = self.filter_config.get_preview_patterns()
+        for pattern in preview_patterns:
             if re.search(pattern, model_id_lower) or re.search(pattern, model_name_lower):
                 return True
         
@@ -415,19 +466,22 @@ class OpenRouterModelFilter:
         # Free models with suspicious names (don't match known providers)
         if model.pricing.is_free:
             known_free_providers = ['meta-llama', 'microsoft', 'google', 'huggingface']
-            if not any(provider in model_id_lower for provider in known_free_providers):
+            if not any(provider in model.id.lower() for provider in known_free_providers):
                 # Could be a preview model
                 return True
         
         return False
     
-    @classmethod
-    def should_exclude_model(cls, model: OpenRouterModel) -> bool:
-        """Check if model should be excluded entirely."""
+    def should_exclude_model(self, model: OpenRouterModel) -> bool:
+        """Check if model should be excluded entirely using configurable patterns."""
         model_id_lower = model.id.lower()
+        model_name_lower = model.name.lower()
         
-        for pattern in cls.EXCLUDE_PATTERNS:
-            if re.search(pattern, model_id_lower):
+        # Check configurable exclusion patterns
+        exclude_patterns = self.filter_config.get_exclude_patterns()
+        for pattern in exclude_patterns:
+            if re.search(pattern, model_id_lower) or re.search(pattern, model_name_lower):
+                logger.debug(f"Excluding model {model.id} due to pattern: {pattern}")
                 return True
         
         return False
@@ -451,10 +505,12 @@ class OpenRouterModelFilter:
         return OpenRouterCapabilityExtractor.calculate_debate_score(model, weight_class)
     
     @classmethod
-    def determine_tier(cls, model: OpenRouterModel, value_score: float, weight_class: ModelWeightClass) -> ModelTier:
+    def determine_tier(cls, model: OpenRouterModel, weight_class: ModelWeightClass) -> ModelTier:
         """Determine model tier based on debate performance, cost efficiency, and capabilities."""
         
-        if cls.is_preview_model(model):
+        # Create a temporary filter instance to check if model is preview
+        temp_filter = cls()
+        if temp_filter.is_preview_model(model):
             return ModelTier.BUDGET  # Preview models are always budget tier
         
         avg_cost = model.pricing.avg_cost_per_1k
@@ -511,17 +567,34 @@ class OpenRouterModelFilter:
     def filter_and_enhance_models(
         cls, 
         models: List[OpenRouterModel],
-        include_preview: bool = False,
-        max_cost_per_1k: float = 0.02,
-        min_context_length: int = 4096,
-        max_models_per_tier: int = 5
+        include_preview: Optional[bool] = None,
+        max_cost_per_1k: Optional[float] = None,
+        min_context_length: Optional[int] = None,
+        max_models_per_tier: Optional[int] = None,
+        filter_config: Optional[FilterConfig] = None
     ) -> List[OpenRouterEnhancedModelInfo]:
-        """Filter and enhance models with intelligent selection."""
+        """Filter and enhance models with intelligent selection using configurable filters."""
+        
+        # Initialize filter config and get settings
+        config = filter_config or FilterConfig()
+        
+        # Use config defaults if parameters not specified
+        if include_preview is None:
+            include_preview = config.get_setting('allow_preview_models', False)
+        if max_cost_per_1k is None:
+            max_cost_per_1k = config.get_setting('max_cost_per_1k_tokens', 0.02)
+        if min_context_length is None:
+            min_context_length = config.get_setting('min_context_length', 4096)
+        if max_models_per_tier is None:
+            max_models_per_tier = config.get_setting('max_models_per_tier', 5)
+        
+        # Create filter instance
+        model_filter = cls(config)
         enhanced_models = []
         
         for model in models:
-            # Skip excluded models
-            if cls.should_exclude_model(model):
+            # Skip excluded models (including meta models)
+            if model_filter.should_exclude_model(model):
                 continue
             
             # Skip models not suitable for debate
@@ -529,22 +602,22 @@ class OpenRouterModelFilter:
                 continue
             
             # Skip preview models if not requested
-            is_preview = cls.is_preview_model(model)
+            is_preview = model_filter.is_preview_model(model)
             if is_preview and not include_preview:
                 continue
             
             # Skip models that are too expensive
-            if model.pricing.avg_cost_per_1k > max_cost_per_1k and not model.pricing.is_free:
+            if max_cost_per_1k is not None and model.pricing.avg_cost_per_1k > max_cost_per_1k and not model.pricing.is_free:
                 continue
             
             # Skip models with insufficient context
-            if model.context_length < min_context_length:
+            if min_context_length is not None and model.context_length < min_context_length:
                 continue
             
             # Classify and score the model
             weight_class, estimated_params = cls.classify_model(model)
             value_score = cls.calculate_value_score(model)
-            tier = cls.determine_tier(model, value_score, weight_class)
+            tier = cls.determine_tier(model, weight_class)
             
             # Convert OpenRouter pricing to generic pricing
             generic_pricing = ModelPricing(
@@ -568,7 +641,7 @@ class OpenRouterModelFilter:
                 is_preview=is_preview,
                 is_text_only=(len([m for m in model.architecture.input_modalities if m != 'text']) == 0),
                 estimated_params=estimated_params,
-                source_info={'openrouter_raw': model.dict()}
+                source_info={'openrouter_raw': model.model_dump()}
             )
             
             enhanced_models.append(enhanced_model)
@@ -577,7 +650,7 @@ class OpenRouterModelFilter:
         enhanced_models.sort(key=lambda m: m.sort_key)
         
         # Limit models per tier to avoid overwhelming users
-        if max_models_per_tier > 0:
+        if max_models_per_tier is not None and max_models_per_tier > 0:
             tier_counts = {}
             filtered_models = []
             
@@ -589,4 +662,5 @@ class OpenRouterModelFilter:
             
             enhanced_models = filtered_models
         
+        logger.info(f"Filtered {len(models)} OpenRouter models down to {len(enhanced_models)} suitable for debate")
         return enhanced_models
