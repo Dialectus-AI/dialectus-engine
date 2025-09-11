@@ -5,6 +5,7 @@ from .base import DebateFormat
 from .oxford import OxfordFormat
 from .parliamentary import ParliamentaryFormat  
 from .socratic import SocraticFormat
+from .public_forum import PublicForumFormat
 
 
 class FormatRegistry:
@@ -19,6 +20,7 @@ class FormatRegistry:
         self.register(OxfordFormat)
         self.register(ParliamentaryFormat)
         self.register(SocraticFormat)
+        self.register(PublicForumFormat)
     
     def register(self, format_class: Type[DebateFormat]) -> None:
         """Register a debate format class."""
@@ -35,12 +37,15 @@ class FormatRegistry:
         """List all available format names."""
         return list(self._formats.keys())
     
-    def get_format_descriptions(self) -> Dict[str, str]:
-        """Get format names and descriptions."""
+    def get_format_descriptions(self) -> Dict[str, Dict[str, str]]:
+        """Get format names, display names, and descriptions."""
         descriptions = {}
         for name, format_class in self._formats.items():
             instance = format_class()
-            descriptions[name] = instance.description
+            descriptions[name] = {
+                "display_name": instance.display_name,
+                "description": instance.description
+            }
         return descriptions
 
 
