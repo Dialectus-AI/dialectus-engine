@@ -376,41 +376,6 @@ class OpenRouterModelFilter:
         """Initialize with optional custom filter configuration."""
         self.filter_config = filter_config or FilterConfig()
     
-    # DEPRECATED: Use OpenRouterCapabilityExtractor instead
-    # Known model families and their characteristics
-    MODEL_FAMILIES = {
-        # Meta/LLaMA family
-        r'llama.*3\.1.*405b': {'weight_class': ModelWeightClass.ULTRAWEIGHT, 'params': '405B'},
-        r'llama.*3\.1.*70b': {'weight_class': ModelWeightClass.HEAVYWEIGHT, 'params': '70B'}, 
-        r'llama.*3\.1.*8b': {'weight_class': ModelWeightClass.MIDDLEWEIGHT, 'params': '8B'},
-        r'llama.*3.*70b': {'weight_class': ModelWeightClass.HEAVYWEIGHT, 'params': '70B'},
-        r'llama.*3.*8b': {'weight_class': ModelWeightClass.MIDDLEWEIGHT, 'params': '8B'},
-        r'llama.*2.*70b': {'weight_class': ModelWeightClass.HEAVYWEIGHT, 'params': '70B'},
-        r'llama.*2.*7b': {'weight_class': ModelWeightClass.MIDDLEWEIGHT, 'params': '7B'},
-        
-        # OpenAI
-        r'gpt-4o': {'weight_class': ModelWeightClass.ULTRAWEIGHT, 'params': 'Unknown'},
-        r'gpt-4.*turbo': {'weight_class': ModelWeightClass.ULTRAWEIGHT, 'params': 'Unknown'},
-        r'gpt-4': {'weight_class': ModelWeightClass.ULTRAWEIGHT, 'params': 'Unknown'},
-        r'gpt-3\.5.*turbo': {'weight_class': ModelWeightClass.HEAVYWEIGHT, 'params': 'Unknown'},
-        
-        # Anthropic Claude
-        r'claude-3.*opus': {'weight_class': ModelWeightClass.ULTRAWEIGHT, 'params': 'Unknown'},
-        r'claude-3.*sonnet': {'weight_class': ModelWeightClass.HEAVYWEIGHT, 'params': 'Unknown'},
-        r'claude-3.*haiku': {'weight_class': ModelWeightClass.MIDDLEWEIGHT, 'params': 'Unknown'},
-        
-        # Google
-        r'gemini.*pro': {'weight_class': ModelWeightClass.HEAVYWEIGHT, 'params': 'Unknown'},
-        r'gemini.*flash': {'weight_class': ModelWeightClass.MIDDLEWEIGHT, 'params': 'Unknown'},
-        
-        # Mistral
-        r'mistral.*large': {'weight_class': ModelWeightClass.HEAVYWEIGHT, 'params': '~70B'},
-        r'mistral.*medium': {'weight_class': ModelWeightClass.MIDDLEWEIGHT, 'params': '~22B'},
-        r'mistral.*small': {'weight_class': ModelWeightClass.LIGHTWEIGHT, 'params': '~7B'},
-        r'mixtral.*8x7b': {'weight_class': ModelWeightClass.HEAVYWEIGHT, 'params': '8x7B'},
-        r'mixtral.*8x22b': {'weight_class': ModelWeightClass.ULTRAWEIGHT, 'params': '8x22B'},
-    }
-    
     @classmethod
     def is_suitable_for_debate(cls, model: OpenRouterModel) -> bool:
         """Check if model is suitable for text-based conversation and debate."""
