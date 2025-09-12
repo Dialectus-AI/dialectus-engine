@@ -387,6 +387,10 @@ Remember: You are {model_id} and should maintain consistency in your argumentati
         if self.context and speaker_id in self.context.participants:
             display_name = self.context.participants[speaker_id].name
         
+        # Debug logging for empty responses
+        if not response.strip():
+            logger.warning(f"Model {display_name} ({speaker_id}) returned empty response before cleaning")
+        
         cleaned = response.strip()
         
         # Remove position statement prefixes like "Proposition Opening Statement", etc.
@@ -424,7 +428,12 @@ Remember: You are {model_id} and should maintain consistency in your argumentati
         # Remove any remaining asterisks that might be formatting attempts
         cleaned = re.sub(r'^\*+\s*', '', cleaned, flags=re.MULTILINE)  # Remove lines starting with *
         
-        return cleaned.strip()
+        # Debug logging if cleaning resulted in empty response
+        final_cleaned = cleaned.strip()
+        if response.strip() and not final_cleaned:
+            logger.warning(f"Model {display_name} ({speaker_id}) response was cleaned to empty. Original: {repr(response)}, Cleaned: {repr(final_cleaned)}")
+        
+        return final_cleaned
 
     def _get_phase_instruction(self, phase: DebatePhase) -> str:
         """Get instruction text for the current phase."""
