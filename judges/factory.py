@@ -32,7 +32,8 @@ def create_judge(
             model_manager=model_manager,
             judge_model_name=judging_config.judge_model,
             criteria=judging_config.criteria,
-            system_config=system_config
+            system_config=system_config,
+            judge_provider=judging_config.judge_provider
         )
     
     elif judging_config.method == "ensemble":
@@ -48,7 +49,8 @@ def create_judge(
                 model_manager=model_manager,
                 judge_model_name=judge_models[0],
                 criteria=judging_config.criteria,
-                system_config=system_config
+                system_config=system_config,
+                judge_provider=judging_config.judge_provider
             )
         
         logger.info(f"Creating ensemble judge with models: {judge_models}")
@@ -58,7 +60,8 @@ def create_judge(
                 model_manager=model_manager,
                 judge_model_name=model_name,
                 criteria=judging_config.criteria,
-                system_config=system_config
+                system_config=system_config,
+                judge_provider=judging_config.judge_provider
             )
             individual_judges.append(judge)
         
@@ -75,7 +78,8 @@ def create_judge(
             model_manager=model_manager,
             judge_model_name=judging_config.judge_model,
             criteria=judging_config.criteria,
-            system_config=system_config
+            system_config=system_config,
+            judge_provider=judging_config.judge_provider
         )
     
     else:
@@ -98,5 +102,6 @@ def create_judge_with_auto_config(
         model_manager=model_manager,
         judge_model_name=judge_model,
         criteria=criteria,
-        system_config=system_config
+        system_config=system_config,
+        judge_provider="ollama"  # Default for auto-config with ollama model names
     )
