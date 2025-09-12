@@ -42,15 +42,17 @@ class DebateManager:
         base_config.debate.format = setup.format  # type: ignore[assignment]
         base_config.debate.word_limit = setup.word_limit
         base_config.models = setup.models
-        # Validate and assign judging method with proper type casting
-        if setup.judging_method not in ["ai", "ensemble", "none"]:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid judging method: {setup.judging_method}",
-            )
-        base_config.judging.method = setup.judging_method  # type: ignore[assignment]
-        if setup.judge_model:
-            base_config.judging.judge_model = setup.judge_model
+        # Automatically determine judging method based on judge_models
+        if setup.judge_models is None or len(setup.judge_models) == 0:
+            base_config.judging.method = "none"  # type: ignore[assignment]
+        elif len(setup.judge_models) == 1:
+            base_config.judging.method = "ai"  # type: ignore[assignment]
+            base_config.judging.judge_model = setup.judge_models[0]
+        else:
+            base_config.judging.method = "ensemble"  # type: ignore[assignment]
+            # For ensemble, store as comma-separated string (existing factory expects this)
+            base_config.judging.judge_model = ",".join(setup.judge_models)
+        
         if setup.judge_provider:
             base_config.judging.judge_provider = setup.judge_provider
 
@@ -243,6 +245,14 @@ class DebateManager:
                         )
                 except Exception as e:
                     logger.error(f"Judge evaluation failed for {debate_id}: {e}")
+                    await self._broadcast_to_debate(
+                        debate_id,
+                        {
+                            "type": "judge_error",
+                            "error": f"Judge evaluation failed: {str(e)}",
+                            "details": f"Error type: {type(e).__name__}"
+                        },
+                    )
 
             debate_info["status"] = "completed"
             logger.info(

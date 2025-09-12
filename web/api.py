@@ -289,8 +289,8 @@ async def create_debate(setup: DebateSetupRequest):
             message_count=0,
             word_limit=setup.word_limit,
             models=setup.models,
-            judging_method=setup.judging_method,
-            judge_model=setup.judge_model,
+            judging_method=debate_info["config"].judging.method,
+            judge_models=setup.judge_models,
             side_labels=side_labels,
         )
     except Exception as e:
@@ -339,6 +339,14 @@ async def get_debate(debate_id: str):
             f"Failed to get side labels for format {config.debate.format}: {e}"
         )
 
+    # Convert judge_model back to list format for response
+    judge_models_list = None
+    if config.judging.judge_model:
+        if config.judging.method == "ensemble":
+            judge_models_list = config.judging.judge_model.split(",")
+        else:
+            judge_models_list = [config.judging.judge_model]
+
     return DebateResponse(
         id=debate_id,
         topic=config.debate.topic,
@@ -350,7 +358,7 @@ async def get_debate(debate_id: str):
         word_limit=config.debate.word_limit,
         models=config.models,
         judging_method=config.judging.method,
-        judge_model=config.judging.judge_model,
+        judge_models=judge_models_list,
         side_labels=side_labels,
     )
 
