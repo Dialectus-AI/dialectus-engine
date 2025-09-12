@@ -1,8 +1,7 @@
 """FastAPI web application for Dialectus AI Debate System."""
 
 import asyncio
-import uuid
-from typing import Dict, List, Optional, Any, TYPE_CHECKING
+from typing import Dict, Any, TYPE_CHECKING
 from pathlib import Path
 import logging
 from contextlib import asynccontextmanager
@@ -10,70 +9,40 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel
 
 from config.settings import get_default_config, ModelConfig
 from models.manager import ModelManager
-from debate_engine.core import DebateEngine
 from debate_engine.transcript import TranscriptManager
 from formats import format_registry
 from judges.factory import create_judge
+from web.debate_manager import DebateManager
+from web.debate_reponse import DebateResponse
+from web.debate_setup_request import DebateSetupRequest
 
 if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
 
+
 # Pydantic models for API
-class DebateSetupRequest(BaseModel):
-    """Request model for creating a new debate."""
-    topic: str
-    format: str = "oxford"
-    word_limit: int = 200
-    models: Dict[str, ModelConfig]
-    judging_method: str = "ai"
-    judge_model: Optional[str] = None
 
-class DebateResponse(BaseModel):
-    """Response model for debate information."""
-    id: str
-    topic: str
-    format: str
-    status: str
-    current_round: int
-    current_phase: str
-    message_count: int
-    # Full configuration details for frontend
-    word_limit: Optional[int] = None
-    models: Optional[Dict[str, ModelConfig]] = None
-    judging_method: Optional[str] = None
-    judge_model: Optional[str] = None
-    side_labels: Optional[Dict[str, str]] = None  # Format-specific participant labels
-
-class MessageResponse(BaseModel):
-    """Response model for debate messages."""
-    speaker_id: str
-    position: str
-    phase: str
-    round_number: int
-    content: str
-    timestamp: str
-    word_count: int
 
 # Cache cleanup scheduler
 cleanup_task = None
+
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     """Manage application lifespan - startup and shutdown."""
     global cleanup_task
-    
+
     # Startup: Start cache cleanup scheduler
     logger.info("Starting cache cleanup scheduler...")
     cleanup_task = asyncio.create_task(cache_cleanup_scheduler())
-    
+
     yield
-    
+
     # Shutdown: Cancel cache cleanup task
     if cleanup_task:
         cleanup_task.cancel()
@@ -83,273 +52,39 @@ async def lifespan(_app: FastAPI):
             pass
         logger.info("Cache cleanup scheduler stopped")
 
+
 async def cache_cleanup_scheduler():
     """Background task to periodically clean up expired cache entries."""
     while True:
         try:
             # Run cleanup every hour
             await asyncio.sleep(3600)  # 1 hour
-            
+
             from models.cache_manager import cache_manager
+
             cleaned_count = cache_manager.cleanup_expired()
-            
+
             if cleaned_count > 0:
-                logger.info(f"Scheduled cache cleanup: removed {cleaned_count} expired entries")
+                logger.info(
+                    f"Scheduled cache cleanup: removed {cleaned_count} expired entries"
+                )
         except asyncio.CancelledError:
             break
         except Exception as e:
             logger.error(f"Error in cache cleanup scheduler: {e}")
+
 
 # FastAPI app
 app = FastAPI(
     title="Dialectus AI Debate System",
     description="Web interface for local AI model debates",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
-
-class DebateManager:
-    """Manages active debates and WebSocket connections."""
-    
-    def __init__(self):
-        self.active_debates: Dict[str, Dict[str, Any]] = {}
-        self.connections: Dict[str, List[WebSocket]] = {}
-    
-    async def create_debate(self, setup: DebateSetupRequest) -> str:
-        """Create a new debate session."""
-        debate_id = str(uuid.uuid4())
-        
-        # Create configuration from existing system
-        base_config = get_default_config()
-        base_config.debate.topic = setup.topic
-        # Validate and assign format with proper type casting
-        if setup.format not in ["parliamentary", "oxford", "socratic", "custom"]:
-            raise HTTPException(status_code=400, detail=f"Invalid debate format: {setup.format}")
-        base_config.debate.format = setup.format  # type: ignore[assignment]
-        base_config.debate.word_limit = setup.word_limit
-        base_config.models = setup.models
-        # Validate and assign judging method with proper type casting
-        if setup.judging_method not in ["ai", "ensemble", "none"]:
-            raise HTTPException(status_code=400, detail=f"Invalid judging method: {setup.judging_method}")
-        base_config.judging.method = setup.judging_method  # type: ignore[assignment]
-        if setup.judge_model:
-            base_config.judging.judge_model = setup.judge_model
-        
-        # Initialize components
-        model_manager = ModelManager(base_config.system)
-        debate_engine = DebateEngine(base_config, model_manager)
-        
-        # Store debate info
-        self.active_debates[debate_id] = {
-            'id': debate_id,
-            'config': base_config,
-            'engine': debate_engine,
-            'manager': model_manager,
-            'context': None,
-            'status': 'created',
-            'task': None
-        }
-        
-        self.connections[debate_id] = []
-        
-        logger.info(f"Created debate {debate_id}: {setup.topic}")
-        return debate_id
-    
-    async def start_debate(self, debate_id: str) -> None:
-        """Start a debate session."""
-        if debate_id not in self.active_debates:
-            raise HTTPException(status_code=404, detail="Debate not found")
-        
-        debate_info = self.active_debates[debate_id]
-        if debate_info['status'] == 'running':
-            raise HTTPException(status_code=400, detail="Debate already running")
-        
-        # Initialize debate
-        context = await debate_info['engine'].initialize_debate()
-        debate_info['context'] = context
-        debate_info['status'] = 'running'
-        
-        # Start debate task
-        debate_info['task'] = asyncio.create_task(
-            self._run_debate(debate_id)
-        )
-        
-        await self._broadcast_to_debate(debate_id, {
-            'type': 'debate_started',
-            'debate_id': debate_id,
-            'topic': context.topic
-        })
-    
-    async def cancel_debate(self, debate_id: str) -> None:
-        """Cancel a running debate session."""
-        if debate_id not in self.active_debates:
-            raise HTTPException(status_code=404, detail="Debate not found")
-        
-        debate_info = self.active_debates[debate_id]
-        
-        # Cancel the running task if it exists
-        if debate_info.get('task') and not debate_info['task'].done():
-            debate_info['task'].cancel()
-            try:
-                await debate_info['task']
-            except asyncio.CancelledError:
-                logger.info(f"Debate task {debate_id} cancelled successfully")
-        
-        # Update status
-        debate_info['status'] = 'cancelled'
-        
-        # Note: Ollama handles model memory management automatically
-        
-        # Broadcast cancellation
-        await self._broadcast_to_debate(debate_id, {
-            'type': 'debate_cancelled',
-            'debate_id': debate_id,
-            'message': 'Debate was cancelled by user'
-        })
-    
-    async def _run_debate(self, debate_id: str) -> None:
-        """Run the debate using unified DebateEngine logic with real-time broadcasting."""
-        debate_info = self.active_debates[debate_id]
-        engine = debate_info['engine']
-        context = debate_info['context']
-        
-        try:
-            # Brief delay to ensure WebSocket connections are established
-            await asyncio.sleep(1.0)
-            # Hook into the engine to broadcast updates in real-time
-            original_conduct_round = engine.conduct_format_round
-            
-            async def conduct_round_with_broadcast(format_phase):
-                # Get format phases for progress calculation
-                model_ids = list(context.participants.keys())
-                format_phases = engine.format.get_phases(model_ids)
-                total_phases = len(format_phases)
-                # Use the current_round which is already set correctly in the engine
-                current_phase = context.current_round
-                
-                # Calculate progress based on completed phases (current_phase - 1)
-                # since current_phase represents the phase we're about to start
-                completed_phases = max(0, current_phase - 1)
-                
-                # Broadcast phase start with progress info
-                await self._broadcast_to_debate(debate_id, {
-                    'type': 'phase_started',
-                    'phase': format_phase.name,
-                    'instruction': format_phase.instruction,
-                    'current_phase': current_phase,
-                    'total_phases': total_phases,
-                    'progress_percentage': round((completed_phases / total_phases) * 100)
-                })
-                
-                # Run the round
-                round_messages = await original_conduct_round(format_phase)
-                
-                # Broadcast each message
-                for message in round_messages:
-                    await self._broadcast_to_debate(debate_id, {
-                        'type': 'new_message',
-                        'message': {
-                            'speaker_id': message.speaker_id,
-                            'position': message.position.value,
-                            'phase': message.phase.value,
-                            'round_number': message.round_number,
-                            'content': message.content,
-                            'timestamp': message.timestamp.isoformat(),
-                            'word_count': len(message.content.split()),
-                            'metadata': message.metadata
-                        }
-                    })
-                
-                return round_messages
-            
-            # Temporarily replace the method for broadcasting
-            engine.conduct_format_round = conduct_round_with_broadcast
-            
-            # Use the unified debate running logic (includes transcript saving)
-            context = await engine.run_full_debate()
-            
-            # Judge the debate if configured
-            config = debate_info['config']
-            judge = create_judge(config.judging, config.system, debate_info['manager'])
-            if judge:
-                try:
-                    await self._broadcast_to_debate(debate_id, {
-                        'type': 'judging_started'
-                    })
-                    
-                    decision = await engine.judge_debate(judge)
-                    if decision:
-                        await self._broadcast_to_debate(debate_id, {
-                            'type': 'judge_decision',
-                            'decision': {
-                                'winner_id': decision.winner_id,
-                                'winner_margin': decision.winner_margin,
-                                'overall_feedback': decision.overall_feedback,
-                                'reasoning': decision.reasoning,
-                                'criterion_scores': [
-                                    {
-                                        'criterion': score.criterion.value,
-                                        'participant_id': score.participant_id,
-                                        'score': score.score,
-                                        'feedback': score.feedback
-                                    } for score in decision.criterion_scores
-                                ],
-                                'metadata': getattr(decision, 'metadata', {})
-                            }
-                        })
-                except Exception as e:
-                    logger.error(f"Judge evaluation failed for {debate_id}: {e}")
-            
-            debate_info['status'] = 'completed'
-            logger.info(f"Debate {debate_id} completed - transcript saved via DebateEngine")
-            await self._broadcast_to_debate(debate_id, {
-                'type': 'debate_completed',
-                'debate_id': debate_id
-            })
-            
-        except asyncio.CancelledError:
-            logger.info(f"Debate {debate_id} was cancelled")
-            debate_info['status'] = 'cancelled'
-            # Note: Don't broadcast here - cancel_debate() already sent the message
-            raise  # Re-raise to properly handle task cancellation
-        except Exception as e:
-            logger.error(f"Debate {debate_id} failed: {e}")
-            debate_info['status'] = 'error'
-            await self._broadcast_to_debate(debate_id, {
-                'type': 'error',
-                'message': str(e)
-            })
-    
-    async def _broadcast_to_debate(self, debate_id: str, message: Dict[str, Any]) -> None:
-        """Broadcast message to all connected clients for a debate."""
-        if debate_id not in self.connections:
-            return
-        
-        dead_connections = []
-        for websocket in self.connections[debate_id]:
-            try:
-                await websocket.send_json(message)
-            except Exception as e:
-                logger.debug(f"WebSocket send failed: {e}")
-                dead_connections.append(websocket)
-        
-        # Remove dead connections
-        for conn in dead_connections:
-            self.connections[debate_id].remove(conn)
-    
-    def add_connection(self, debate_id: str, websocket: WebSocket) -> None:
-        """Add WebSocket connection for a debate."""
-        if debate_id not in self.connections:
-            self.connections[debate_id] = []
-        self.connections[debate_id].append(websocket)
-    
-    def remove_connection(self, debate_id: str, websocket: WebSocket) -> None:
-        """Remove WebSocket connection."""
-        if debate_id in self.connections and websocket in self.connections[debate_id]:
-            self.connections[debate_id].remove(websocket)
 
 # Global debate manager
 debate_manager = DebateManager()
+
 
 @app.get("/api/models")
 async def get_models():
@@ -357,61 +92,65 @@ async def get_models():
     try:
         config = get_default_config()
         model_manager = ModelManager(config.system)
-        
+
         # Get enhanced models first (this includes all the data we need)
         enhanced_models = await model_manager.get_enhanced_models()
-        
+
         # Build other formats from enhanced_models to avoid redundant API calls
         models_by_provider = {}
         flat_models = []
         formatted_models = []
-        
+
         for model in enhanced_models:
             # Build models_by_provider
             provider = model["provider"]
             if provider not in models_by_provider:
                 models_by_provider[provider] = []
             models_by_provider[provider].append(model["name"])
-            
+
             # Build flat_models
             flat_models.append(model["name"])
-            
+
             # Build formatted_models
-            formatted_models.append({
-                "id": model["id"],
-                "name": model["name"],
-                "provider": model["provider"]
-            })
-        
+            formatted_models.append(
+                {
+                    "id": model["id"],
+                    "name": model["name"],
+                    "provider": model["provider"],
+                }
+            )
+
         return {
             "models": flat_models,  # Backward compatibility
             "models_detailed": formatted_models,  # Basic format with provider info
             "models_enhanced": enhanced_models,  # Full enhanced metadata
-            "models_by_provider": models_by_provider  # Grouped by provider
+            "models_by_provider": models_by_provider,  # Grouped by provider
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/api/providers")
 async def get_providers():
     """Get available model providers and their status."""
     try:
         from models.providers import ProviderFactory
+
         providers = []
-        
+
         for provider_name in ProviderFactory.get_available_providers():
             provider_info: Dict[str, Any] = {
                 "name": provider_name,
-                "status": "available"
+                "status": "available",
             }
-            
+
             # Add provider-specific status information
             if provider_name == "openrouter":
                 config = get_default_config()
                 import os
+
                 api_key_configured = bool(
-                    config.system.openrouter.api_key or 
-                    os.getenv("OPENROUTER_API_KEY")
+                    config.system.openrouter.api_key or os.getenv("OPENROUTER_API_KEY")
                 )
                 provider_info["api_key_configured"] = api_key_configured
                 if not api_key_configured:
@@ -420,11 +159,17 @@ async def get_providers():
                 # Use the provider's own health check method
                 try:
                     config = get_default_config()
-                    provider = ProviderFactory.create_provider(provider_name, config.system)
+                    provider = ProviderFactory.create_provider(
+                        provider_name, config.system
+                    )
                     # Type-safe check for OllamaProvider
                     if provider.provider_name == "ollama":
                         from models.providers import OllamaProvider
-                        if isinstance(provider, OllamaProvider) and await provider.is_running():
+
+                        if (
+                            isinstance(provider, OllamaProvider)
+                            and await provider.is_running()
+                        ):
                             provider_info["status"] = "available"
                             provider_info["ollama_running"] = True
                         else:
@@ -434,25 +179,26 @@ async def get_providers():
                     logger.debug(f"Ollama provider check failed: {e}")
                     provider_info["status"] = "offline"
                     provider_info["ollama_running"] = False
-            
+
             providers.append(provider_info)
-        
+
         return {"providers": providers}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.get("/api/formats")
 async def get_formats():
     """Get available debate formats."""
-    return {
-        "formats": format_registry.get_format_descriptions()
-    }
+    return {"formats": format_registry.get_format_descriptions()}
+
 
 @app.get("/api/ollama/health")
 async def ollama_health():
     """Quick health check for Ollama service."""
     try:
         import httpx
+
         async with httpx.AsyncClient(timeout=2.0) as client:
             response = await client.get("http://localhost:11434/api/version")
             if response.status_code == 200:
@@ -460,47 +206,49 @@ async def ollama_health():
                 return {
                     "status": "available",
                     "running": True,
-                    "version": version_data.get("version", "unknown")
+                    "version": version_data.get("version", "unknown"),
                 }
             else:
                 return {
                     "status": "offline",
                     "running": False,
-                    "error": f"HTTP {response.status_code}"
+                    "error": f"HTTP {response.status_code}",
                 }
     except Exception as e:
-        return {
-            "status": "offline", 
-            "running": False,
-            "error": str(e)
-        }
+        return {"status": "offline", "running": False, "error": str(e)}
+
 
 @app.get("/api/cache/stats")
 async def get_cache_stats():
     """Get cache statistics."""
     try:
         from models.cache_manager import cache_manager
+
         stats = cache_manager.get_cache_stats()
         return {"cache_stats": stats}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/api/cache/cleanup")
 async def cleanup_cache():
     """Clean up expired cache entries."""
     try:
         from models.cache_manager import cache_manager
+
         cleaned_count = cache_manager.cleanup_expired()
         return {"message": f"Cleaned up {cleaned_count} expired cache entries"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.delete("/api/cache/models")
 async def invalidate_models_cache():
     """Force invalidate the models cache."""
     try:
         from models.cache_manager import cache_manager
-        invalidated = cache_manager.invalidate('openrouter', 'models')
+
+        invalidated = cache_manager.invalidate("openrouter", "models")
         if invalidated:
             return {"message": "Models cache invalidated successfully"}
         else:
@@ -508,13 +256,14 @@ async def invalidate_models_cache():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.post("/api/debates", response_model=DebateResponse)
 async def create_debate(setup: DebateSetupRequest):
     """Create a new debate."""
     try:
         debate_id = await debate_manager.create_debate(setup)
         debate_info = debate_manager.active_debates[debate_id]
-        
+
         # Get format-specific side labels
         side_labels = None
         try:
@@ -523,12 +272,12 @@ async def create_debate(setup: DebateSetupRequest):
             side_labels = debate_format.get_side_labels(participants)
         except Exception as e:
             logger.warning(f"Failed to get side labels for format {setup.format}: {e}")
-        
+
         return DebateResponse(
             id=debate_id,
             topic=setup.topic,
             format=setup.format,
-            status=debate_info['status'],
+            status=debate_info["status"],
             current_round=0,
             current_phase="setup",
             message_count=0,
@@ -536,10 +285,11 @@ async def create_debate(setup: DebateSetupRequest):
             models=setup.models,
             judging_method=setup.judging_method,
             judge_model=setup.judge_model,
-            side_labels=side_labels
+            side_labels=side_labels,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/api/debates/{debate_id}/start")
 async def start_debate(debate_id: str):
@@ -550,6 +300,7 @@ async def start_debate(debate_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.post("/api/debates/{debate_id}/cancel")
 async def cancel_debate(debate_id: str):
     """Cancel a running debate."""
@@ -559,17 +310,18 @@ async def cancel_debate(debate_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.get("/api/debates/{debate_id}", response_model=DebateResponse)
 async def get_debate(debate_id: str):
     """Get debate status and info."""
     if debate_id not in debate_manager.active_debates:
         raise HTTPException(status_code=404, detail="Debate not found")
-    
+
     debate_info = debate_manager.active_debates[debate_id]
-    context = debate_info.get('context')
-    
-    config = debate_info['config']
-    
+    context = debate_info.get("context")
+
+    config = debate_info["config"]
+
     # Get format-specific side labels
     side_labels = None
     try:
@@ -577,13 +329,15 @@ async def get_debate(debate_id: str):
         participants = list(config.models.keys())
         side_labels = debate_format.get_side_labels(participants)
     except Exception as e:
-        logger.warning(f"Failed to get side labels for format {config.debate.format}: {e}")
-    
+        logger.warning(
+            f"Failed to get side labels for format {config.debate.format}: {e}"
+        )
+
     return DebateResponse(
         id=debate_id,
         topic=config.debate.topic,
         format=config.debate.format,
-        status=debate_info['status'],
+        status=debate_info["status"],
         current_round=context.current_round if context else 0,
         current_phase=context.current_phase.value if context else "setup",
         message_count=len(context.messages) if context else 0,
@@ -591,7 +345,7 @@ async def get_debate(debate_id: str):
         models=config.models,
         judging_method=config.judging.method,
         judge_model=config.judging.judge_model,
-        side_labels=side_labels
+        side_labels=side_labels,
     )
 
 
@@ -600,82 +354,81 @@ async def generate_topic(format: str = "oxford"):
     """Generate a debate topic using AI with format-specific prompts."""
     try:
         config = get_default_config()
-        
+
         # Get the format instance to access format-specific prompts
         debate_format = format_registry.get_format(format)
         messages = debate_format.get_topic_generation_messages()
-        
+
         # Use configured topic generation model
         topic_model = config.system.debate_topic_model
         topic_provider = config.system.debate_topic_source
-        
+
         if not topic_model:
             raise HTTPException(
-                status_code=500, 
-                detail="No topic generation model configured. Please set debate_topic_model in system config."
+                status_code=500,
+                detail="No topic generation model configured. Please set debate_topic_model in system config.",
             )
-        
+
         # Fast Ollama detection if using Ollama
         if topic_provider == "ollama":
             from models.providers import ProviderFactory, OllamaProvider
+
             try:
                 provider = ProviderFactory.create_provider("ollama", config.system)
                 if isinstance(provider, OllamaProvider):
                     if not await provider.is_running():
                         raise HTTPException(
                             status_code=500,
-                            detail="Ollama is not running. Please start Ollama or change debate_topic_source to 'openrouter' in your config."
+                            detail="Ollama is not running. Please start Ollama or change debate_topic_source to 'openrouter' in your config.",
                         )
                 else:
                     raise HTTPException(
                         status_code=500,
-                        detail="Expected OllamaProvider but got different provider type"
+                        detail="Expected OllamaProvider but got different provider type",
                     )
             except Exception as e:
                 raise HTTPException(
-                    status_code=500,
-                    detail=f"Failed to connect to Ollama: {str(e)}"
+                    status_code=500, detail=f"Failed to connect to Ollama: {str(e)}"
                 )
-        
+
         # Create model configuration for topic generation
         topic_gen_config = ModelConfig(
             name=topic_model,
             provider=topic_provider,
             personality="creative",
             max_tokens=100,
-            temperature=0.8
+            temperature=0.8,
         )
-        
+
         # Initialize model manager and register the topic generation model
         model_manager = ModelManager(config.system)
         model_manager.register_model("topic_generator", topic_gen_config)
-        
+
         # Generate topic using format-specific prompts
         generated_topic = await model_manager.generate_response(
-            "topic_generator", 
-            messages,
-            max_tokens=100,
-            temperature=0.8
+            "topic_generator", messages, max_tokens=100, temperature=0.8
         )
-        
+
         # Clean up the response - remove quotes, extra formatting
         topic = generated_topic.strip().strip('"').strip("'")
-        
+
         # Ensure topic ends with proper punctuation if it's a statement
-        if topic and not topic[-1] in '.?!':
-            if topic.lower().startswith(('should', 'is', 'are', 'can', 'will', 'would')):
-                topic += '?'
+        if topic and not topic[-1] in ".?!":
+            if topic.lower().startswith(
+                ("should", "is", "are", "can", "will", "would")
+            ):
+                topic += "?"
             else:
-                topic += '.'
-        
+                topic += "."
+
         return {"topic": topic}
-        
+
     except Exception as e:
         logger.error(f"Topic generation failed: {e}")
         raise HTTPException(
-            status_code=500, 
-            detail=f"Failed to generate topic: {str(e)}"
+            status_code=500, detail=f"Failed to generate topic: {str(e)}"
         )
+
 
 @app.get("/api/transcripts")
 async def get_transcripts(page: int = 1, limit: int = 20):
@@ -686,19 +439,21 @@ async def get_transcripts(page: int = 1, limit: int = 20):
             page = 1
         if limit < 1 or limit > 100:
             limit = 20
-        
+
         # Calculate offset for pagination
         offset = (page - 1) * limit
-        
+
         # Get transcripts from database with explicit path
         config = get_default_config()
         transcript_dir = Path(config.system.transcript_dir)
         transcript_dir.mkdir(parents=True, exist_ok=True)  # Ensure directory exists
         db_path = transcript_dir / "debates.db"
         transcript_manager = TranscriptManager(str(db_path))
-        transcripts = transcript_manager.db_manager.list_debates_with_metadata(limit=limit, offset=offset)
+        transcripts = transcript_manager.db_manager.list_debates_with_metadata(
+            limit=limit, offset=offset
+        )
         total_count = transcript_manager.get_debate_count()
-        
+
         # Format response with pagination metadata
         return {
             "transcripts": transcripts,
@@ -708,12 +463,13 @@ async def get_transcripts(page: int = 1, limit: int = 20):
                 "total": total_count,
                 "total_pages": (total_count + limit - 1) // limit,
                 "has_next": offset + limit < total_count,
-                "has_prev": page > 1
-            }
+                "has_prev": page > 1,
+            },
         }
     except Exception as e:
         logger.error(f"Failed to get transcripts: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/api/transcripts/{transcript_id}")
 async def get_transcript(transcript_id: int):
@@ -725,64 +481,69 @@ async def get_transcript(transcript_id: int):
         db_path = transcript_dir / "debates.db"
         transcript_manager = TranscriptManager(str(db_path))
         transcript_data = transcript_manager.load_transcript(transcript_id)
-        
+
         if not transcript_data:
             raise HTTPException(status_code=404, detail="Transcript not found")
-        
+
         # Enhance transcript data with human-readable phase names
         try:
             format_name = transcript_data["metadata"]["format"]
             debate_format = format_registry.get_format(format_name)
-            
+
             # Create a mapping from phase enum values to human-readable names
             # We need to reconstruct this from the format's phases
             participants = list(transcript_data["metadata"]["participants"].keys())
             format_phases = debate_format.get_phases(participants)
-            
+
             # Create phase name mapping: {enum_value: human_readable_name}
             phase_name_mapping = {}
             for format_phase in format_phases:
                 phase_name_mapping[format_phase.phase.value] = format_phase.name
-            
+
             # Add phase name mapping to context metadata for frontend use
             if "context_metadata" not in transcript_data:
                 transcript_data["context_metadata"] = {}
             transcript_data["context_metadata"]["phase_names"] = phase_name_mapping
-            
+
         except Exception as e:
             logger.warning(f"Failed to enhance transcript with phase names: {e}")
             # Continue without phase names if format lookup fails
-        
+
         return transcript_data
     except Exception as e:
         logger.error(f"Failed to get transcript {transcript_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.websocket("/ws/debate/{debate_id}")
 async def websocket_endpoint(websocket: WebSocket, debate_id: str):
     """WebSocket endpoint for real-time debate updates."""
     await websocket.accept()
     debate_manager.add_connection(debate_id, websocket)
-    
+
     try:
         # Send current state if debate exists
         if debate_id in debate_manager.active_debates:
             debate_info = debate_manager.active_debates[debate_id]
-            await websocket.send_json({
-                'type': 'connected',
-                'debate_id': debate_id,
-                'status': debate_info['status']
-            })
-        
+            await websocket.send_json(
+                {
+                    "type": "connected",
+                    "debate_id": debate_id,
+                    "status": debate_info["status"],
+                }
+            )
+
         # Keep connection alive
         while True:
             await websocket.receive_text()
     except WebSocketDisconnect:
         debate_manager.remove_connection(debate_id, websocket)
 
+
 # Mount static files for frontend development
 try:
     from pathlib import Path
+
     frontend_dist = Path(__file__).parent.parent / "frontend" / "dist"
     if frontend_dist.exists():
         app.mount("/static", StaticFiles(directory=str(frontend_dist)), name="static")
@@ -790,20 +551,22 @@ try:
 except Exception as e:
     print(f"⚠️ Frontend files not found: {e}")
 
+
 @app.get("/")
 async def read_root():
     """Serve the main web interface."""
     # Check if we have built frontend files
     frontend_dist = Path(__file__).parent.parent / "frontend" / "dist"
     frontend_src = Path(__file__).parent.parent / "frontend" / "src"
-    
+
     if frontend_dist.exists() and (frontend_dist / "index.html").exists():
         # Serve built frontend
         with open(frontend_dist / "index.html", "r", encoding="utf-8") as f:
             return HTMLResponse(f.read())
     elif frontend_src.exists():
         # Development mode - show build instructions
-        return HTMLResponse(f"""
+        return HTMLResponse(
+            f"""
         <!DOCTYPE html>
         <html lang="en">
         <head>
@@ -888,10 +651,12 @@ async def read_root():
             </script>
         </body>
         </html>
-        """)
+        """
+        )
     else:
         # Fallback basic HTML
-        return HTMLResponse("""
+        return HTMLResponse(
+            """
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -973,7 +738,9 @@ async def read_root():
         </div>
     </body>
     </html>
-    """)
+    """
+        )
+
 
 def get_dev_styles() -> str:
     """Get CSS styles for development mode."""
@@ -1045,6 +812,8 @@ def get_dev_styles() -> str:
         }
     """
 
+
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)
