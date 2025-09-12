@@ -2,7 +2,7 @@
 
 import json
 import logging
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 import re
 
 from models.manager import ModelManager
@@ -69,8 +69,7 @@ class AIJudge(BaseJudge):
 
         except Exception as e:
             logger.error(f"AI judge evaluation failed: {e}")
-            # Fallback to basic scoring
-            return self._create_fallback_decision(context)
+            raise RuntimeError(f"Judge evaluation failed: {e}") from e
 
     def _format_transcript(self, context: DebateContext) -> str:
         """Format debate transcript for judge evaluation."""
@@ -346,51 +345,8 @@ Provide your evaluation as valid JSON only, no additional text:"""
         except (json.JSONDecodeError, KeyError, ValueError) as e:
             logger.error(f"Failed to parse AI judge evaluation: {e}")
             logger.debug(f"Raw evaluation: {evaluation}")
-            return self._create_fallback_decision(context)
+            raise RuntimeError(f"Failed to parse judge evaluation: {e}") from e
 
-    def _create_fallback_decision(self, context: DebateContext) -> JudgeDecision:
-        """Create a basic fallback decision when AI evaluation fails."""
-        participants = list(context.participants.keys())
-
-        # Simple fallback: count message lengths as a proxy for engagement
-        participant_scores = {}
-        for participant in participants:
-            messages = [
-                msg for msg in context.messages if msg.speaker_id == participant
-            ]
-            total_length = sum(len(msg.content) for msg in messages)
-            participant_scores[participant] = total_length
-
-        # Determine winner (longest total response)
-        if participant_scores:
-            winner_id = max(
-                participant_scores.keys(), key=lambda x: participant_scores[x]
-            )
-        else:
-            winner_id = participants[0] if participants else "unknown"
-
-        # Create basic criterion scores
-        criterion_scores = []
-        for criterion in self.criteria:
-            for participant in participants:
-                score = 6.0 if participant == winner_id else 5.0  # Basic scoring
-                criterion_scores.append(
-                    CriterionScore(
-                        criterion=criterion,
-                        participant_id=participant,
-                        score=score,
-                        feedback=f"Fallback scoring - judge evaluation failed",
-                    )
-                )
-
-        return JudgeDecision(
-            winner_id=winner_id,
-            winner_margin=1.0,
-            criterion_scores=criterion_scores,
-            overall_feedback="AI judge evaluation failed, using fallback scoring",
-            reasoning="Technical issue prevented detailed evaluation",
-            metadata={"fallback": True},
-        )
 
 
 class EnsembleJudge(BaseJudge):
@@ -418,7 +374,7 @@ class EnsembleJudge(BaseJudge):
                 logger.error(f"Judge {judge.name} failed: {e}")
 
         if not decisions:
-            return self._create_fallback_decision(context)
+            raise RuntimeError("All ensemble judges failed to evaluate the debate")
 
         return self._combine_decisions(decisions, context)
 
@@ -483,32 +439,26 @@ class EnsembleJudge(BaseJudge):
             reasoning=f"Winner chosen by {winner_votes[ensemble_winner]}/{len(decisions)} judges",
             metadata={
                 "ensemble_size": len(decisions),
-                "individual_decisions": [d.metadata for d in decisions],
+                "individual_decisions": [self._serialize_individual_decision(d) for d in decisions],
             },
         )
+    
+    def _serialize_individual_decision(self, decision: JudgeDecision) -> Dict[str, Any]:
+        """Serialize an individual judge decision for storage in ensemble metadata."""
+        return {
+            'winner_id': decision.winner_id,
+            'winner_margin': decision.winner_margin,
+            'overall_feedback': decision.overall_feedback,
+            'reasoning': decision.reasoning,
+            'criterion_scores': [
+                {
+                    'criterion': score.criterion if isinstance(score.criterion, str) else score.criterion.value,
+                    'participant_id': score.participant_id,
+                    'score': score.score,
+                    'feedback': score.feedback
+                }
+                for score in decision.criterion_scores
+            ],
+            'metadata': decision.metadata or {}
+        }
 
-    def _create_fallback_decision(self, context: DebateContext) -> JudgeDecision:
-        """Fallback when all ensemble judges fail."""
-        participants = list(context.participants.keys())
-
-        # Create basic criterion scores
-        criterion_scores = []
-        for criterion in self.criteria:
-            for participant in participants:
-                criterion_scores.append(
-                    CriterionScore(
-                        criterion=criterion,
-                        participant_id=participant,
-                        score=5.0,  # Neutral score
-                        feedback="Ensemble judging failed",
-                    )
-                )
-
-        return JudgeDecision(
-            winner_id=participants[0] if participants else "unknown",
-            winner_margin=0.0,
-            criterion_scores=criterion_scores,
-            overall_feedback="All ensemble judges failed",
-            reasoning="Technical issues prevented evaluation",
-            metadata={"ensemble_failure": True},
-        )
