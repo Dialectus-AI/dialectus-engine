@@ -23,6 +23,7 @@ class AIJudge(BaseJudge):
         judge_model_name: str,
         criteria: List[str],
         system_config: SystemConfig,
+        judge_provider: Optional[str] = None,
     ):
         super().__init__(criteria)
         self.model_manager = model_manager
@@ -32,8 +33,13 @@ class AIJudge(BaseJudge):
         # Register judge model with manager
         from config.settings import ModelConfig
 
+        # Use provided provider or raise an error if not provided
+        if not judge_provider:
+            raise ValueError(f"Judge provider must be specified for model {judge_model_name}")
+
         judge_config = ModelConfig(
             name=judge_model_name,
+            provider=judge_provider,
             personality="impartial",
             max_tokens=1500,  # Longer responses for detailed evaluation
             temperature=0.3,  # Lower temperature for more consistent judging
