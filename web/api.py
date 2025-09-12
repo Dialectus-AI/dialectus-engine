@@ -187,6 +187,12 @@ async def get_providers():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/health")
+async def health_check():
+    """Health check endpoint to verify API is running."""
+    return {"isAlive": True}
+
+
 @app.get("/api/formats")
 async def get_formats():
     """Get available debate formats."""
