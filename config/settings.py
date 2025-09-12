@@ -27,7 +27,7 @@ class DebateConfig(BaseModel):
     """Main debate configuration."""
 
     topic: str = Field(..., description="Debate topic")
-    format: Literal["parliamentary", "oxford", "socratic", "custom"] = Field(
+    format: str = Field(
         default="oxford", description="Debate format"
     )
     time_per_turn: int = Field(default=120, description="Seconds per turn")
@@ -45,6 +45,9 @@ class JudgingConfig(BaseModel):
     )
     judge_model: Optional[str] = Field(
         default=None, description="Model to use for AI judging"
+    )
+    judge_provider: Optional[str] = Field(
+        default=None, description="Provider for the judge model"
     )
 
 
