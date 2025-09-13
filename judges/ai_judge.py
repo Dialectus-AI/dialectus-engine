@@ -35,7 +35,9 @@ class AIJudge(BaseJudge):
 
         # Use provided provider or raise an error if not provided
         if not judge_provider:
-            raise ValueError(f"Judge provider must be specified for model {judge_model_name}")
+            raise ValueError(
+                f"Judge provider must be specified for model {judge_model_name}"
+            )
 
         judge_config = ModelConfig(
             name=judge_model_name,
@@ -348,7 +350,6 @@ Provide your evaluation as valid JSON only, no additional text:"""
             raise RuntimeError(f"Failed to parse judge evaluation: {e}") from e
 
 
-
 class EnsembleJudge(BaseJudge):
     """Judge using multiple AI models for ensemble voting."""
 
@@ -366,16 +367,31 @@ class EnsembleJudge(BaseJudge):
         logger.info(f"Ensemble judge evaluating with {len(self.judges)} judges")
 
         decisions = []
+        failed_judges = []
+
         for judge in self.judges:
             try:
                 decision = await judge.evaluate_debate(context)
                 decisions.append(decision)
+                logger.info(f"Judge {judge.name} completed successfully")
             except Exception as e:
                 logger.error(f"Judge {judge.name} failed: {e}")
+                failed_judges.append(f"{judge.name}: {str(e)}")
+
+        # Require ALL judges to succeed for ensemble judging
+        if failed_judges:
+            failed_list = "; ".join(failed_judges)
+            raise RuntimeError(
+                f"Ensemble judging requires ALL judges to succeed. "
+                f"Failed judges ({len(failed_judges)}/{len(self.judges)}): {failed_list}"
+            )
 
         if not decisions:
             raise RuntimeError("All ensemble judges failed to evaluate the debate")
 
+        logger.info(
+            f"Ensemble evaluation: All {len(decisions)} judges completed successfully"
+        )
         return self._combine_decisions(decisions, context)
 
     def _combine_decisions(
@@ -439,26 +455,31 @@ class EnsembleJudge(BaseJudge):
             reasoning=f"Winner chosen by {winner_votes[ensemble_winner]}/{len(decisions)} judges",
             metadata={
                 "ensemble_size": len(decisions),
-                "individual_decisions": [self._serialize_individual_decision(d) for d in decisions],
+                "individual_decisions": [
+                    self._serialize_individual_decision(d) for d in decisions
+                ],
             },
         )
-    
+
     def _serialize_individual_decision(self, decision: JudgeDecision) -> Dict[str, Any]:
         """Serialize an individual judge decision for storage in ensemble metadata."""
         return {
-            'winner_id': decision.winner_id,
-            'winner_margin': decision.winner_margin,
-            'overall_feedback': decision.overall_feedback,
-            'reasoning': decision.reasoning,
-            'criterion_scores': [
+            "winner_id": decision.winner_id,
+            "winner_margin": decision.winner_margin,
+            "overall_feedback": decision.overall_feedback,
+            "reasoning": decision.reasoning,
+            "criterion_scores": [
                 {
-                    'criterion': score.criterion if isinstance(score.criterion, str) else score.criterion.value,
-                    'participant_id': score.participant_id,
-                    'score': score.score,
-                    'feedback': score.feedback
+                    "criterion": (
+                        score.criterion
+                        if isinstance(score.criterion, str)
+                        else score.criterion.value
+                    ),
+                    "participant_id": score.participant_id,
+                    "score": score.score,
+                    "feedback": score.feedback,
                 }
                 for score in decision.criterion_scores
             ],
-            'metadata': decision.metadata or {}
+            "metadata": decision.metadata or {},
         }
-
