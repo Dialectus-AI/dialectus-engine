@@ -22,7 +22,7 @@ class OpenRouterProvider(BaseModelProvider):
     # Class-level rate limiting to prevent 429 errors
     _last_request_time: ClassVar[Optional[float]] = None
     _request_lock: ClassVar[asyncio.Lock] = asyncio.Lock()
-    _min_request_interval: ClassVar[float] = 1.0  # Minimum 1 second between requests
+    _min_request_interval: ClassVar[float] = 3.0  # Minimum 3 seconds between requests to prevent 429 errors
 
     def __init__(self, system_config: "SystemConfig"):
         super().__init__(system_config)
