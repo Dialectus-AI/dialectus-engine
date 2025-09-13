@@ -115,7 +115,7 @@ class PublicForumFormat(DebateFormat):
             - Highlight negative consequences and practical problems
             - Offer alternative solutions or perspectives when appropriate
 
-Remember: This is a public forum - your arguments should be clear and persuasive to ordinary citizens, not just debate judges."""
+            Remember: This is a public forum - your arguments should be clear and persuasive to ordinary citizens, not just debate judges."""
 
     def get_max_participants(self) -> int:
         """Public Forum format supports up to 4 participants (2 per side)."""
