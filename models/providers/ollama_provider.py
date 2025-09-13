@@ -19,7 +19,7 @@ class OllamaProvider(BaseModelProvider):
         self._client = OpenAI(
             base_url=f"{system_config.ollama_base_url}/v1",
             api_key="ollama",  # Ollama doesn't require real API key
-            timeout=3.0,  # Timeout for model operations
+            timeout=120.0,  # Increased timeout to allow for model loading and generation
         )
         self._ollama_base_url = system_config.ollama_base_url
 
