@@ -42,17 +42,9 @@ class DebateManager:
         base_config.debate.format = setup.format  # type: ignore[assignment]
         base_config.debate.word_limit = setup.word_limit
         base_config.models = setup.models
-        # Automatically determine judging method based on judge_models
-        if setup.judge_models is None or len(setup.judge_models) == 0:
-            base_config.judging.method = "none"  # type: ignore[assignment]
-        elif len(setup.judge_models) == 1:
-            base_config.judging.method = "ai"  # type: ignore[assignment]
-            base_config.judging.judge_model = setup.judge_models[0]
-        else:
-            base_config.judging.method = "ensemble"  # type: ignore[assignment]
-            # For ensemble, store as comma-separated string (existing factory expects this)
-            base_config.judging.judge_model = ",".join(setup.judge_models)
-        
+
+        # Store judge configuration directly
+        base_config.judging.judge_models = setup.judge_models or []
         if setup.judge_provider:
             base_config.judging.judge_provider = setup.judge_provider
 
@@ -212,7 +204,10 @@ class DebateManager:
 
             # Judge the debate if configured
             config = debate_info["config"]
-            judge = create_judge(config.judging, config.system, debate_info["manager"])
+            judge_models = config.judging.judge_models
+            judge_provider = config.judging.judge_provider
+            criteria = config.judging.criteria
+            judge = create_judge(judge_models, judge_provider, config.system, debate_info["manager"], criteria)
             if judge:
                 try:
                     await self._broadcast_to_debate(

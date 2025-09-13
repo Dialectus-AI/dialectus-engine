@@ -10,7 +10,6 @@ class DebateSetupRequest(BaseModel):
     format: str = "oxford"
     word_limit: int = 200
     models: Dict[str, ModelConfig]
-    judging_method: str = "ai"
     judge_models: Optional[List[str]] = None
     judge_provider: Optional[str] = None
 

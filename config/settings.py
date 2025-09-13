@@ -37,17 +37,14 @@ class DebateConfig(BaseModel):
 class JudgingConfig(BaseModel):
     """Judging system configuration."""
 
-    method: Literal["ai", "ensemble", "none"] = Field(
-        default="ai", description="Judging method"
-    )
     criteria: List[str] = Field(
         default=["logic", "evidence", "persuasiveness"], description="Scoring criteria"
     )
-    judge_model: Optional[str] = Field(
-        default=None, description="Model to use for AI judging"
+    judge_models: List[str] = Field(
+        default=[], description="Models to use for AI judging"
     )
     judge_provider: Optional[str] = Field(
-        default=None, description="Provider for the judge model"
+        default=None, description="Provider for the judge models"
     )
 
 
@@ -230,9 +227,9 @@ def get_template_config() -> AppConfig:
             ),
         },
         judging=JudgingConfig(
-            method="ai",
             criteria=["logic", "evidence", "persuasiveness"],
-            judge_model="openthinker:7b",
+            judge_models=["openthinker:7b"],
+            judge_provider="ollama",
         ),
         system=SystemConfig(
             ollama_base_url="http://localhost:11434",

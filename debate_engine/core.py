@@ -54,9 +54,8 @@ class DebateEngine:
         self.context.metadata['word_limit'] = self.config.debate.word_limit
         
         # Store judging configuration in metadata
-        self.context.metadata['judging_method'] = self.config.judging.method
-        if self.config.judging.judge_model:
-            self.context.metadata['judge_model'] = self.config.judging.judge_model
+        if self.config.judging.judge_models:
+            self.context.metadata['judge_models'] = self.config.judging.judge_models
         
         # Generate system prompts
         await self._generate_system_prompts()
