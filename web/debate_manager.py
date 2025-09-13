@@ -144,6 +144,9 @@ class DebateManager:
                 # since current_phase represents the phase we're about to start
                 completed_phases = max(0, current_phase - 1)
 
+                # Log the speaking order for this phase
+                logger.info(f"PHASE START: {format_phase.name} - Speaking order: {format_phase.speaking_order}")
+
                 # Broadcast phase start with progress info
                 await self._broadcast_to_debate(
                     debate_id,
@@ -163,36 +166,65 @@ class DebateManager:
                 # to broadcast messages as they're generated
                 if not context:
                     raise RuntimeError("No active debate context")
-                
+
                 context.current_phase = format_phase.phase
                 round_messages = []
-                
+
                 # Use format-defined speaking order
                 for speaker_id in format_phase.speaking_order:
-                    # Get individual message (this calls the engine's internal method)
-                    message = await engine._get_format_speaker_response(speaker_id, format_phase)
-                    round_messages.append(message)
-                    context.messages.append(message)
-                    
-                    # Broadcast message immediately after generation
-                    await self._broadcast_to_debate(
-                        debate_id,
-                        {
-                            "type": "new_message",
-                            "message": {
-                                "speaker_id": message.speaker_id,
-                                "position": message.position.value,
-                                "phase": message.phase.value,
-                                "round_number": message.round_number,
-                                "content": message.content,
-                                "timestamp": message.timestamp.isoformat(),
-                                "word_count": len(message.content.split()),
-                                "metadata": message.metadata,
+                    try:
+                        logger.info(f"Attempting to get response from {speaker_id} for {format_phase.name}")
+                        # Get individual message (this calls the engine's internal method)
+                        message = await engine._get_format_speaker_response(speaker_id, format_phase)
+                        round_messages.append(message)
+                        context.messages.append(message)
+
+                        # Broadcast message immediately after generation
+                        await self._broadcast_to_debate(
+                            debate_id,
+                            {
+                                "type": "new_message",
+                                "message": {
+                                    "speaker_id": message.speaker_id,
+                                    "position": message.position.value,
+                                    "phase": message.phase.value,
+                                    "round_number": message.round_number,
+                                    "content": message.content,
+                                    "timestamp": message.timestamp.isoformat(),
+                                    "word_count": len(message.content.split()),
+                                    "metadata": message.metadata,
+                                },
                             },
-                        },
-                    )
-                    
-                    logger.info(f"Round {context.current_round}, {format_phase.name}: {speaker_id}")
+                        )
+
+                        logger.info(f"SUCCESS: Round {context.current_round}, {format_phase.name}: {speaker_id}")
+
+                    except Exception as e:
+                        # Get model info for detailed error
+                        model_config = context.participants.get(speaker_id)
+                        model_name = model_config.name if model_config else "unknown"
+                        provider = model_config.provider if model_config else "unknown"
+
+                        error_msg = f"DEBATE FAILED: Model {speaker_id} ({model_name}) via {provider} failed in {format_phase.name}: {type(e).__name__}: {str(e)}"
+                        logger.error(error_msg)
+
+                        # Broadcast the error immediately
+                        await self._broadcast_to_debate(
+                            debate_id,
+                            {
+                                "type": "model_error",
+                                "error": error_msg,
+                                "speaker_id": speaker_id,
+                                "model_name": model_name,
+                                "provider": provider,
+                                "phase": format_phase.name,
+                                "exception_type": type(e).__name__,
+                                "exception_message": str(e)
+                            },
+                        )
+
+                        # FAIL FAST - re-raise the exception with enhanced context
+                        raise RuntimeError(error_msg) from e
 
                 return round_messages
 
