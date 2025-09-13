@@ -255,15 +255,24 @@ Remember: You are {model_id} and should maintain consistency in your argumentati
         )
         adjusted_max_tokens = int(base_max_tokens * format_phase.time_multiplier)
         
-        # Generate response with timing
+        # Generate response with timing and detailed error handling
         start_time = time.time()
-        async with self.model_manager.model_session(speaker_id):
-            response_content = await self.model_manager.generate_response(
-                speaker_id, 
-                messages,
-                max_tokens=adjusted_max_tokens
-            )
-        generation_time = time.time() - start_time
+        try:
+            logger.info(f"CORE ENGINE: Starting response generation for {speaker_id} ({self.config.models[speaker_id].name}) via {self.config.models[speaker_id].provider}")
+            async with self.model_manager.model_session(speaker_id):
+                response_content = await self.model_manager.generate_response(
+                    speaker_id,
+                    messages,
+                    max_tokens=adjusted_max_tokens
+                )
+            generation_time = time.time() - start_time
+            logger.info(f"CORE ENGINE: Successfully generated {len(response_content)} chars for {speaker_id} in {generation_time:.2f}s")
+        except Exception as e:
+            generation_time = time.time() - start_time
+            model_config = self.config.models[speaker_id]
+            error_msg = f"CORE ENGINE FAILURE: {speaker_id} ({model_config.name}) via {model_config.provider} failed after {generation_time:.2f}s: {type(e).__name__}: {str(e)}"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg) from e
         
         # Clean the response to remove any echoed prefixes
         cleaned_response = self._clean_model_response(response_content, speaker_id)
@@ -464,17 +473,27 @@ Remember: You are {model_id} and should maintain consistency in your argumentati
         model_ids = list(self.context.participants.keys())
         format_phases = self.format.get_phases(model_ids)
         
-        # Each format phase gets its own sequential number
-        phase_number = 1
-        
+        # Group format phases by their DebatePhase enum to determine round numbers
+        phase_to_round = {}
+        current_round = 1
+        last_phase = None
+
         for format_phase in format_phases:
-            self.context.current_round = phase_number
-            
+            # If we encounter a new DebatePhase enum, increment the round
+            if format_phase.phase != last_phase:
+                phase_to_round[format_phase.phase] = current_round
+                current_round += 1
+                last_phase = format_phase.phase
+            else:
+                # Same phase type, use existing round number
+                phase_to_round[format_phase.phase] = phase_to_round[format_phase.phase]
+
+        # Execute each format phase with correct round numbers
+        for format_phase in format_phases:
+            self.context.current_round = phase_to_round[format_phase.phase]
+
             await self.conduct_format_round(format_phase)
-            
-            # Move to next phase
-            phase_number += 1
-            
+
             # Brief pause between phases
             await asyncio.sleep(0.5)
         
