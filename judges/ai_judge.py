@@ -43,7 +43,7 @@ class AIJudge(BaseJudge):
             name=judge_model_name,
             provider=judge_provider,
             personality="impartial",
-            max_tokens=1500,  # Longer responses for detailed evaluation
+            max_tokens=3000,  # Much longer responses for complete JSON evaluation
             temperature=0.3,  # Lower temperature for more consistent judging
         )
         self.model_manager.register_model("judge", judge_config)
@@ -80,6 +80,10 @@ class AIJudge(BaseJudge):
         lines.append(f"FORMAT: {context.metadata.get('format', 'Unknown')}")
         lines.append("")
 
+        # Get format-specific side labels for clean transcript display
+        participants = list(context.participants.keys())
+        participant_labels = self._get_participant_labels(participants, context)
+
         # Group messages by round/phase for clarity
         current_round = 0
         for message in context.messages:
@@ -89,7 +93,9 @@ class AIJudge(BaseJudge):
                     f"\n=== ROUND {current_round} - {message.phase.value.upper()} ==="
                 )
 
-            lines.append(f"\n{message.speaker_id} ({message.position.value}):")
+            # Use side label only (e.g., "Proposition:", "Opposition:")
+            side_label = participant_labels.get(message.speaker_id, message.speaker_id)
+            lines.append(f"\n{side_label}:")
             lines.append(message.content)
 
         return "\n".join(lines)
@@ -121,31 +127,23 @@ class AIJudge(BaseJudge):
                 )
             return fallback_labels
 
-    def _map_enhanced_label_to_participant_id(
-        self, enhanced_label: str, participants: List[str], context: DebateContext
+    def _map_side_label_to_participant_id(
+        self, side_label: str, participants: List[str], context: DebateContext
     ) -> str:
-        """Map enhanced label back to participant ID."""
-        # Create mapping from enhanced labels to participant IDs
+        """Map side label back to participant ID."""
+        # Create mapping from side labels to participant IDs
         participant_labels = self._get_participant_labels(participants, context)
 
         for participant in participants:
-            model_name = context.participants[participant].name
-            side_label = participant_labels.get(participant, participant)
-            expected_label = f"{model_name} - {side_label}"
-
-            if enhanced_label == expected_label:
+            expected_side_label = participant_labels.get(participant, participant)
+            if side_label == expected_side_label:
                 return participant
 
-        # If no exact match found, try to find best match
-        for participant in participants:
-            if participant in enhanced_label:
-                return participant
-
-        # Fallback to first participant if nothing matches
-        logger.warning(
-            f"Could not map enhanced label '{enhanced_label}' to participant ID, using fallback"
+        # Fail fast - no fallbacks
+        raise ValueError(
+            f"Could not map side label '{side_label}' to participant ID. "
+            f"Available side labels: {list(participant_labels.values())}"
         )
-        return participants[0] if participants else "unknown"
 
     async def _generate_evaluation(
         self, transcript: str, context: DebateContext
@@ -171,7 +169,7 @@ class AIJudge(BaseJudge):
         # Use model manager to generate response
         async with self.model_manager.model_session("judge"):
             response = await self.model_manager.generate_response(
-                "judge", messages, max_tokens=1500, temperature=0.3
+                "judge", messages, max_tokens=3000, temperature=0.3
             )
 
         generation_time = time.time() - start_time
@@ -203,49 +201,56 @@ class AIJudge(BaseJudge):
         context: DebateContext,
     ) -> str:
         """Create the evaluation prompt for the judge."""
-        # Get format-specific side labels
+        # Get format-specific side labels only (no model names)
         participant_labels = self._get_participant_labels(participants, context)
 
-        # Create enhanced participant list with side labels and model names
-        enhanced_participants = []
-        for participant in participants:
-            model_name = context.participants[participant].name
-            side_label = participant_labels.get(participant, participant)
-            enhanced_label = f"{model_name} - {side_label}"
-            enhanced_participants.append(enhanced_label)
+        # Use only side labels for participant identification
+        side_labels = [participant_labels.get(p, p) for p in participants]
+
+        # Create complete example showing all participants and criteria
+        example_scores = []
+        for criterion in criteria:
+            for side_label in side_labels:
+                example_scores.append(
+                    f"""    {{
+      "criterion": "{criterion}",
+      "participant": "{side_label}",
+      "score": 7.5,
+      "feedback": "specific feedback for {side_label} on {criterion}"
+    }}"""
+                )
+
+        participants_list = "\n".join(f"- {label}" for label in side_labels)
+        scores_text = ",\n".join(example_scores)
 
         return f"""Please evaluate this debate and provide your judgment in the following JSON format:
 
 {{
-  "winner": "{enhanced_participants[0]} or {enhanced_participants[1]}",
+  "winner": "{side_labels[0]} or {side_labels[1]}",
   "overall_feedback": "2-3 sentence summary of the debate quality",
   "reasoning": "Write a detailed natural language explanation of your decision. Use complete sentences and paragraphs. Do NOT use structured data, dictionaries, or lists here - only descriptive text explaining your thought process.",
   "criterion_scores": [
-    {{
-      "criterion": "{criteria[0]}",
-      "participant": "{enhanced_participants[0]}",
-      "score": 7.5,
-      "feedback": "specific feedback"
-    }},
-    ...repeat for all participants and criteria...
+{scores_text}
   ]
 }}
 
 EVALUATION CRITERIA: {', '.join(criteria)}
 
 PARTICIPANTS:
-{chr(10).join(f"- {label}" for label in enhanced_participants)}
+{participants_list}
 
 CRITICAL INSTRUCTIONS:
-- Reference participants by their full labels (e.g., "{enhanced_participants[0]}")
+- You MUST evaluate BOTH participants on ALL criteria - do not skip any participant-criterion combinations
+- Reference participants by their side labels only (e.g., "{side_labels[0]}", "{side_labels[1]}")
 - The "reasoning" field must contain ONLY natural language text explaining your decision
 - Do NOT put structured data, scores, or dictionaries in the "reasoning" field
 - All numerical scores belong ONLY in the "criterion_scores" array
 - Focus on argument quality, evidence, and debate performance
 - Provide specific feedback for each participant and criterion
+- Your response must include exactly {len(criteria) * len(side_labels)} criterion_scores entries
 
 EXAMPLE of correct reasoning field:
-"The pro side presented stronger evidence with three concrete examples, while the con side relied more on theoretical arguments. The pro debater also did a better job addressing counterarguments in the rebuttal phase, showing deeper engagement with the opposing viewpoint."
+"The {side_labels[0]} presented stronger evidence with three concrete examples, while the {side_labels[1]} relied more on theoretical arguments. The {side_labels[0]} also did a better job addressing counterarguments in the rebuttal phase, showing deeper engagement with the opposing viewpoint."
 
 DEBATE TRANSCRIPT:
 {transcript}
@@ -257,27 +262,38 @@ Provide your evaluation as valid JSON only, no additional text:"""
     ) -> JudgeDecision:
         """Parse AI evaluation response into structured decision."""
         try:
+            # Log the raw evaluation for debugging
+            logger.info(f"Raw judge evaluation (full response): {evaluation}")
+
             # Extract JSON from response (handle cases where model adds extra text)
             json_match = re.search(r"\{.*\}", evaluation, re.DOTALL)
             if json_match:
-                evaluation_data = json.loads(json_match.group())
+                json_text = json_match.group()
+                logger.debug(f"Extracted JSON (first 300 chars): {json_text[:300]}")
             else:
-                evaluation_data = json.loads(evaluation)
+                logger.debug(
+                    "No JSON found in response, attempting to parse entire response"
+                )
+                json_text = evaluation.strip()
+
+            # Try to repair common JSON issues from small models
+            json_text = self._repair_json(json_text)
+            evaluation_data = json.loads(json_text)
 
             participants = list(context.participants.keys())
 
-            # Map enhanced winner label back to participant ID
-            winner_enhanced_label = evaluation_data["winner"]
-            winner_id = self._map_enhanced_label_to_participant_id(
-                winner_enhanced_label, participants, context
+            # Map winner side label back to participant ID
+            winner_side_label = evaluation_data["winner"]
+            winner_id = self._map_side_label_to_participant_id(
+                winner_side_label, participants, context
             )
 
             # Parse criterion scores
             criterion_scores = []
             for score_data in evaluation_data.get("criterion_scores", []):
-                participant_enhanced_label = score_data["participant"]
-                participant_id = self._map_enhanced_label_to_participant_id(
-                    participant_enhanced_label, participants, context
+                participant_side_label = score_data["participant"]
+                participant_id = self._map_side_label_to_participant_id(
+                    participant_side_label, participants, context
                 )
 
                 # Debug and fix feedback field too
@@ -327,9 +343,22 @@ Provide your evaluation as valid JSON only, no additional text:"""
                 side_label = participant_labels.get(participant, participant)
                 display_labels[participant] = f"{model_name} - {side_label}"
 
+            # Validate that we have complete scoring
+            self._validate_complete_scoring(criterion_scores, participants, context)
+
+            # Calculate winner margin from scores using centralized logic
+            calculated_margin = self._calculate_winner_margin(criterion_scores)
+
+            # Also verify winner matches highest scoring participant
+            calculated_winner = self._determine_winner_from_scores(criterion_scores)
+            if calculated_winner != winner_id and calculated_winner != "unknown":
+                logger.warning(
+                    f"Judge declared winner {winner_id} but highest scoring participant is {calculated_winner}"
+                )
+
             return JudgeDecision(
                 winner_id=winner_id,
-                winner_margin=0.0,  # Will be calculated client-side from criterion scores
+                winner_margin=calculated_margin,  # Calculated from actual scores
                 criterion_scores=criterion_scores,
                 overall_feedback=overall_feedback,
                 reasoning=reasoning,
@@ -341,6 +370,7 @@ Provide your evaluation as valid JSON only, no additional text:"""
                     "generation_time_ms": getattr(
                         self, "_last_generation_time_ms", None
                     ),
+                    "calculated_winner": calculated_winner,  # For debugging
                 },
             )
 
@@ -348,6 +378,92 @@ Provide your evaluation as valid JSON only, no additional text:"""
             logger.error(f"Failed to parse AI judge evaluation: {e}")
             logger.debug(f"Raw evaluation: {evaluation}")
             raise RuntimeError(f"Failed to parse judge evaluation: {e}") from e
+
+    def _repair_json(self, json_text: str) -> str:
+        """Attempt to repair common JSON issues from small models."""
+        repair_json = json_text.strip()
+
+        # Remove any trailing comma before closing braces/brackets
+        repair_json = re.sub(r",(\s*[}\]])", r"\1", repair_json)
+
+        # Fix missing quotes around keys (common issue with small models)
+        repair_json = re.sub(
+            r"([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:", r'\1"\2":', repair_json
+        )
+
+        # Handle truncated JSON - try to complete it
+        if not repair_json.endswith("}"):
+            logger.warning("JSON appears truncated, attempting to complete it")
+
+            # If we're in the middle of a string value, close it
+            open_quotes = repair_json.count('"') - repair_json.count('\\"')
+            if open_quotes % 2 == 1:  # Odd number means unclosed quote
+                repair_json += '"'
+                logger.debug("Closed unclosed quote")
+
+            # Remove any trailing comma
+            repair_json = repair_json.rstrip().rstrip(',')
+
+            # Count open braces and brackets to determine what to close
+            open_braces = repair_json.count('{') - repair_json.count('}')
+            open_brackets = repair_json.count('[') - repair_json.count(']')
+
+            # Close arrays first, then objects
+            repair_json += ']' * open_brackets
+            repair_json += '}' * open_braces
+
+            logger.debug(f"Completed truncated JSON with {open_brackets} ] and {open_braces} }}")
+
+        # Remove any text after the final closing brace
+        last_brace = repair_json.rfind("}")
+        if last_brace != -1:
+            repair_json = repair_json[: last_brace + 1]
+
+        if repair_json != json_text:
+            logger.debug(f"Repaired JSON text for parsing: {repair_json}")
+
+        return repair_json
+
+    def _validate_complete_scoring(
+        self, criterion_scores: List, participants: List[str], context: DebateContext
+    ) -> None:
+        """Validate that judge provided complete scoring for all participants and criteria."""
+        expected_combinations = len(participants) * len(self.criteria)
+        actual_combinations = len(criterion_scores)
+
+        if actual_combinations != expected_combinations:
+            raise ValueError(
+                f"Incomplete judge scoring: expected {expected_combinations} "
+                f"criterion scores ({len(participants)} participants × {len(self.criteria)} criteria), "
+                f"but got {actual_combinations}"
+            )
+
+        # Validate each participant has scores for all criteria
+        participant_labels = self._get_participant_labels(participants, context)
+        side_labels = set(participant_labels.values())
+
+        for participant_id in participants:
+            side_label = participant_labels[participant_id]
+            participant_criteria = {
+                score.criterion.value
+                for score in criterion_scores
+                if score.participant_id == participant_id
+            }
+            expected_criteria = {c.value for c in self.criteria}
+
+            if participant_criteria != expected_criteria:
+                missing_criteria = expected_criteria - participant_criteria
+                extra_criteria = participant_criteria - expected_criteria
+
+                error_parts = []
+                if missing_criteria:
+                    error_parts.append(f"missing: {missing_criteria}")
+                if extra_criteria:
+                    error_parts.append(f"unexpected: {extra_criteria}")
+
+                raise ValueError(
+                    f"Judge provided incomplete scoring for {side_label}: {', '.join(error_parts)}"
+                )
 
 
 class EnsembleJudge(BaseJudge):
@@ -398,18 +514,61 @@ class EnsembleJudge(BaseJudge):
         self, decisions: List[JudgeDecision], context: DebateContext
     ) -> JudgeDecision:
         """Combine multiple judge decisions into ensemble decision."""
-        # Simple majority vote for winner
+        # Count votes for each participant
         winner_votes = {}
         for decision in decisions:
             winner_votes[decision.winner_id] = (
                 winner_votes.get(decision.winner_id, 0) + 1
             )
 
-        ensemble_winner = (
-            max(winner_votes.keys(), key=lambda x: winner_votes[x])
-            if winner_votes
-            else "unknown"
-        )
+        # Get participants and calculate average scores for tie-breaking
+        participants = list(context.participants.keys())
+        participant_total_scores = {p: 0.0 for p in participants}
+        participant_score_counts = {p: 0 for p in participants}
+
+        # Calculate total scores per participant across all judges
+        all_scores = []
+        for decision in decisions:
+            all_scores.extend(decision.criterion_scores)
+
+        for score in all_scores:
+            participant_total_scores[score.participant_id] += score.score
+            participant_score_counts[score.participant_id] += 1
+
+        # Calculate average scores
+        participant_avg_scores = {}
+        for participant in participants:
+            if participant_score_counts[participant] > 0:
+                participant_avg_scores[participant] = (
+                    participant_total_scores[participant]
+                    / participant_score_counts[participant]
+                )
+            else:
+                participant_avg_scores[participant] = 0.0
+
+        # Determine winner with tie-breaking logic
+        max_votes = max(winner_votes.values()) if winner_votes else 0
+        winners_by_vote = [p for p, votes in winner_votes.items() if votes == max_votes]
+
+        if len(winners_by_vote) == 1:
+            # Clear winner by votes
+            ensemble_winner = winners_by_vote[0]
+            decision_method = f"majority vote ({max_votes}/{len(decisions)})"
+        else:
+            # Tie in votes - break tie using average scores
+            tie_winner = max(winners_by_vote, key=lambda p: participant_avg_scores[p])
+            ensemble_winner = tie_winner
+            tied_votes = max_votes
+            winner_score = participant_avg_scores[tie_winner]
+            decision_method = f"tie-breaker by scores (tied at {tied_votes}/{len(decisions)} votes, winner scored {winner_score:.1f} avg)"
+
+        # Validate vote vs score consistency (warn if mismatch but don't fail)
+        score_winner = max(participants, key=lambda p: participant_avg_scores[p])
+        if score_winner != ensemble_winner:
+            logger.warning(
+                f"Vote winner ({ensemble_winner}) differs from score winner ({score_winner}). "
+                f"Using vote-based result with tie-breaking."
+            )
 
         # Average scores across judges
         all_scores = []
@@ -447,17 +606,25 @@ class EnsembleJudge(BaseJudge):
                         )
                     )
 
+        # Calculate winner margin from ensemble averaged scores
+        ensemble_margin = self._calculate_winner_margin(averaged_scores)
+
         return JudgeDecision(
             winner_id=ensemble_winner,
-            winner_margin=sum(d.winner_margin for d in decisions) / len(decisions),
+            winner_margin=ensemble_margin,  # Calculated from averaged scores
             criterion_scores=averaged_scores,
             overall_feedback=f"Ensemble decision from {len(decisions)} judges",
-            reasoning=f"Winner chosen by {winner_votes[ensemble_winner]}/{len(decisions)} judges",
+            reasoning=f"Winner determined by {decision_method}",
             metadata={
                 "ensemble_size": len(decisions),
                 "individual_decisions": [
                     self._serialize_individual_decision(d) for d in decisions
                 ],
+                "individual_margins": [
+                    d.winner_margin for d in decisions
+                ],  # For analysis
+                "average_individual_margin": sum(d.winner_margin for d in decisions)
+                / len(decisions),
             },
         )
 

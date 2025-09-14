@@ -234,29 +234,34 @@ class DebateManager:
             # Use the unified debate running logic (includes transcript saving)
             context = await engine.run_full_debate()
 
-            # Judge the debate if configured
+            # Handle transcript saving with judge validation
             config = debate_info["config"]
             judge_models = config.judging.judge_models
             judge_provider = config.judging.judge_provider
             criteria = config.judging.criteria
             judge = create_judge(judge_models, judge_provider, config.system, debate_info["manager"], criteria)
+
+            judge_decision = None
+            judges_configured = bool(judge_models)  # True if judge_models is not empty
+            judging_succeeded = True
+
             if judge:
                 try:
                     await self._broadcast_to_debate(
                         debate_id, {"type": "judging_started"}
                     )
 
-                    decision = await engine.judge_debate(judge)
-                    if decision:
+                    judge_decision = await engine.judge_debate(judge)
+                    if judge_decision:
                         await self._broadcast_to_debate(
                             debate_id,
                             {
                                 "type": "judge_decision",
                                 "decision": {
-                                    "winner_id": decision.winner_id,
-                                    "winner_margin": decision.winner_margin,
-                                    "overall_feedback": decision.overall_feedback,
-                                    "reasoning": decision.reasoning,
+                                    "winner_id": judge_decision.winner_id,
+                                    "winner_margin": judge_decision.winner_margin,
+                                    "overall_feedback": judge_decision.overall_feedback,
+                                    "reasoning": judge_decision.reasoning,
                                     "criterion_scores": [
                                         {
                                             "criterion": score.criterion.value,
@@ -264,13 +269,17 @@ class DebateManager:
                                             "score": score.score,
                                             "feedback": score.feedback,
                                         }
-                                        for score in decision.criterion_scores
+                                        for score in judge_decision.criterion_scores
                                     ],
-                                    "metadata": getattr(decision, "metadata", {}),
+                                    "metadata": getattr(judge_decision, "metadata", {}),
                                 },
                             },
                         )
+                    else:
+                        judging_succeeded = False
+                        logger.error(f"Judge returned None decision for {debate_id}")
                 except Exception as e:
+                    judging_succeeded = False
                     logger.error(f"Judge evaluation failed for {debate_id}: {e}")
                     await self._broadcast_to_debate(
                         debate_id,
@@ -281,13 +290,32 @@ class DebateManager:
                         },
                     )
 
-            debate_info["status"] = "completed"
-            logger.info(
-                f"Debate {debate_id} completed - transcript saved via DebateEngine"
-            )
-            await self._broadcast_to_debate(
-                debate_id, {"type": "debate_completed", "debate_id": debate_id}
-            )
+            # Validate and save transcript
+            try:
+                # ONLY fail if judges were configured but judging failed
+                if judges_configured and not judging_succeeded:
+                    error_msg = f"Debate {debate_id} configured with judges but judging failed - transcript NOT saved to prevent invalid state"
+                    logger.error(error_msg)
+                    raise RuntimeError(error_msg)
+
+                # Save transcript (with judge decision if judges succeeded, without if no judges configured)
+                engine.save_transcript_with_judge_decision(judge_decision)
+
+                debate_info["status"] = "completed"
+                logger.info(f"Debate {debate_id} completed - transcript saved with judging status: judges_configured={judges_configured}, judging_succeeded={judging_succeeded}")
+
+                await self._broadcast_to_debate(
+                    debate_id, {"type": "debate_completed", "debate_id": debate_id}
+                )
+
+            except Exception as e:
+                # If transcript saving fails, mark debate as error
+                debate_info["status"] = "error"
+                logger.error(f"Failed to save transcript for {debate_id}: {e}")
+                await self._broadcast_to_debate(
+                    debate_id, {"type": "error", "message": f"Failed to save transcript: {str(e)}"}
+                )
+                raise
 
         except asyncio.CancelledError:
             logger.info(f"Debate {debate_id} was cancelled")

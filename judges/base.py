@@ -59,3 +59,61 @@ class BaseJudge(ABC):
         """Calculate total score for a participant across all criteria."""
         participant_scores = [s.score for s in scores if s.participant_id == participant_id]
         return sum(participant_scores) / len(participant_scores) if participant_scores else 0.0
+
+    def _calculate_winner_margin(self, criterion_scores: List[CriterionScore]) -> float:
+        """Calculate victory margin from criterion scores (centralized logic)."""
+        if not criterion_scores:
+            return 0.0
+
+        # Group scores by participant
+        participant_totals: Dict[str, float] = {}
+        participant_counts: Dict[str, int] = {}
+
+        for score in criterion_scores:
+            participant_id = score.participant_id
+            if participant_id not in participant_totals:
+                participant_totals[participant_id] = 0.0
+                participant_counts[participant_id] = 0
+
+            participant_totals[participant_id] += score.score
+            participant_counts[participant_id] += 1
+
+        # Calculate average scores for each participant
+        participant_averages = {}
+        for participant_id in participant_totals:
+            if participant_counts[participant_id] > 0:
+                participant_averages[participant_id] = participant_totals[participant_id] / participant_counts[participant_id]
+
+        # Find margin between highest and second highest
+        if len(participant_averages) < 2:
+            return 0.0
+
+        averages = list(participant_averages.values())
+        averages.sort(reverse=True)
+        return averages[0] - averages[1]
+
+    def _determine_winner_from_scores(self, criterion_scores: List[CriterionScore]) -> str:
+        """Determine winner based on highest average score across criteria."""
+        if not criterion_scores:
+            return "unknown"
+
+        participant_averages = {}
+        participant_totals: Dict[str, float] = {}
+        participant_counts: Dict[str, int] = {}
+
+        for score in criterion_scores:
+            participant_id = score.participant_id
+            if participant_id not in participant_totals:
+                participant_totals[participant_id] = 0.0
+                participant_counts[participant_id] = 0
+
+            participant_totals[participant_id] += score.score
+            participant_counts[participant_id] += 1
+
+        # Calculate averages
+        for participant_id in participant_totals:
+            if participant_counts[participant_id] > 0:
+                participant_averages[participant_id] = participant_totals[participant_id] / participant_counts[participant_id]
+
+        # Return participant with highest average
+        return max(participant_averages.keys(), key=lambda x: participant_averages[x]) if participant_averages else "unknown"

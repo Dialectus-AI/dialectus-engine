@@ -503,36 +503,59 @@ Remember: You are {model_id} and should maintain consistency in your argumentati
         self.context.current_phase = DebatePhase.COMPLETED
         logger.info(f"Debate completed successfully in {total_debate_time_ms}ms")
         
-        # Save transcript if enabled
-        if self.transcript_manager:
-            try:
-                transcript_id = self.transcript_manager.save_transcript(self.context, total_debate_time_ms)
-                logger.info(f"Transcript saved to database with ID {transcript_id}")
-                self.context.metadata['transcript_id'] = transcript_id
-            except Exception as e:
-                logger.error(f"Failed to save transcript: {e}")
+        # Store debate time for later transcript saving
+        self.context.metadata['total_debate_time_ms'] = total_debate_time_ms
         
         return self.context
-    
-    def _serialize_judge_decision(self, decision) -> Dict[str, Any]:
-        """Serialize JudgeDecision to a JSON-compatible dictionary."""
-        return {
-            'winner_id': decision.winner_id,
-            'winner_margin': decision.winner_margin,
-            'overall_feedback': decision.overall_feedback,
-            'reasoning': decision.reasoning,
-            'criterion_scores': [
-                {
-                    'criterion': score.criterion.value if hasattr(score.criterion, 'value') else str(score.criterion),
-                    'participant_id': score.participant_id,
-                    'score': score.score,
-                    'feedback': score.feedback
+
+    def save_transcript_with_judge_decision(self, judge_decision=None) -> None:
+        """Save transcript to database with optional judge decision."""
+        if not self.transcript_manager or not self.context:
+            return
+
+        try:
+            # Get debate time from metadata
+            total_debate_time_ms = self.context.metadata.get('total_debate_time_ms', 0)
+
+            # Add judge decision to context if provided
+            if judge_decision:
+                self.context.judge_decision = judge_decision
+
+            transcript_id = self.transcript_manager.save_transcript(self.context, total_debate_time_ms)
+            logger.info(f"Transcript saved to database with ID {transcript_id}")
+            self.context.metadata['transcript_id'] = transcript_id
+
+            # Save judge decision to database if provided
+            if judge_decision:
+                logger.info(f"Saving judge decision to database for transcript {transcript_id}")
+
+                # Convert decision to dict format expected by database
+                decision_dict = {
+                    'winner_id': judge_decision.winner_id,
+                    'winner_margin': judge_decision.winner_margin,
+                    'overall_feedback': judge_decision.overall_feedback,
+                    'reasoning': judge_decision.reasoning,
+                    'criterion_scores': [
+                        {
+                            'criterion': score.criterion.value,
+                            'participant_id': score.participant_id,
+                            'score': score.score,
+                            'feedback': score.feedback
+                        }
+                        for score in judge_decision.criterion_scores
+                    ],
+                    'metadata': judge_decision.metadata or {}
                 }
-                for score in decision.criterion_scores
-            ],
-            'metadata': decision.metadata or {}
-        }
-    
+
+                # Save directly to relational tables
+                self.transcript_manager.db_manager.save_judge_decision(transcript_id, decision_dict)
+                logger.info(f"Successfully saved judge decision to database for transcript {transcript_id}")
+            else:
+                logger.info(f"No judge decision provided - transcript {transcript_id} saved without judge decision")
+        except Exception as e:
+            logger.error(f"Failed to save transcript: {e}")
+            raise
+
     def get_transcript_for_judging(self) -> Optional[str]:
         """Get formatted transcript suitable for AI judging."""
         if not self.context or not self.transcript_manager:
@@ -550,18 +573,4 @@ Remember: You are {model_id} and should maintain consistency in your argumentati
         
         logger.info(f"Judging debate with {judge.name}")
         decision = await judge.evaluate_debate(self.context)
-        
-        # Store judge decision in context metadata as serializable dict
-        self.context.metadata['judge_decision'] = self._serialize_judge_decision(decision)
-        
-        # Update transcript with judge decision if transcript was saved
-        if self.transcript_manager and 'transcript_id' in self.context.metadata:
-            try:
-                transcript_id = self.context.metadata['transcript_id']
-                # Re-save the transcript with updated metadata including judge decision
-                self.transcript_manager.save_transcript_update(transcript_id, self.context.metadata)
-                logger.info(f"Updated transcript {transcript_id} with judge decision")
-            except Exception as e:
-                logger.error(f"Failed to update transcript with judge decision: {e}")
-        
         return decision

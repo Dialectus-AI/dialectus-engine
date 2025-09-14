@@ -522,6 +522,27 @@ async def get_transcript(transcript_id: int):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/debates/{debate_id}/transcript")
+async def get_debate_transcript(debate_id: str):
+    """Get transcript for a specific debate by debate ID."""
+    try:
+        # Check if debate exists in active debates
+        if debate_id in debate_manager.active_debates:
+            debate_info = debate_manager.active_debates[debate_id]
+            context = debate_info.get("context")
+            if context and "transcript_id" in context.metadata:
+                transcript_id = context.metadata["transcript_id"]
+                # Forward to the existing transcript endpoint
+                return await get_transcript(transcript_id)
+
+        raise HTTPException(status_code=404, detail=f"Transcript not found for debate {debate_id}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get transcript for debate {debate_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.websocket("/ws/debate/{debate_id}")
 async def websocket_endpoint(websocket: WebSocket, debate_id: str):
     """WebSocket endpoint for real-time debate updates."""

@@ -98,17 +98,59 @@ class DatabaseManager:
                 )
             """)
             
+            # Create judge_decisions table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS judge_decisions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    debate_id INTEGER NOT NULL,
+                    winner_id TEXT NOT NULL,
+                    winner_margin REAL NOT NULL,
+                    overall_feedback TEXT,
+                    reasoning TEXT,
+                    judge_model TEXT,
+                    judge_provider TEXT,
+                    generation_time_ms INTEGER,
+                    is_ensemble BOOLEAN DEFAULT FALSE,
+                    ensemble_size INTEGER DEFAULT 1,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (debate_id) REFERENCES debates (id) ON DELETE CASCADE
+                )
+            """)
+
+            # Create criterion_scores table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS criterion_scores (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    judge_decision_id INTEGER NOT NULL,
+                    criterion TEXT NOT NULL,
+                    participant_id TEXT NOT NULL,
+                    score REAL NOT NULL,
+                    feedback TEXT,
+                    FOREIGN KEY (judge_decision_id) REFERENCES judge_decisions (id) ON DELETE CASCADE
+                )
+            """)
+
             # Create indexes for better query performance
             cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_messages_debate_id 
+                CREATE INDEX IF NOT EXISTS idx_messages_debate_id
                 ON messages (debate_id)
             """)
-            
+
             cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_messages_round_phase 
+                CREATE INDEX IF NOT EXISTS idx_messages_round_phase
                 ON messages (debate_id, round_number, phase)
             """)
-            
+
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_judge_decisions_debate_id
+                ON judge_decisions (debate_id)
+            """)
+
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_criterion_scores_decision_id
+                ON criterion_scores (judge_decision_id)
+            """)
+
             conn.commit()
             logger.info(f"Database initialized at {self.db_path}")
     
@@ -144,8 +186,8 @@ class DatabaseManager:
             cursor.execute("""
                 INSERT INTO debates (
                     topic, format, participants, final_phase, total_rounds,
-                    saved_at, message_count, word_count, total_debate_time_ms, scores, context_metadata
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    saved_at, message_count, word_count, total_debate_time_ms
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 metadata["topic"],
                 metadata["format"],
@@ -155,9 +197,7 @@ class DatabaseManager:
                 metadata["saved_at"],
                 metadata["message_count"],
                 metadata["word_count"],
-                metadata["total_debate_time_ms"],
-                json.dumps(debate_data["scores"]),
-                json.dumps(debate_data["context_metadata"])
+                metadata["total_debate_time_ms"]
             ))
             
             debate_id = cursor.lastrowid
@@ -208,6 +248,9 @@ class DatabaseManager:
             """, (debate_id,))
             message_rows = cursor.fetchall()
             
+            # Load judge decision if available
+            judge_decision = self.load_judge_decision(debate_id)
+
             # Reconstruct debate data
             debate_data: FullTranscriptData = {
                 "metadata": {
@@ -234,8 +277,10 @@ class DatabaseManager:
                     }
                     for row in message_rows
                 ],
-                "scores": json.loads(debate_row["scores"]) if debate_row["scores"] else {},
-                "context_metadata": json.loads(debate_row["context_metadata"]) if debate_row["context_metadata"] else {}
+                "scores": {},  # Legacy field, now empty
+                "context_metadata": {
+                    "judge_decision": judge_decision
+                } if judge_decision else {}
             }
             
             return debate_data
@@ -280,31 +325,33 @@ class DatabaseManager:
             ]
 
     def list_debates_with_metadata(self, limit: Optional[int] = None, offset: int = 0) -> List[Dict[str, Any]]:
-        """List debates with metadata including context_metadata for judge model info."""
+        """List debates with metadata including judge model info via SQL joins."""
         import json
-        
+
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            
+
             query = """
-                SELECT id, topic, format, participants, final_phase, total_rounds,
-                       saved_at, message_count, word_count, total_debate_time_ms, 
-                       created_at, context_metadata
-                FROM debates 
-                ORDER BY created_at DESC
+                SELECT
+                    d.id, d.topic, d.format, d.participants, d.final_phase, d.total_rounds,
+                    d.saved_at, d.message_count, d.word_count, d.total_debate_time_ms,
+                    d.created_at,
+                    jd.judge_model
+                FROM debates d
+                LEFT JOIN judge_decisions jd ON d.id = jd.debate_id
+                ORDER BY d.created_at DESC
             """
-            
+
             params = []
             if limit:
                 query += " LIMIT ? OFFSET ?"
                 params.extend([limit, offset])
-            
+
             cursor.execute(query, params)
             rows = cursor.fetchall()
-            
-            result = []
-            for row in rows:
-                debate_data = {
+
+            return [
+                {
                     "id": row["id"],
                     "topic": row["topic"],
                     "format": row["format"],
@@ -315,32 +362,11 @@ class DatabaseManager:
                     "message_count": row["message_count"],
                     "word_count": row["word_count"],
                     "total_debate_time_ms": row["total_debate_time_ms"],
-                    "created_at": row["created_at"]
+                    "created_at": row["created_at"],
+                    "judge_model": row["judge_model"] or "none"
                 }
-                
-                # Extract judge model from context_metadata
-                if row["context_metadata"]:
-                    try:
-                        context_metadata = json.loads(row["context_metadata"])
-                        
-                        # Try to get judge model from various possible locations
-                        judge_model = None
-                        if "judge_decision" in context_metadata and "metadata" in context_metadata["judge_decision"]:
-                            judge_model = context_metadata["judge_decision"]["metadata"].get("judge_model")
-                        elif "judging_config" in context_metadata:
-                            judge_model = context_metadata["judging_config"].get("judge_model")
-                        elif "judge_model" in context_metadata:
-                            judge_model = context_metadata["judge_model"]
-                        
-                        debate_data["judge_model"] = judge_model or "none"
-                    except (json.JSONDecodeError, KeyError):
-                        debate_data["judge_model"] = "unknown"
-                else:
-                    debate_data["judge_model"] = "none"
-                
-                result.append(debate_data)
-            
-            return result
+                for row in rows
+            ]
     
     def delete_debate(self, debate_id: int) -> bool:
         """Delete a debate and all its messages."""
@@ -355,20 +381,117 @@ class DatabaseManager:
             
             return deleted
     
-    def update_debate_metadata(self, debate_id: int, context_metadata: Dict[str, Any]) -> None:
-        """Update the context_metadata for an existing debate."""
+    def save_judge_decision(self, debate_id: int, judge_decision: Dict[str, Any]) -> int:
+        """Save a judge decision and return the judge_decision_id."""
         import json
-        
+
+        if debate_id is None:
+            raise ValueError("debate_id cannot be None when saving judge decision")
+        if not isinstance(debate_id, int) or debate_id <= 0:
+            raise ValueError(f"debate_id must be a positive integer, got: {debate_id}")
+
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                "UPDATE debates SET context_metadata = ? WHERE id = ?",
-                (json.dumps(context_metadata), debate_id)
-            )
+
+            # Extract metadata
+            metadata = judge_decision.get("metadata", {})
+
+            # Insert judge decision
+            cursor.execute("""
+                INSERT INTO judge_decisions (
+                    debate_id, winner_id, winner_margin, overall_feedback, reasoning,
+                    judge_model, judge_provider, generation_time_ms, is_ensemble, ensemble_size
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                debate_id,
+                judge_decision["winner_id"],
+                judge_decision["winner_margin"],
+                judge_decision.get("overall_feedback"),
+                judge_decision.get("reasoning"),
+                metadata.get("judge_model"),
+                metadata.get("judge_provider"),
+                metadata.get("generation_time_ms"),
+                metadata.get("ensemble_size", 0) > 1,
+                metadata.get("ensemble_size", 1)
+            ))
+
+            judge_decision_id = cursor.lastrowid
+            if judge_decision_id is None:
+                raise RuntimeError("Failed to get judge_decision_id from database")
+
+            # Insert criterion scores
+            for score in judge_decision.get("criterion_scores", []):
+                cursor.execute("""
+                    INSERT INTO criterion_scores (
+                        judge_decision_id, criterion, participant_id, score, feedback
+                    ) VALUES (?, ?, ?, ?, ?)
+                """, (
+                    judge_decision_id,
+                    score["criterion"],
+                    score["participant_id"],
+                    score["score"],
+                    score.get("feedback")
+                ))
+
             conn.commit()
-            
-            if cursor.rowcount == 0:
-                raise RuntimeError(f"No debate found with ID {debate_id}")
+            logger.info(f"Saved judge decision {judge_decision_id} for debate {debate_id} with {len(judge_decision.get('criterion_scores', []))} scores")
+            return judge_decision_id
+
+    def load_judge_decisions(self, debate_id: int) -> List[Dict[str, Any]]:
+        """Load all judge decisions for a debate with their criterion scores."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Load judge decisions
+            cursor.execute("""
+                SELECT * FROM judge_decisions WHERE debate_id = ?
+                ORDER BY created_at
+            """, (debate_id,))
+            decision_rows = cursor.fetchall()
+
+            if not decision_rows:
+                return []
+
+            decisions = []
+            for decision_row in decision_rows:
+                # Load criterion scores for this decision
+                cursor.execute("""
+                    SELECT * FROM criterion_scores WHERE judge_decision_id = ?
+                    ORDER BY criterion, participant_id
+                """, (decision_row["id"],))
+                score_rows = cursor.fetchall()
+
+                # Build decision object
+                decision = {
+                    "winner_id": decision_row["winner_id"],
+                    "winner_margin": decision_row["winner_margin"],
+                    "overall_feedback": decision_row["overall_feedback"],
+                    "reasoning": decision_row["reasoning"],
+                    "criterion_scores": [
+                        {
+                            "criterion": row["criterion"],
+                            "participant_id": row["participant_id"],
+                            "score": row["score"],
+                            "feedback": row["feedback"]
+                        }
+                        for row in score_rows
+                    ],
+                    "metadata": {
+                        "judge_model": decision_row["judge_model"],
+                        "judge_provider": decision_row["judge_provider"],
+                        "generation_time_ms": decision_row["generation_time_ms"],
+                        "is_ensemble": decision_row["is_ensemble"],
+                        "ensemble_size": decision_row["ensemble_size"]
+                    }
+                }
+                decisions.append(decision)
+
+            return decisions
+
+    def load_judge_decision(self, debate_id: int) -> Optional[Dict[str, Any]]:
+        """Load the first/primary judge decision for a debate."""
+        decisions = self.load_judge_decisions(debate_id)
+        return decisions[0] if decisions else None
     
     def get_debate_count(self) -> int:
         """Get total number of debates."""

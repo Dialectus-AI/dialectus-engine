@@ -68,14 +68,6 @@ class TranscriptManager:
             logger.error(f"Failed to save transcript to database: {e}")
             raise
     
-    def save_transcript_update(self, debate_id: int, updated_metadata: Dict[str, Any]) -> None:
-        """Update the context_metadata for an existing transcript."""
-        try:
-            self.db_manager.update_debate_metadata(debate_id, updated_metadata)
-            logger.info(f"Updated context metadata for transcript {debate_id}")
-        except Exception as e:
-            logger.error(f"Failed to update transcript metadata: {e}")
-            raise
     
     def _context_to_dict(self, context: DebateContext, total_debate_time_ms: int) -> Dict[str, Any]:
         """Convert DebateContext to dictionary for JSON serialization."""
