@@ -108,12 +108,29 @@ Used by the web interface's "refresh topic" feature:
 ## API Endpoints
 
 ### Core Endpoints
+- `GET /api/health` - API health check
 - `GET /api/models` - List available AI models from all providers
 - `GET /api/providers` - List provider status and configuration
+- `GET /api/formats` - List available debate formats
+
+### Debate Management
 - `POST /api/debates` - Create new debate
+- `GET /api/debates/{id}` - Get debate status and details
 - `POST /api/debates/{id}/start` - Start debate execution
-- `GET /api/debates/{id}` - Get debate status
+- `POST /api/debates/{id}/cancel` - Cancel running debate
+- `GET /api/debates/{id}/transcript` - Get debate transcript
 - `WebSocket /ws/debate/{id}` - Real-time debate streaming
+
+### Utilities
+- `GET /api/generate-topic` - Generate random debate topic
+- `GET /api/transcripts` - List stored debate transcripts
+- `GET /api/transcripts/{id}` - Get specific transcript details
+
+### System Management
+- `GET /api/ollama/health` - Check Ollama provider health
+- `GET /api/cache/stats` - View model cache statistics
+- `POST /api/cache/cleanup` - Clean up expired cache entries
+- `DELETE /api/cache/models` - Clear model cache
 
 ### Model Integration
 - **Ollama**: Local model management with hardware optimization
