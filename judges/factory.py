@@ -50,7 +50,7 @@ def create_judge(
 
         logger.info(f"Creating ensemble judge with models: {judge_models}")
         individual_judges = []
-        for model_name in judge_models:
+        for i, model_name in enumerate(judge_models):
             judge = AIJudge(
                 model_manager=model_manager,
                 judge_model_name=model_name,
@@ -58,6 +58,8 @@ def create_judge(
                 system_config=system_config,
                 judge_provider=judge_provider
             )
+            # Add slightly higher temperature for ensemble judges to increase variation
+            judge._ensemble_temperature = 0.4 + (i * 0.1)  # 0.4, 0.5, 0.6, etc.
             individual_judges.append(judge)
 
         return EnsembleJudge(individual_judges, criteria)
