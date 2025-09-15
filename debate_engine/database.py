@@ -61,7 +61,7 @@ class DatabaseManager:
         """Initialize the database with required tables."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            
+
             # Create debates table for metadata
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS debates (
@@ -112,8 +112,10 @@ class DatabaseManager:
                     generation_time_ms INTEGER,
                     is_ensemble BOOLEAN DEFAULT FALSE,
                     ensemble_size INTEGER DEFAULT 1,
+                    ensemble_parent_id INTEGER,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (debate_id) REFERENCES debates (id) ON DELETE CASCADE
+                    FOREIGN KEY (debate_id) REFERENCES debates (id) ON DELETE CASCADE,
+                    FOREIGN KEY (ensemble_parent_id) REFERENCES judge_decisions (id) ON DELETE CASCADE
                 )
             """)
 
@@ -150,6 +152,16 @@ class DatabaseManager:
                 CREATE INDEX IF NOT EXISTS idx_criterion_scores_decision_id
                 ON criterion_scores (judge_decision_id)
             """)
+
+            # Check if ensemble_parent_id column exists and add it if needed (migration)
+            cursor.execute("PRAGMA table_info(judge_decisions)")
+            columns = cursor.fetchall()
+            column_names = [col[1] for col in columns]
+
+            if 'ensemble_parent_id' not in column_names:
+                logger.info("Adding ensemble_parent_id column to judge_decisions table")
+                cursor.execute("ALTER TABLE judge_decisions ADD COLUMN ensemble_parent_id INTEGER")
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_judge_decisions_ensemble_parent ON judge_decisions (ensemble_parent_id)")
 
             conn.commit()
             logger.info(f"Database initialized at {self.db_path}")
@@ -383,68 +395,136 @@ class DatabaseManager:
     
     def save_judge_decision(self, debate_id: int, judge_decision: Dict[str, Any]) -> int:
         """Save a judge decision and return the judge_decision_id."""
-        import json
-
         if debate_id is None:
             raise ValueError("debate_id cannot be None when saving judge decision")
         if not isinstance(debate_id, int) or debate_id <= 0:
             raise ValueError(f"debate_id must be a positive integer, got: {debate_id}")
 
+        metadata = judge_decision.get("metadata", {})
+        is_ensemble = metadata.get("ensemble_size", 1) > 1
+
+        if is_ensemble:
+            return self._save_ensemble_decision(debate_id, judge_decision)
+        else:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                result = self._save_individual_decision(cursor, debate_id, judge_decision)
+                conn.commit()
+                return result
+
+    def _save_individual_decision(self, cursor, debate_id: int, judge_decision: Dict[str, Any], ensemble_parent_id: int = None) -> int:
+        """Save a single judge decision using existing cursor."""
+        metadata = judge_decision.get("metadata", {})
+
+        # Insert judge decision
+        cursor.execute("""
+            INSERT INTO judge_decisions (
+                debate_id, winner_id, winner_margin, overall_feedback, reasoning,
+                judge_model, judge_provider, generation_time_ms, is_ensemble, ensemble_size, ensemble_parent_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            debate_id,
+            judge_decision["winner_id"],
+            judge_decision["winner_margin"],
+            judge_decision.get("overall_feedback"),
+            judge_decision.get("reasoning"),
+            metadata.get("judge_model"),
+            metadata.get("judge_provider"),
+            metadata.get("generation_time_ms"),
+            False,
+            1,
+            ensemble_parent_id
+        ))
+
+        judge_decision_id = cursor.lastrowid
+        if judge_decision_id is None:
+            raise RuntimeError("Failed to get judge_decision_id from database")
+
+        # Insert criterion scores
+        for score in judge_decision.get("criterion_scores", []):
+            cursor.execute("""
+                INSERT INTO criterion_scores (
+                    judge_decision_id, criterion, participant_id, score, feedback
+                ) VALUES (?, ?, ?, ?, ?)
+            """, (
+                judge_decision_id,
+                score["criterion"],
+                score["participant_id"],
+                score["score"],
+                score.get("feedback")
+            ))
+
+        logger.info(f"Saved individual judge decision {judge_decision_id} for debate {debate_id}")
+        return judge_decision_id
+
+    def _save_ensemble_decision(self, debate_id: int, ensemble_decision: Dict[str, Any]) -> int:
+        """Save an ensemble decision with proper individual judge storage."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
-            # Extract metadata
-            metadata = judge_decision.get("metadata", {})
+            metadata = ensemble_decision.get("metadata", {})
+            individual_decisions = metadata.get("individual_decisions", [])
 
-            # Insert judge decision
+            if not individual_decisions:
+                raise ValueError("Ensemble decision must contain individual_decisions in metadata")
+
+            # First save the ensemble parent decision
             cursor.execute("""
                 INSERT INTO judge_decisions (
                     debate_id, winner_id, winner_margin, overall_feedback, reasoning,
-                    judge_model, judge_provider, generation_time_ms, is_ensemble, ensemble_size
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    judge_model, judge_provider, generation_time_ms, is_ensemble, ensemble_size, ensemble_parent_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 debate_id,
-                judge_decision["winner_id"],
-                judge_decision["winner_margin"],
-                judge_decision.get("overall_feedback"),
-                judge_decision.get("reasoning"),
-                metadata.get("judge_model"),
+                ensemble_decision["winner_id"],
+                ensemble_decision["winner_margin"],
+                ensemble_decision.get("overall_feedback"),
+                ensemble_decision.get("reasoning"),
+                None,  # Ensemble has no single judge_model
                 metadata.get("judge_provider"),
-                metadata.get("generation_time_ms"),
-                metadata.get("ensemble_size", 0) > 1,
-                metadata.get("ensemble_size", 1)
+                None,  # Ensemble has no single generation time
+                True,
+                metadata.get("ensemble_size", len(individual_decisions)),
+                None  # Parent has no parent
             ))
 
-            judge_decision_id = cursor.lastrowid
-            if judge_decision_id is None:
-                raise RuntimeError("Failed to get judge_decision_id from database")
+            ensemble_parent_id = cursor.lastrowid
+            if ensemble_parent_id is None:
+                raise RuntimeError("Failed to get ensemble_parent_id from database")
 
-            # Insert criterion scores
-            for score in judge_decision.get("criterion_scores", []):
+            # Save averaged criterion scores for the ensemble
+            for score in ensemble_decision.get("criterion_scores", []):
                 cursor.execute("""
                     INSERT INTO criterion_scores (
                         judge_decision_id, criterion, participant_id, score, feedback
                     ) VALUES (?, ?, ?, ?, ?)
                 """, (
-                    judge_decision_id,
+                    ensemble_parent_id,
                     score["criterion"],
                     score["participant_id"],
                     score["score"],
                     score.get("feedback")
                 ))
 
+            # Save each individual judge decision
+            individual_ids = []
+            for individual in individual_decisions:
+                individual_id = self._save_individual_decision(cursor, debate_id, individual, ensemble_parent_id)
+                individual_ids.append(individual_id)
+
             conn.commit()
-            logger.info(f"Saved judge decision {judge_decision_id} for debate {debate_id} with {len(judge_decision.get('criterion_scores', []))} scores")
-            return judge_decision_id
+            logger.info(f"Saved ensemble decision {ensemble_parent_id} with {len(individual_ids)} individual judges for debate {debate_id}")
+            return ensemble_parent_id
 
     def load_judge_decisions(self, debate_id: int) -> List[Dict[str, Any]]:
         """Load all judge decisions for a debate with their criterion scores."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
-            # Load judge decisions
+            # Load only parent decisions (ensemble parents or standalone decisions)
             cursor.execute("""
-                SELECT * FROM judge_decisions WHERE debate_id = ?
+                SELECT * FROM judge_decisions
+                WHERE debate_id = ? AND ensemble_parent_id IS NULL
                 ORDER BY created_at
             """, (debate_id,))
             decision_rows = cursor.fetchall()
@@ -454,39 +534,97 @@ class DatabaseManager:
 
             decisions = []
             for decision_row in decision_rows:
-                # Load criterion scores for this decision
-                cursor.execute("""
-                    SELECT * FROM criterion_scores WHERE judge_decision_id = ?
-                    ORDER BY criterion, participant_id
-                """, (decision_row["id"],))
-                score_rows = cursor.fetchall()
-
-                # Build decision object
-                decision = {
-                    "winner_id": decision_row["winner_id"],
-                    "winner_margin": decision_row["winner_margin"],
-                    "overall_feedback": decision_row["overall_feedback"],
-                    "reasoning": decision_row["reasoning"],
-                    "criterion_scores": [
-                        {
-                            "criterion": row["criterion"],
-                            "participant_id": row["participant_id"],
-                            "score": row["score"],
-                            "feedback": row["feedback"]
-                        }
-                        for row in score_rows
-                    ],
-                    "metadata": {
-                        "judge_model": decision_row["judge_model"],
-                        "judge_provider": decision_row["judge_provider"],
-                        "generation_time_ms": decision_row["generation_time_ms"],
-                        "is_ensemble": decision_row["is_ensemble"],
-                        "ensemble_size": decision_row["ensemble_size"]
-                    }
-                }
+                if decision_row["is_ensemble"]:
+                    decision = self._load_ensemble_decision(decision_row)
+                else:
+                    decision = self._load_individual_decision(decision_row)
                 decisions.append(decision)
 
             return decisions
+
+    def _load_individual_decision(self, decision_row) -> Dict[str, Any]:
+        """Load a single judge decision with its scores."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Load criterion scores
+            cursor.execute("""
+                SELECT * FROM criterion_scores WHERE judge_decision_id = ?
+                ORDER BY criterion, participant_id
+            """, (decision_row["id"],))
+            score_rows = cursor.fetchall()
+
+            return {
+                "winner_id": decision_row["winner_id"],
+                "winner_margin": decision_row["winner_margin"],
+                "overall_feedback": decision_row["overall_feedback"],
+                "reasoning": decision_row["reasoning"],
+                "criterion_scores": [
+                    {
+                        "criterion": row["criterion"],
+                        "participant_id": row["participant_id"],
+                        "score": row["score"],
+                        "feedback": row["feedback"]
+                    }
+                    for row in score_rows
+                ],
+                "metadata": {
+                    "judge_model": decision_row["judge_model"],
+                    "judge_provider": decision_row["judge_provider"],
+                    "generation_time_ms": decision_row["generation_time_ms"],
+                    "is_ensemble": decision_row["is_ensemble"],
+                    "ensemble_size": decision_row["ensemble_size"]
+                }
+            }
+
+    def _load_ensemble_decision(self, ensemble_row) -> Dict[str, Any]:
+        """Load an ensemble decision with individual judge data reconstructed properly."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Load ensemble averaged scores
+            cursor.execute("""
+                SELECT * FROM criterion_scores WHERE judge_decision_id = ?
+                ORDER BY criterion, participant_id
+            """, (ensemble_row["id"],))
+            ensemble_score_rows = cursor.fetchall()
+
+            # Load individual judge decisions
+            cursor.execute("""
+                SELECT * FROM judge_decisions
+                WHERE ensemble_parent_id = ?
+                ORDER BY created_at
+            """, (ensemble_row["id"],))
+            individual_rows = cursor.fetchall()
+
+            individual_decisions = []
+            for individual_row in individual_rows:
+                individual_decision = self._load_individual_decision(individual_row)
+                individual_decisions.append(individual_decision)
+
+            return {
+                "winner_id": ensemble_row["winner_id"],
+                "winner_margin": ensemble_row["winner_margin"],
+                "overall_feedback": ensemble_row["overall_feedback"],
+                "reasoning": ensemble_row["reasoning"],
+                "criterion_scores": [
+                    {
+                        "criterion": row["criterion"],
+                        "participant_id": row["participant_id"],
+                        "score": row["score"],
+                        "feedback": row["feedback"]
+                    }
+                    for row in ensemble_score_rows
+                ],
+                "metadata": {
+                    "judge_model": ensemble_row["judge_model"],
+                    "judge_provider": ensemble_row["judge_provider"],
+                    "generation_time_ms": ensemble_row["generation_time_ms"],
+                    "is_ensemble": ensemble_row["is_ensemble"],
+                    "ensemble_size": ensemble_row["ensemble_size"],
+                    "individual_decisions": individual_decisions
+                }
+            }
 
     def load_judge_decision(self, debate_id: int) -> Optional[Dict[str, Any]]:
         """Load the first/primary judge decision for a debate."""
