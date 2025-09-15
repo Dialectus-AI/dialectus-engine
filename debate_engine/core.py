@@ -1,6 +1,6 @@
 """Core debate engine for orchestrating AI model debates."""
 
-from typing import Dict, List, Optional, Any
+from typing import Any
 import asyncio
 import logging
 import time
@@ -21,12 +21,12 @@ class DebateEngine:
     def __init__(self, config: AppConfig, model_manager: ModelManager):
         self.config = config
         self.model_manager = model_manager
-        self.context: Optional[DebateContext] = None
-        self._system_prompts: Dict[str, str] = {}
+        self.context: DebateContext | None = None
+        self._system_prompts: dict[str, str] = {}
         self.format = format_registry.get_format(config.debate.format)
 
         # Initialize transcript manager if enabled
-        self.transcript_manager: Optional[TranscriptManager] = None
+        self.transcript_manager: TranscriptManager | None = None
         if config.system.save_transcripts:
             from pathlib import Path
 
@@ -35,7 +35,7 @@ class DebateEngine:
             db_path = transcript_dir / "debates.db"
             self.transcript_manager = TranscriptManager(str(db_path))
 
-    async def initialize_debate(self, topic: Optional[str] = None) -> DebateContext:
+    async def initialize_debate(self, topic: str | None = None) -> DebateContext:
         """Initialize a new debate with the given topic."""
         debate_topic = topic or self.config.debate.topic
 
@@ -141,7 +141,7 @@ PERSONALITY: {personality.title()}
 
 Remember: You are {model_id} and should maintain consistency in your argumentation style throughout the debate."""
 
-    async def conduct_round(self, phase: DebatePhase) -> List[DebateMessage]:
+    async def conduct_round(self, phase: DebatePhase) -> list[DebateMessage]:
         """Conduct a single round of the debate."""
         if not self.context:
             raise RuntimeError("No active debate context")
@@ -165,7 +165,7 @@ Remember: You are {model_id} and should maintain consistency in your argumentati
 
     async def conduct_format_round(
         self, format_phase: FormatPhase
-    ) -> List[DebateMessage]:
+    ) -> list[DebateMessage]:
         """Conduct a round using a specific format phase."""
         if not self.context:
             raise RuntimeError("No active debate context")
@@ -185,7 +185,7 @@ Remember: You are {model_id} and should maintain consistency in your argumentati
 
         return round_messages
 
-    async def _get_speaking_order(self, phase: DebatePhase) -> List[str]:
+    async def _get_speaking_order(self, phase: DebatePhase) -> list[str]:
         """Determine speaking order for the current phase."""
         if not self.context:
             raise RuntimeError("No active debate context")
@@ -301,7 +301,7 @@ Remember: You are {model_id} and should maintain consistency in your argumentati
 
     def _build_conversation_context(
         self, speaker_id: str, phase: DebatePhase
-    ) -> List[Dict[str, str]]:
+    ) -> list[dict[str, str]]:
         """Build conversation context for the model."""
         if not self.context:
             raise RuntimeError("No active debate context")
@@ -348,7 +348,7 @@ Remember: You are {model_id} and should maintain consistency in your argumentati
 
     def _build_format_conversation_context(
         self, speaker_id: str, format_phase: FormatPhase
-    ) -> List[Dict[str, str]]:
+    ) -> list[dict[str, str]]:
         """Build conversation context for the model using format phase."""
         if not self.context:
             raise RuntimeError("No active debate context")
@@ -560,7 +560,7 @@ Remember: You are {model_id} and should maintain consistency in your argumentati
     def _save_individual_decision(self, transcript_id: int, judge_decision) -> int:
         """Save a single judge decision to the database."""
         if not self.transcript_manager:
-            raise RuntimeError("Transcript manager not initialized - cannot save judge decision")
+            raise RuntimeError("Transcript manager not initialized")
 
         logger.info(
             f"Saving individual judge decision to database for transcript {transcript_id}"
@@ -603,7 +603,7 @@ Remember: You are {model_id} and should maintain consistency in your argumentati
         }
 
         if not self.transcript_manager:
-            raise RuntimeError("Transcript manager not initialized - cannot save ensemble summary")
+            raise RuntimeError("Transcript manager not initialized")
 
         ensemble_id = self.transcript_manager.db_manager.save_ensemble_summary(
             transcript_id, ensemble_summary_with_metadata
@@ -612,13 +612,13 @@ Remember: You are {model_id} and should maintain consistency in your argumentati
             f"Successfully saved ensemble summary {ensemble_id} for transcript {transcript_id} with {len(decisions)} individual decisions"
         )
 
-    def get_transcript_for_judging(self) -> Optional[str]:
+    def get_transcript_for_judging(self) -> str | None:
         """Get formatted transcript suitable for AI judging."""
         if not self.context or not self.transcript_manager:
             return None
         return self.transcript_manager.format_transcript_for_judging(self.context)
 
-    async def judge_debate_with_judges(self, judges: List) -> Optional[Any]:
+    async def judge_debate_with_judges(self, judges: list) -> Any | None:
         """Judge the completed debate using a list of AI judges."""
         if not self.context or self.context.current_phase != DebatePhase.COMPLETED:
             raise RuntimeError("Cannot judge incomplete debate")
@@ -691,5 +691,7 @@ Remember: You are {model_id} and should maintain consistency in your argumentati
             return {
                 "type": "ensemble",
                 "decisions": decisions,
-                "ensemble_summary": calculate_ensemble_result(decisions, self.context),
+                "ensemble_summary": calculate_ensemble_result(
+                    decisions, self.context
+                ),
             }
