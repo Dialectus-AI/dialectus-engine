@@ -4,7 +4,6 @@ import asyncio
 import uuid
 from typing import Dict, List, Any
 import logging
-from contextlib import asynccontextmanager
 
 from fastapi import HTTPException, WebSocket
 
@@ -12,7 +11,7 @@ from config.settings import get_default_config
 from models.manager import ModelManager
 from debate_engine.core import DebateEngine
 from formats import format_registry
-from judges.factory import create_judge
+from judges.factory import create_judges
 from web.debate_setup_request import DebateSetupRequest
 
 logger = logging.getLogger(__name__)
@@ -130,8 +129,6 @@ class DebateManager:
             # Brief delay to ensure WebSocket connections are established
             await asyncio.sleep(1.0)
             # Hook into the engine to broadcast updates in real-time
-            original_conduct_round = engine.conduct_format_round
-
             async def conduct_round_with_broadcast(format_phase):
                 # Get format phases for progress calculation
                 model_ids = list(context.participants.keys())
@@ -239,42 +236,73 @@ class DebateManager:
             judge_models = config.judging.judge_models
             judge_provider = config.judging.judge_provider
             criteria = config.judging.criteria
-            judge = create_judge(judge_models, judge_provider, config.system, debate_info["manager"], criteria)
+            judges = create_judges(judge_models, judge_provider, config.system, debate_info["manager"], criteria)
 
-            judge_decision = None
+            judge_result = None
             judges_configured = bool(judge_models)  # True if judge_models is not empty
             judging_succeeded = True
 
-            if judge:
+            # NOTE: Judge failures are intentionally NOT re-raised here to keep the server running.
+            # Clients (CLI/web) receive judge_error WebSocket messages and handle termination themselves.
+            # This allows the server to continue serving other requests while clients fail gracefully.
+            if judges:
                 try:
                     await self._broadcast_to_debate(
                         debate_id, {"type": "judging_started"}
                     )
 
-                    judge_decision = await engine.judge_debate(judge)
-                    if judge_decision:
-                        await self._broadcast_to_debate(
-                            debate_id,
-                            {
-                                "type": "judge_decision",
-                                "decision": {
-                                    "winner_id": judge_decision.winner_id,
-                                    "winner_margin": judge_decision.winner_margin,
-                                    "overall_feedback": judge_decision.overall_feedback,
-                                    "reasoning": judge_decision.reasoning,
-                                    "criterion_scores": [
-                                        {
-                                            "criterion": score.criterion.value,
-                                            "participant_id": score.participant_id,
-                                            "score": score.score,
-                                            "feedback": score.feedback,
-                                        }
-                                        for score in judge_decision.criterion_scores
-                                    ],
-                                    "metadata": getattr(judge_decision, "metadata", {}),
+                    judge_result = await engine.judge_debate_with_judges(judges)
+                    if judge_result:
+                        # Handle both single judge and ensemble results
+                        if isinstance(judge_result, dict) and judge_result.get("type") == "ensemble":
+                            # Ensemble result - broadcast the ensemble summary
+                            ensemble_summary = judge_result["ensemble_summary"]
+                            await self._broadcast_to_debate(
+                                debate_id,
+                                {
+                                    "type": "ensemble_decision",
+                                    "num_judges": ensemble_summary["num_judges"],
+                                    "final_winner": ensemble_summary["final_winner_id"],
+                                    "final_margin": ensemble_summary["final_margin"],
+                                    "consensus_level": ensemble_summary["consensus_level"],
+                                    "summary_reasoning": ensemble_summary["summary_reasoning"],
+                                    "summary_feedback": ensemble_summary["summary_feedback"],
                                 },
-                            },
-                        )
+                            )
+                        else:
+                            # Single judge result - broadcast as before
+                            # Import here to avoid circular imports
+                            from judges.base import JudgeDecision
+
+                            # Type check: ensure it's a JudgeDecision object, not a dict
+                            if isinstance(judge_result, JudgeDecision):
+                                await self._broadcast_to_debate(
+                                    debate_id,
+                                    {
+                                        "type": "judge_decision",
+                                        "decision": {
+                                            "winner_id": judge_result.winner_id,
+                                            "winner_margin": judge_result.winner_margin,
+                                            "overall_feedback": judge_result.overall_feedback,
+                                            "reasoning": judge_result.reasoning,
+                                            "criterion_scores": [
+                                                {
+                                                    "criterion": score.criterion.value,
+                                                    "participant_id": score.participant_id,
+                                                    "score": score.score,
+                                                    "feedback": score.feedback,
+                                                }
+                                                for score in judge_result.criterion_scores
+                                            ],
+                                            "judge_model": judge_result.judge_model,
+                                            "judge_provider": judge_result.judge_provider,
+                                            "generation_time_ms": judge_result.generation_time_ms,
+                                        },
+                                    },
+                                )
+                            else:
+                                logger.error(f"Unexpected judge_result type: {type(judge_result)}")
+                                judging_succeeded = False
                     else:
                         judging_succeeded = False
                         logger.error(f"Judge returned None decision for {debate_id}")
@@ -299,7 +327,7 @@ class DebateManager:
                     raise RuntimeError(error_msg)
 
                 # Save transcript (with judge decision if judges succeeded, without if no judges configured)
-                engine.save_transcript_with_judge_decision(judge_decision)
+                engine.save_transcript_with_judge_result(judge_result)
 
                 debate_info["status"] = "completed"
                 logger.info(f"Debate {debate_id} completed - transcript saved with judging status: judges_configured={judges_configured}, judging_succeeded={judging_succeeded}")

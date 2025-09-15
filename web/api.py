@@ -14,7 +14,7 @@ from config.settings import get_default_config, ModelConfig
 from models.manager import ModelManager
 from debate_engine.transcript import TranscriptManager
 from formats import format_registry
-from judges.factory import create_judge
+from judges.factory import create_judges
 from web.debate_manager import DebateManager
 from web.debate_reponse import DebateResponse
 from web.debate_setup_request import DebateSetupRequest

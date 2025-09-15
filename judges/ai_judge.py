@@ -2,7 +2,7 @@
 
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Dict, List
 import re
 import uuid
 
@@ -24,11 +24,12 @@ class AIJudge(BaseJudge):
         judge_model_name: str,
         criteria: List[str],
         system_config: SystemConfig,
-        judge_provider: Optional[str] = None,
+        judge_provider: str,
     ):
         super().__init__(criteria)
         self.model_manager = model_manager
         self.judge_model_name = judge_model_name
+        self.judge_provider = judge_provider  # Store provider for database saving
         self.system_config = system_config
 
         # Initialize ensemble temperature (can be overridden for ensemble judges)
@@ -40,11 +41,6 @@ class AIJudge(BaseJudge):
         # Register judge model with manager
         from config.settings import ModelConfig
 
-        # Use provided provider or raise an error if not provided
-        if not judge_provider:
-            raise ValueError(
-                f"Judge provider must be specified for model {judge_model_name}"
-            )
 
         judge_config = ModelConfig(
             name=judge_model_name,
@@ -296,16 +292,35 @@ Provide your evaluation as valid JSON only, no additional text:"""
 
             # Extract JSON from response (handle markdown code fences and extra text)
             # First, try to extract from markdown code fences
-            markdown_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", evaluation, re.DOTALL)
+            markdown_match = re.search(r"```(?:json)?\s*(\{.*\})\s*```", evaluation, re.DOTALL)
             if markdown_match:
                 json_text = markdown_match.group(1)
                 logger.debug(f"Extracted JSON from markdown (first 300 chars): {json_text[:300]}")
             else:
-                # Fallback to looking for bare JSON
-                json_match = re.search(r"\{.*\}", evaluation, re.DOTALL)
-                if json_match:
-                    json_text = json_match.group()
-                    logger.debug(f"Extracted bare JSON (first 300 chars): {json_text[:300]}")
+                # Fallback to looking for bare JSON - find the complete JSON object
+                # Look for opening brace and find matching closing brace
+                start_idx = evaluation.find('{')
+                if start_idx != -1:
+                    # Count braces to find the complete JSON object
+                    brace_count = 0
+                    end_idx = start_idx
+                    for i, char in enumerate(evaluation[start_idx:], start_idx):
+                        if char == '{':
+                            brace_count += 1
+                        elif char == '}':
+                            brace_count -= 1
+                            if brace_count == 0:
+                                end_idx = i
+                                break
+
+                    if brace_count == 0:  # Found matching closing brace
+                        json_text = evaluation[start_idx:end_idx + 1]
+                        logger.debug(f"Extracted bare JSON (first 300 chars): {json_text[:300]}")
+                    else:
+                        logger.debug(
+                            "No complete JSON object found, attempting to parse entire response"
+                        )
+                        json_text = evaluation.strip()
                 else:
                     logger.debug(
                         "No JSON found in response, attempting to parse entire response"
@@ -398,16 +413,9 @@ Provide your evaluation as valid JSON only, no additional text:"""
                 criterion_scores=criterion_scores,
                 overall_feedback=overall_feedback,
                 reasoning=reasoning,
-                metadata={
-                    "judge_model": self.judge_model_name,
-                    "raw_evaluation": evaluation,
-                    "enhanced_labels_used": True,
-                    "display_labels": display_labels,  # For frontend display
-                    "generation_time_ms": getattr(
-                        self, "_last_generation_time_ms", None
-                    ),
-                    "calculated_winner": calculated_winner,  # For debugging
-                },
+                judge_model=self.judge_model_name,
+                judge_provider=self.judge_provider,
+                generation_time_ms=getattr(self, "_last_generation_time_ms", None),
             )
 
         except (json.JSONDecodeError, KeyError, ValueError) as e:
@@ -502,237 +510,4 @@ Provide your evaluation as valid JSON only, no additional text:"""
                 )
 
 
-class EnsembleJudge(BaseJudge):
-    """Judge using multiple AI models for ensemble voting."""
-
-    def __init__(self, judges: List[AIJudge], criteria: List[str]):
-        super().__init__(criteria)
-        self.judges = judges
-
-    @property
-    def name(self) -> str:
-        judge_names = [judge.judge_model_name for judge in self.judges]
-        return f"Ensemble Judge ({', '.join(judge_names)})"
-
-    async def evaluate_debate(self, context: DebateContext) -> JudgeDecision:
-        """Evaluate using ensemble of judges."""
-        logger.info(f"Ensemble judge evaluating with {len(self.judges)} judges")
-
-        decisions = []
-        failed_judges = []
-
-        for i, judge in enumerate(self.judges):
-            try:
-                # Add slight randomness to avoid identical evaluations
-                import random
-                random_seed = random.random()
-                logger.info(f"Starting evaluation for judge {i+1}: {judge.judge_model_name} (seed: {random_seed:.4f})")
-
-                decision = await judge.evaluate_debate(context)
-                decisions.append(decision)
-                logger.info(f"Judge {judge.name} completed successfully with winner: {decision.winner_id}, margin: {decision.winner_margin:.2f}")
-
-                # Debug: Log first criterion score to verify different evaluations
-                if decision.criterion_scores:
-                    first_score = decision.criterion_scores[0]
-                    logger.info(f"Judge {i+1} first score sample: {first_score.participant_id} - {first_score.criterion.value}: {first_score.score} - {first_score.feedback[:50]}...")
-
-            except Exception as e:
-                logger.error(f"Judge {judge.name} failed: {e}")
-                failed_judges.append(f"{judge.name}: {str(e)}")
-
-        # Require ALL judges to succeed for ensemble judging
-        if failed_judges:
-            failed_list = "; ".join(failed_judges)
-            raise RuntimeError(
-                f"Ensemble judging requires ALL judges to succeed. "
-                f"Failed judges ({len(failed_judges)}/{len(self.judges)}): {failed_list}"
-            )
-
-        if not decisions:
-            raise RuntimeError("All ensemble judges failed to evaluate the debate")
-
-        # Debug: Check if all decisions are identical
-        if len(decisions) > 1:
-            first_decision = decisions[0]
-            identical_decisions = True
-            for decision in decisions[1:]:
-                if (decision.winner_id != first_decision.winner_id or
-                    abs(decision.winner_margin - first_decision.winner_margin) > 0.01 or
-                    len(decision.criterion_scores) != len(first_decision.criterion_scores)):
-                    identical_decisions = False
-                    break
-
-            if identical_decisions:
-                logger.warning("WARNING: All ensemble judges produced identical decisions - this suggests a problem with randomness or caching")
-                for i, decision in enumerate(decisions):
-                    logger.warning(f"Judge {i+1} decision: winner={decision.winner_id}, margin={decision.winner_margin:.2f}, scores={len(decision.criterion_scores)}")
-
-        logger.info(
-            f"Ensemble evaluation: All {len(decisions)} judges completed successfully"
-        )
-        return self._combine_decisions(decisions, context)
-
-    def _combine_decisions(
-        self, decisions: List[JudgeDecision], context: DebateContext
-    ) -> JudgeDecision:
-        """Combine multiple judge decisions into ensemble decision."""
-        # Count votes for each participant
-        winner_votes = {}
-        for decision in decisions:
-            winner_votes[decision.winner_id] = (
-                winner_votes.get(decision.winner_id, 0) + 1
-            )
-
-        # Get participants and calculate average scores for tie-breaking
-        participants = list(context.participants.keys())
-        participant_total_scores = {p: 0.0 for p in participants}
-        participant_score_counts = {p: 0 for p in participants}
-
-        # Calculate total scores per participant across all judges
-        all_scores = []
-        for decision in decisions:
-            all_scores.extend(decision.criterion_scores)
-
-        for score in all_scores:
-            participant_total_scores[score.participant_id] += score.score
-            participant_score_counts[score.participant_id] += 1
-
-        # Calculate average scores
-        participant_avg_scores = {}
-        for participant in participants:
-            if participant_score_counts[participant] > 0:
-                participant_avg_scores[participant] = (
-                    participant_total_scores[participant]
-                    / participant_score_counts[participant]
-                )
-            else:
-                participant_avg_scores[participant] = 0.0
-
-        # Determine winner with tie-breaking logic
-        max_votes = max(winner_votes.values()) if winner_votes else 0
-        winners_by_vote = [p for p, votes in winner_votes.items() if votes == max_votes]
-
-        if len(winners_by_vote) == 1:
-            # Clear winner by votes
-            ensemble_winner = winners_by_vote[0]
-            decision_method = f"majority vote ({max_votes}/{len(decisions)})"
-        else:
-            # Tie in votes - break tie using average scores
-            tie_winner = max(winners_by_vote, key=lambda p: participant_avg_scores[p])
-            ensemble_winner = tie_winner
-            tied_votes = max_votes
-            winner_score = participant_avg_scores[tie_winner]
-            decision_method = f"tie-breaker by scores (tied at {tied_votes}/{len(decisions)} votes, winner scored {winner_score:.1f} avg)"
-
-        # Validate vote vs score consistency (warn if mismatch but don't fail)
-        score_winner = max(participants, key=lambda p: participant_avg_scores[p])
-        if score_winner != ensemble_winner:
-            logger.warning(
-                f"Vote winner ({ensemble_winner}) differs from score winner ({score_winner}). "
-                f"Using vote-based result with tie-breaking."
-            )
-
-        # Average scores across judges
-        all_scores = []
-        for decision in decisions:
-            all_scores.extend(decision.criterion_scores)
-
-        # Average by criterion and participant
-        averaged_scores = []
-        participants = list(context.participants.keys())
-
-        for criterion in self.criteria:
-            for participant in participants:
-                participant_scores = [
-                    s.score
-                    for s in all_scores
-                    if s.criterion == criterion and s.participant_id == participant
-                ]
-                if participant_scores:
-                    avg_score = sum(participant_scores) / len(participant_scores)
-                    feedbacks = [
-                        s.feedback
-                        for s in all_scores
-                        if s.criterion == criterion and s.participant_id == participant
-                    ]
-                    # Create more distinct feedback combining individual judge perspectives
-                    if len(feedbacks) > 1:
-                        # Check if feedbacks are actually different
-                        unique_feedbacks = list(dict.fromkeys(feedbacks))  # Preserve order, remove duplicates
-                        if len(unique_feedbacks) == 1:
-                            # All judges gave identical feedback - this indicates a problem
-                            combined_feedback = f"[ALL JUDGES IDENTICAL] {unique_feedbacks[0]}"
-                        else:
-                            # Different feedbacks - combine them clearly
-                            combined_feedback = " | ".join(f"J{i+1}: {fb[:40]}{'...' if len(fb) > 40 else ''}"
-                                                           for i, fb in enumerate(unique_feedbacks[:3]))
-                    else:
-                        combined_feedback = feedbacks[0] if feedbacks else "No feedback"
-
-                    averaged_scores.append(
-                        CriterionScore(
-                            criterion=criterion,
-                            participant_id=participant,
-                            score=avg_score,
-                            feedback=combined_feedback,
-                        )
-                    )
-
-        # Calculate winner margin from ensemble averaged scores
-        ensemble_margin = self._calculate_winner_margin(averaged_scores)
-
-        # DEBUG: Log individual decisions before serialization
-        logger.info("=== ENSEMBLE DEBUG: Individual judge decisions ===")
-        for i, decision in enumerate(decisions):
-            logger.info(f"Judge {i+1}: winner={decision.winner_id}, margin={decision.winner_margin:.2f}")
-            if decision.criterion_scores:
-                first_score = decision.criterion_scores[0]
-                logger.info(f"  First score: {first_score.participant_id} - {first_score.criterion.value}: {first_score.score} - {first_score.feedback[:50]}")
-
-        # DEBUG: Log averaged scores
-        logger.info("=== ENSEMBLE DEBUG: Averaged scores ===")
-        for i, score in enumerate(averaged_scores[:3]):  # Just first 3
-            logger.info(f"Avg score {i+1}: {score.participant_id} - {score.criterion.value}: {score.score} - {score.feedback[:50]}")
-
-        return JudgeDecision(
-            winner_id=ensemble_winner,
-            winner_margin=ensemble_margin,  # Calculated from averaged scores
-            criterion_scores=averaged_scores,
-            overall_feedback=f"Ensemble decision from {len(decisions)} judges",
-            reasoning=f"Winner determined by {decision_method}",
-            metadata={
-                "ensemble_size": len(decisions),
-                "individual_decisions": [
-                    self._serialize_individual_decision(d) for d in decisions
-                ],
-                "individual_margins": [
-                    d.winner_margin for d in decisions
-                ],  # For analysis
-                "average_individual_margin": sum(d.winner_margin for d in decisions)
-                / len(decisions),
-            },
-        )
-
-    def _serialize_individual_decision(self, decision: JudgeDecision) -> Dict[str, Any]:
-        """Serialize an individual judge decision for storage in ensemble metadata."""
-        return {
-            "winner_id": decision.winner_id,
-            "winner_margin": decision.winner_margin,
-            "overall_feedback": decision.overall_feedback,
-            "reasoning": decision.reasoning,
-            "criterion_scores": [
-                {
-                    "criterion": (
-                        score.criterion
-                        if isinstance(score.criterion, str)
-                        else score.criterion.value
-                    ),
-                    "participant_id": score.participant_id,
-                    "score": score.score,
-                    "feedback": score.feedback,
-                }
-                for score in decision.criterion_scores
-            ],
-            "metadata": decision.metadata or {},
-        }
+# EnsembleJudge class deleted - ensemble logic moved to core.py coordinator

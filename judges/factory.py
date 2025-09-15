@@ -1,68 +1,53 @@
-"""Factory for creating different types of judges."""
+"""Factory for creating judges."""
 
 import logging
 from typing import Optional, List
 
 from models.manager import ModelManager
 from config.settings import SystemConfig
-from .base import BaseJudge
-from .ai_judge import AIJudge, EnsembleJudge
+from .ai_judge import AIJudge
 
 logger = logging.getLogger(__name__)
 
 
-def create_judge(
+def create_judges(
     judge_models: List[str],
     judge_provider: Optional[str],
     system_config: SystemConfig,
     model_manager: ModelManager,
     criteria: Optional[List[str]] = None
-) -> Optional[BaseJudge]:
-    """Factory function to create appropriate judge based on judges array."""
+) -> List[AIJudge]:
+    """Factory function to create list of AI judges."""
 
     if not judge_models or len(judge_models) == 0:
         logger.info("No judges specified - debate will complete without evaluation")
-        return None
+        return []
 
     # Use default criteria if none provided
     if criteria is None:
         criteria = ["logic", "evidence", "persuasiveness"]
 
-    if len(judge_models) == 1:
-        # Single judge
-        judge_model = judge_models[0]
-        if not judge_provider:
-            raise ValueError(f"Judge provider must be specified for model {judge_model}")
+    if not judge_provider:
+        raise ValueError("Judge provider must be specified")
 
-        logger.info(f"Creating single AI judge with model: {judge_model}")
-        return AIJudge(
+    logger.info(f"Creating {len(judge_models)} AI judges with models: {judge_models}")
+    judges = []
+
+    for i, model_name in enumerate(judge_models):
+        judge = AIJudge(
             model_manager=model_manager,
-            judge_model_name=judge_model,
+            judge_model_name=model_name,
             criteria=criteria,
             system_config=system_config,
             judge_provider=judge_provider
         )
-
-    else:
-        # Ensemble of judges
-        if not judge_provider:
-            raise ValueError("Judge provider must be specified for ensemble judging")
-
-        logger.info(f"Creating ensemble judge with models: {judge_models}")
-        individual_judges = []
-        for i, model_name in enumerate(judge_models):
-            judge = AIJudge(
-                model_manager=model_manager,
-                judge_model_name=model_name,
-                criteria=criteria,
-                system_config=system_config,
-                judge_provider=judge_provider
-            )
-            # Add slightly higher temperature for ensemble judges to increase variation
+        # Add slightly higher temperature for ensemble judges to increase variation
+        if len(judge_models) > 1:
             judge._ensemble_temperature = 0.4 + (i * 0.1)  # 0.4, 0.5, 0.6, etc.
-            individual_judges.append(judge)
 
-        return EnsembleJudge(individual_judges, criteria)
+        judges.append(judge)
+
+    return judges
 
 
 def create_judge_with_auto_config(

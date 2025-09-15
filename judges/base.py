@@ -35,7 +35,9 @@ class JudgeDecision:
     criterion_scores: List[CriterionScore]
     overall_feedback: str
     reasoning: str
-    metadata: Dict[str, Any]
+    judge_model: str
+    judge_provider: str
+    generation_time_ms: Optional[int] = None
 
 
 class BaseJudge(ABC):
