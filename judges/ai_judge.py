@@ -4,6 +4,7 @@ import json
 import logging
 from typing import Any, Dict, List, Optional
 import re
+import uuid
 
 from models.manager import ModelManager
 from config.settings import SystemConfig
@@ -30,6 +31,9 @@ class AIJudge(BaseJudge):
         self.judge_model_name = judge_model_name
         self.system_config = system_config
 
+        # Generate unique judge ID for model manager registration
+        self.judge_id = str(uuid.uuid4())
+
         # Register judge model with manager
         from config.settings import ModelConfig
 
@@ -46,7 +50,7 @@ class AIJudge(BaseJudge):
             max_tokens=3000,  # Much longer responses for complete JSON evaluation
             temperature=0.3,  # Lower temperature for more consistent judging
         )
-        self.model_manager.register_model("judge", judge_config)
+        self.model_manager.register_model(self.judge_id, judge_config)
 
     @property
     def name(self) -> str:
@@ -167,9 +171,12 @@ class AIJudge(BaseJudge):
         start_time = time.time()
 
         # Use model manager to generate response
-        async with self.model_manager.model_session("judge"):
+        # Add some randomness for ensemble judges to get different evaluations
+        temperature = getattr(self, '_ensemble_temperature', 0.3)
+
+        async with self.model_manager.model_session(self.judge_id):
             response = await self.model_manager.generate_response(
-                "judge", messages, max_tokens=3000, temperature=0.3
+                self.judge_id, messages, max_tokens=3000, temperature=temperature
             )
 
         generation_time = time.time() - start_time
@@ -207,6 +214,20 @@ class AIJudge(BaseJudge):
         # Use only side labels for participant identification
         side_labels = [participant_labels.get(p, p) for p in participants]
 
+        # Add randomization to prevent identical evaluations
+        import random
+        import time
+
+        # Use current time and a random element for uniqueness
+        evaluation_id = int(time.time() * 1000) % 10000
+        random_instruction = random.choice([
+            "Pay particular attention to the strength of evidence presented.",
+            "Focus especially on how well arguments address counterpoints.",
+            "Consider the persuasive impact and clarity of each argument.",
+            "Evaluate the logical consistency and reasoning quality.",
+            "Assess how effectively each side builds their case."
+        ])
+
         # Create complete example showing all participants and criteria
         example_scores = []
         for criterion in criteria:
@@ -223,7 +244,12 @@ class AIJudge(BaseJudge):
         participants_list = "\n".join(f"- {label}" for label in side_labels)
         scores_text = ",\n".join(example_scores)
 
-        return f"""Please evaluate this debate and provide your judgment in the following JSON format:
+        return f"""Please evaluate this debate and provide your judgment in the following JSON format.
+
+EVALUATION FOCUS: {random_instruction}
+EVALUATION ID: {evaluation_id}
+
+Please evaluate this debate and provide your judgment in the following JSON format:
 
 {{
   "winner": "{side_labels[0]} or {side_labels[1]}",
@@ -265,16 +291,23 @@ Provide your evaluation as valid JSON only, no additional text:"""
             # Log the raw evaluation for debugging
             logger.info(f"Raw judge evaluation (full response): {evaluation}")
 
-            # Extract JSON from response (handle cases where model adds extra text)
-            json_match = re.search(r"\{.*\}", evaluation, re.DOTALL)
-            if json_match:
-                json_text = json_match.group()
-                logger.debug(f"Extracted JSON (first 300 chars): {json_text[:300]}")
+            # Extract JSON from response (handle markdown code fences and extra text)
+            # First, try to extract from markdown code fences
+            markdown_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", evaluation, re.DOTALL)
+            if markdown_match:
+                json_text = markdown_match.group(1)
+                logger.debug(f"Extracted JSON from markdown (first 300 chars): {json_text[:300]}")
             else:
-                logger.debug(
-                    "No JSON found in response, attempting to parse entire response"
-                )
-                json_text = evaluation.strip()
+                # Fallback to looking for bare JSON
+                json_match = re.search(r"\{.*\}", evaluation, re.DOTALL)
+                if json_match:
+                    json_text = json_match.group()
+                    logger.debug(f"Extracted bare JSON (first 300 chars): {json_text[:300]}")
+                else:
+                    logger.debug(
+                        "No JSON found in response, attempting to parse entire response"
+                    )
+                    json_text = evaluation.strip()
 
             # Try to repair common JSON issues from small models
             json_text = self._repair_json(json_text)
@@ -485,11 +518,22 @@ class EnsembleJudge(BaseJudge):
         decisions = []
         failed_judges = []
 
-        for judge in self.judges:
+        for i, judge in enumerate(self.judges):
             try:
+                # Add slight randomness to avoid identical evaluations
+                import random
+                random_seed = random.random()
+                logger.info(f"Starting evaluation for judge {i+1}: {judge.judge_model_name} (seed: {random_seed:.4f})")
+
                 decision = await judge.evaluate_debate(context)
                 decisions.append(decision)
-                logger.info(f"Judge {judge.name} completed successfully")
+                logger.info(f"Judge {judge.name} completed successfully with winner: {decision.winner_id}, margin: {decision.winner_margin:.2f}")
+
+                # Debug: Log first criterion score to verify different evaluations
+                if decision.criterion_scores:
+                    first_score = decision.criterion_scores[0]
+                    logger.info(f"Judge {i+1} first score sample: {first_score.participant_id} - {first_score.criterion.value}: {first_score.score} - {first_score.feedback[:50]}...")
+
             except Exception as e:
                 logger.error(f"Judge {judge.name} failed: {e}")
                 failed_judges.append(f"{judge.name}: {str(e)}")
@@ -504,6 +548,22 @@ class EnsembleJudge(BaseJudge):
 
         if not decisions:
             raise RuntimeError("All ensemble judges failed to evaluate the debate")
+
+        # Debug: Check if all decisions are identical
+        if len(decisions) > 1:
+            first_decision = decisions[0]
+            identical_decisions = True
+            for decision in decisions[1:]:
+                if (decision.winner_id != first_decision.winner_id or
+                    abs(decision.winner_margin - first_decision.winner_margin) > 0.01 or
+                    len(decision.criterion_scores) != len(first_decision.criterion_scores)):
+                    identical_decisions = False
+                    break
+
+            if identical_decisions:
+                logger.warning("WARNING: All ensemble judges produced identical decisions - this suggests a problem with randomness or caching")
+                for i, decision in enumerate(decisions):
+                    logger.warning(f"Judge {i+1} decision: winner={decision.winner_id}, margin={decision.winner_margin:.2f}, scores={len(decision.criterion_scores)}")
 
         logger.info(
             f"Ensemble evaluation: All {len(decisions)} judges completed successfully"
@@ -593,9 +653,19 @@ class EnsembleJudge(BaseJudge):
                         for s in all_scores
                         if s.criterion == criterion and s.participant_id == participant
                     ]
-                    combined_feedback = " | ".join(
-                        feedbacks[:2]
-                    )  # Limit feedback length
+                    # Create more distinct feedback combining individual judge perspectives
+                    if len(feedbacks) > 1:
+                        # Check if feedbacks are actually different
+                        unique_feedbacks = list(dict.fromkeys(feedbacks))  # Preserve order, remove duplicates
+                        if len(unique_feedbacks) == 1:
+                            # All judges gave identical feedback - this indicates a problem
+                            combined_feedback = f"[ALL JUDGES IDENTICAL] {unique_feedbacks[0]}"
+                        else:
+                            # Different feedbacks - combine them clearly
+                            combined_feedback = " | ".join(f"J{i+1}: {fb[:40]}{'...' if len(fb) > 40 else ''}"
+                                                           for i, fb in enumerate(unique_feedbacks[:3]))
+                    else:
+                        combined_feedback = feedbacks[0] if feedbacks else "No feedback"
 
                     averaged_scores.append(
                         CriterionScore(
@@ -608,6 +678,19 @@ class EnsembleJudge(BaseJudge):
 
         # Calculate winner margin from ensemble averaged scores
         ensemble_margin = self._calculate_winner_margin(averaged_scores)
+
+        # DEBUG: Log individual decisions before serialization
+        logger.info("=== ENSEMBLE DEBUG: Individual judge decisions ===")
+        for i, decision in enumerate(decisions):
+            logger.info(f"Judge {i+1}: winner={decision.winner_id}, margin={decision.winner_margin:.2f}")
+            if decision.criterion_scores:
+                first_score = decision.criterion_scores[0]
+                logger.info(f"  First score: {first_score.participant_id} - {first_score.criterion.value}: {first_score.score} - {first_score.feedback[:50]}")
+
+        # DEBUG: Log averaged scores
+        logger.info("=== ENSEMBLE DEBUG: Averaged scores ===")
+        for i, score in enumerate(averaged_scores[:3]):  # Just first 3
+            logger.info(f"Avg score {i+1}: {score.participant_id} - {score.criterion.value}: {score.score} - {score.feedback[:50]}")
 
         return JudgeDecision(
             winner_id=ensemble_winner,
