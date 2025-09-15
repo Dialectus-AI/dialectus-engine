@@ -76,7 +76,6 @@ Configuration follows the pattern: Base config → Web UI overrides → Final de
 ### API Endpoints
 
 Key REST endpoints:
-- `GET /api/debates` - List active debates  
 - `POST /api/debates` - Create new debate
 - `GET /api/debates/{id}` - Get debate details
 - `WebSocket /ws/debate/{id}` - Real-time debate updates
