@@ -31,6 +31,9 @@ class AIJudge(BaseJudge):
         self.judge_model_name = judge_model_name
         self.system_config = system_config
 
+        # Initialize ensemble temperature (can be overridden for ensemble judges)
+        self._ensemble_temperature: float = 0.3
+
         # Generate unique judge ID for model manager registration
         self.judge_id = str(uuid.uuid4())
 
