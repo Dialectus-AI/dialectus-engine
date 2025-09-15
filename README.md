@@ -1,6 +1,16 @@
+<img src="./assets/logo.png" alt="Dialectus Engine" width="500">
+
+<br />
+
 # Dialectus Engine
 
 Core debate orchestration engine and REST API for the Dialectus AI debate system.
+
+![Python](https://img.shields.io/badge/python-3.8+-blue.svg)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688.svg)
+![SQLite](https://img.shields.io/badge/database-SQLite-003B57.svg)
+![License](https://img.shields.io/badge/license-MIT-green.svg)
+![Status](https://img.shields.io/badge/status-Production%20Ready-brightgreen.svg)
 
 ## Overview
 
@@ -125,4 +135,4 @@ Key architectural principles:
 
 ## Development
 
-This repository was extracted from the original AI-Debate monolith to create a focused, deployable service for the debate engine and API layer. The engine handles all AI model interactions, debate logic, and data persistence while exposing clean APIs for client applications.
+This repository creates a focused, deployable service for the debate engine and API layer. The engine handles all AI model interactions, debate logic, and data persistence while exposing clean APIs for client applications.
