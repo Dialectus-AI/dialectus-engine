@@ -22,13 +22,13 @@
     }
   },
   "judging": {
-    "method": "ai",
     "criteria": [
       "logic",
       "evidence",
       "persuasiveness"
     ],
-    "judge_model": "openthinker:7b"
+    "judge_models": ["openthinker:7b"],
+    "judge_provider": "ollama"
   },
   "system": {
     "ollama_base_url": "http://localhost:11434",
