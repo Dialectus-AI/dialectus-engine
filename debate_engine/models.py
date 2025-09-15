@@ -11,6 +11,7 @@ from .types import DebatePhase, Position
 @dataclass
 class DebateMessage:
     """A single message in the debate."""
+
     speaker_id: str
     position: Position
     phase: DebatePhase
@@ -23,6 +24,7 @@ class DebateMessage:
 @dataclass
 class DebateContext:
     """Full context of an ongoing debate."""
+
     topic: str
     participants: Dict[str, ModelConfig]
     messages: List[DebateMessage] = field(default_factory=list)
