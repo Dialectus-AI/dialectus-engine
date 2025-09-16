@@ -1,6 +1,6 @@
 """Model manager with multi-provider support."""
 
-from typing import Dict, List, Any, TYPE_CHECKING, Protocol, cast
+from typing import TYPE_CHECKING, Any, Protocol, cast
 import logging
 from contextlib import asynccontextmanager
 from config.settings import ModelConfig, SystemConfig
@@ -9,12 +9,14 @@ from .providers.providers import ProviderFactory
 
 if TYPE_CHECKING:
     from models.base_types import BaseEnhancedModelInfo
+else:
+    from .base_types import BaseEnhancedModelInfo
 
 
 class EnhancedModelProvider(Protocol):
     """Protocol for providers that support enhanced model information."""
 
-    async def get_enhanced_models(self) -> List["BaseEnhancedModelInfo"]: ...
+    async def get_enhanced_models(self) -> list[BaseEnhancedModelInfo]: ...
 
 
 logger = logging.getLogger(__name__)
@@ -25,8 +27,8 @@ class ModelManager:
 
     def __init__(self, system_config: SystemConfig):
         self._system_config = system_config
-        self._model_configs: Dict[str, ModelConfig] = {}
-        self._providers: Dict[str, BaseModelProvider] = {}
+        self._model_configs: dict[str, ModelConfig] = {}
+        self._providers: dict[str, BaseModelProvider] = {}
 
         # Initialize providers lazily as needed
 
@@ -53,7 +55,7 @@ class ModelManager:
         logger.info(f"Registered model {model_id}: {config.name} ({config.provider})")
 
     async def generate_response(
-        self, model_id: str, messages: List[Dict[str, str]], **overrides
+        self, model_id: str, messages: list[dict[str, str]], **overrides
     ) -> str:
         """Generate a response from the specified model."""
         if model_id not in self._model_configs:
@@ -85,7 +87,7 @@ class ModelManager:
         finally:
             logger.debug(f"Ending session for model {model_id}")
 
-    async def get_available_models(self) -> Dict[str, List[str]]:
+    async def get_available_models(self) -> dict[str, list[str]]:
         """Get list of available models from all providers."""
         all_models = {}
 
@@ -100,15 +102,7 @@ class ModelManager:
 
         return all_models
 
-    async def get_available_models_flat(self) -> List[str]:
-        """Get flat list of available models (backward compatibility)."""
-        all_models = await self.get_available_models()
-        flat_list = []
-        for models in all_models.values():
-            flat_list.extend(models)
-        return flat_list
-
-    async def get_enhanced_models(self) -> List[Dict[str, Any]]:
+    async def get_enhanced_models(self) -> list[dict[str, Any]]:
         """Get enhanced model information with metadata, filtering, and classification."""
         enhanced_models = []
 
@@ -178,6 +172,54 @@ class ModelManager:
                                 "display_name": model_id,
                             }
                         )
+
+            except Exception as e:
+                logger.error(f"Failed to get enhanced models from {provider_name}: {e}")
+
+        return enhanced_models
+
+    async def get_enhanced_models_typed(self) -> list[BaseEnhancedModelInfo]:
+        """Get enhanced model information as properly typed objects for internal use."""
+        enhanced_models = []
+
+        for provider_name in ProviderFactory.get_available_providers():
+            try:
+                provider = self._get_provider(provider_name)
+
+                # Check if provider supports enhanced model information
+                if hasattr(provider, "get_enhanced_models"):
+                    # Type-safe call using cast and protocol
+                    enhanced_provider = cast(EnhancedModelProvider, provider)
+                    provider_enhanced = await enhanced_provider.get_enhanced_models()
+                    enhanced_models.extend(provider_enhanced)
+                else:
+                    # Fallback for providers without enhanced support
+                    from .base_types import ModelWeightClass, ModelTier, ModelPricing
+
+                    basic_models = await provider.get_available_models()
+                    for model_id in basic_models:
+                        fallback_model = BaseEnhancedModelInfo(
+                            id=model_id,
+                            name=model_id,
+                            provider=provider_name,
+                            description="Standard model",
+                            weight_class=ModelWeightClass.MIDDLEWEIGHT,
+                            tier=ModelTier.BALANCED,
+                            context_length=4096,
+                            max_completion_tokens=1024,
+                            pricing=ModelPricing(
+                                prompt_cost_per_1k=0.0,
+                                completion_cost_per_1k=0.0,
+                                is_free=True,
+                                currency="USD",
+                            ),
+                            value_score=5.0,
+                            is_preview=False,
+                            is_text_only=True,
+                            estimated_params=None,
+                            source_info={},
+                        )
+                        enhanced_models.append(fallback_model)
 
             except Exception as e:
                 logger.error(f"Failed to get enhanced models from {provider_name}: {e}")
