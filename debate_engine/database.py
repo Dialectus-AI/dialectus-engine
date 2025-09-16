@@ -5,9 +5,7 @@ import logging
 from pathlib import Path
 from typing import Optional, Dict, Any, List, TypedDict, TYPE_CHECKING
 from contextlib import contextmanager
-
-if TYPE_CHECKING:
-    from judges.base import JudgeDecision
+from judges.base import JudgeDecision
 
 logger = logging.getLogger(__name__)
 
@@ -148,6 +146,7 @@ class DatabaseManager:
             """
             )
 
+
             # Create criterion_scores table
             cursor.execute(
                 """
@@ -198,6 +197,7 @@ class DatabaseManager:
                 ON ensemble_summary (debate_id)
             """
             )
+
 
             conn.commit()
             logger.info(f"Database initialized at {self.db_path}")
