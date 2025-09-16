@@ -113,7 +113,7 @@ class OpenRouterProvider(BaseModelProvider):
                 else:
                     logger.warning("All cached models failed to reconstruct, fetching fresh data...")
                     # Clear corrupted cache and fall through to fresh API call
-                    cache_manager.delete("openrouter", "models")
+                    cache_manager.invalidate("openrouter", "models")
 
             # Cache miss - fetch fresh data from OpenRouter API
             logger.info("Fetching fresh OpenRouter models from API...")
@@ -154,8 +154,8 @@ class OpenRouterProvider(BaseModelProvider):
                     max_models_per_tier=8,  # Limit selection to avoid overwhelming UI
                 )
 
-                # Cache the enhanced models for 6 hours
-                cache_manager.set("openrouter", "models", enhanced_models, ttl_hours=6)
+                # Cache the enhanced models for 1 hour (OpenRouter doesn't update frequently)
+                cache_manager.set("openrouter", "models", enhanced_models, ttl_hours=1)
 
                 logger.info(
                     f"OpenRouter: Fetched and cached {len(models_response.data)} models, filtered down to {len(enhanced_models)} curated options"
