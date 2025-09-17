@@ -252,60 +252,9 @@ class DebateManager:
                     )
 
                     judge_result = await engine.judge_debate_with_judges(judges)
-                    if judge_result:
-                        # Handle both single judge and ensemble results
-                        if isinstance(judge_result, dict) and judge_result.get("type") == "ensemble":
-                            # Ensemble result - broadcast the ensemble summary
-                            ensemble_summary = judge_result["ensemble_summary"]
-                            await self._broadcast_to_debate(
-                                debate_id,
-                                {
-                                    "type": "ensemble_decision",
-                                    "num_judges": ensemble_summary["num_judges"],
-                                    "final_winner": ensemble_summary["final_winner_id"],
-                                    "final_margin": ensemble_summary["final_margin"],
-                                    "consensus_level": ensemble_summary["consensus_level"],
-                                    "summary_reasoning": ensemble_summary["summary_reasoning"],
-                                    "summary_feedback": ensemble_summary["summary_feedback"],
-                                },
-                            )
-                        else:
-                            # Single judge result - broadcast as before
-                            # Import here to avoid circular imports
-                            from judges.base import JudgeDecision
 
-                            # Type check: ensure it's a JudgeDecision object, not a dict
-                            if isinstance(judge_result, JudgeDecision):
-                                await self._broadcast_to_debate(
-                                    debate_id,
-                                    {
-                                        "type": "judge_decision",
-                                        "decision": {
-                                            "winner_id": judge_result.winner_id,
-                                            "winner_margin": judge_result.winner_margin,
-                                            "overall_feedback": judge_result.overall_feedback,
-                                            "reasoning": judge_result.reasoning,
-                                            "criterion_scores": [
-                                                {
-                                                    "criterion": score.criterion.value,
-                                                    "participant_id": score.participant_id,
-                                                    "score": score.score,
-                                                    "feedback": score.feedback,
-                                                }
-                                                for score in judge_result.criterion_scores
-                                            ],
-                                            "judge_model": judge_result.judge_model,
-                                            "judge_provider": judge_result.judge_provider,
-                                            "generation_time_ms": judge_result.generation_time_ms,
-                                        },
-                                    },
-                                )
-                            else:
-                                logger.error(f"Unexpected judge_result type: {type(judge_result)}")
-                                judging_succeeded = False
-                    else:
-                        judging_succeeded = False
-                        logger.error(f"Judge returned None decision for {debate_id}")
+                    # Judge result will be broadcast after saving to database
+                    # No immediate broadcasting here since we need the database format
                 except Exception as e:
                     judging_succeeded = False
                     logger.error(f"Judge evaluation failed for {debate_id}: {e}")
@@ -328,6 +277,58 @@ class DebateManager:
 
                 # Save transcript (with judge decision if judges succeeded, without if no judges configured)
                 engine.save_transcript_with_judge_result(judge_result)
+
+                # After saving, load the complete judging data from database and broadcast it
+                if judges_configured and judging_succeeded and engine.transcript_manager:
+                    transcript_id = context.metadata.get("transcript_id")
+                    if transcript_id:
+                        try:
+                            # Load ensemble summary if it exists
+                            ensemble_summary = engine.transcript_manager.db_manager.load_ensemble_summary(transcript_id)
+
+                            if ensemble_summary:
+                                # Ensemble case - load individual decisions and create unified format
+                                individual_decisions = engine.transcript_manager.db_manager.load_judge_decisions(transcript_id)
+
+                                # Aggregate all criterion scores from individual decisions
+                                all_criterion_scores = []
+                                for decision in individual_decisions:
+                                    all_criterion_scores.extend(decision["criterion_scores"])
+
+                                # Send unified judge_decision format with ensemble data
+                                await self._broadcast_to_debate(
+                                    debate_id,
+                                    {
+                                        "type": "judge_decision",
+                                        "decision": {
+                                            "winner_id": ensemble_summary["final_winner_id"],
+                                            "winner_margin": ensemble_summary["final_margin"],
+                                            "overall_feedback": ensemble_summary["summary_feedback"],
+                                            "reasoning": ensemble_summary["summary_reasoning"],
+                                            "criterion_scores": all_criterion_scores,
+                                            "metadata": {
+                                                "ensemble_size": ensemble_summary["num_judges"],
+                                                "consensus_level": ensemble_summary["consensus_level"],
+                                                "ensemble_method": ensemble_summary["ensemble_method"],
+                                                "individual_decisions": individual_decisions,
+                                            },
+                                        },
+                                    },
+                                )
+                            else:
+                                # Single judge case - load single decision
+                                judge_decision = engine.transcript_manager.db_manager.load_judge_decision(transcript_id)
+                                if judge_decision:
+                                    await self._broadcast_to_debate(
+                                        debate_id,
+                                        {
+                                            "type": "judge_decision",
+                                            "decision": judge_decision,
+                                        },
+                                    )
+
+                        except Exception as e:
+                            logger.error(f"Failed to load and broadcast judge results from database: {e}")
 
                 debate_info["status"] = "completed"
                 logger.info(f"Debate {debate_id} completed - transcript saved with judging status: judges_configured={judges_configured}, judging_succeeded={judging_succeeded}")
