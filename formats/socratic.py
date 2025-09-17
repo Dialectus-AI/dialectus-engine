@@ -1,6 +1,5 @@
 """Socratic dialogue format implementation."""
 
-from typing import List, Dict
 from .base import DebateFormat, FormatPhase, Position
 from debate_engine.types import DebatePhase
 
@@ -20,7 +19,7 @@ class SocraticFormat(DebateFormat):
     def description(self) -> str:
         return "Socratic dialogue using questions to explore ideas, challenge assumptions, and discover truth through inquiry"
 
-    def get_phases(self, participants: List[str]) -> List[FormatPhase]:
+    def get_phases(self, participants: list[str]) -> list[FormatPhase]:
         """Socratic format: Initial Position -> Probing Questions -> Deep Inquiry -> Reflection"""
         if len(participants) < 2:
             raise ValueError("Socratic format requires at least 2 participants")
@@ -73,7 +72,7 @@ class SocraticFormat(DebateFormat):
             ),
         ]
 
-    def get_position_assignments(self, participants: List[str]) -> Dict[str, Position]:
+    def get_position_assignments(self, participants: list[str]) -> dict[str, Position]:
         """In Socratic dialogue, assign questioner and responder roles rather than pro/con."""
         assignments = {}
         for i, participant in enumerate(participants[:2]):
@@ -81,7 +80,7 @@ class SocraticFormat(DebateFormat):
             assignments[participant] = Position.PRO if i == 0 else Position.CON
         return assignments
 
-    def get_side_labels(self, participants: List[str]) -> Dict[str, str]:
+    def get_side_labels(self, participants: list[str]) -> dict[str, str]:
         """Return Socratic labels: Questioner and Responder."""
         labels = {}
         for i, participant in enumerate(participants[:2]):
@@ -118,7 +117,7 @@ class SocraticFormat(DebateFormat):
         """Socratic works best with exactly 2 participants."""
         return 2
 
-    def get_topic_generation_messages(self) -> List[Dict[str, str]]:
+    def get_topic_generation_messages(self) -> list[dict[str, str]]:
         """Get Socratic specific messages for AI topic generation."""
         return [
             {

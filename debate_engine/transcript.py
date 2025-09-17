@@ -1,7 +1,7 @@
 """Transcript management for debates using SQLite."""
 
 from datetime import datetime
-from typing import Dict, List, Any, Optional, TypedDict
+from typing import Any, TypedDict
 import logging
 
 from .models import DebateContext
@@ -23,7 +23,7 @@ class DebateMetadata(TypedDict):
     id: int
     topic: str
     format: str
-    participants: Dict[str, ParticipantInfo]
+    participants: dict[str, ParticipantInfo]
     final_phase: str
     total_rounds: int
     saved_at: str
@@ -43,16 +43,16 @@ class MessageData(TypedDict):
     content: str
     timestamp: str
     word_count: int
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
 
 
 class FullTranscriptData(TypedDict):
     """Complete transcript data including metadata and messages."""
 
-    metadata: Dict[str, Any]  # Contains the same fields as DebateMetadata but nested
-    messages: List[MessageData]
-    scores: Dict[str, float]
-    context_metadata: Dict[str, Any]
+    metadata: dict[str, Any]  # Contains the same fields as DebateMetadata but nested
+    messages: list[MessageData]
+    scores: dict[str, float]
+    context_metadata: dict[str, Any]
 
 
 class TranscriptManager:
@@ -74,7 +74,7 @@ class TranscriptManager:
 
     def _context_to_dict(
         self, context: DebateContext, total_debate_time_ms: int
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Convert DebateContext to dictionary for JSON serialization."""
         return {
             "metadata": {
@@ -119,7 +119,7 @@ class TranscriptManager:
 
     def list_transcripts(
         self, limit: int | None = None, offset: int = 0
-    ) -> List[DebateMetadata]:
+    ) -> list[DebateMetadata]:
         """List transcripts with pagination support."""
         try:
             result = self.db_manager.list_debates(limit=limit, offset=offset)
@@ -196,7 +196,7 @@ class TranscriptManager:
             logger.error(f"Failed to get debate count: {e}")
             return 0
 
-    def search_transcripts_by_topic(self, topic_search: str) -> List[DebateMetadata]:
+    def search_transcripts_by_topic(self, topic_search: str) -> list[DebateMetadata]:
         """Search for transcripts containing the topic search term."""
         debates = self.list_transcripts()
         return [
@@ -205,7 +205,7 @@ class TranscriptManager:
             if topic_search.lower() in debate.get("topic", "").lower()
         ]
 
-    def get_transcripts_by_format(self, format_name: str) -> List[DebateMetadata]:
+    def get_transcripts_by_format(self, format_name: str) -> list[DebateMetadata]:
         """Get all transcripts for a specific debate format."""
         debates = self.list_transcripts()
         return [

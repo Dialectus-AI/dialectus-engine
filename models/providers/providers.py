@@ -31,6 +31,6 @@ class ProviderFactory:
         return provider_class(system_config)
 
     @classmethod
-    def get_available_providers(cls) -> List[str]:
+    def get_available_providers(cls) -> list[str]:
         """Get list of available provider names."""
         return list(cls._providers.keys())

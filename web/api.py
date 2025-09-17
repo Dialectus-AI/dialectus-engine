@@ -138,7 +138,7 @@ async def get_providers():
         providers = []
 
         for provider_name in ProviderFactory.get_available_providers():
-            provider_info: Dict[str, Any] = {
+            provider_info: dict[str, Any] = {
                 "name": provider_name,
                 "status": "available",
             }
@@ -442,6 +442,7 @@ async def generate_topic(format: str = "oxford"):
 tournament_manager = None
 tournament_api = None
 
+
 def get_tournament_api():
     """Get or create tournament API instance."""
     global tournament_manager, tournament_api
@@ -449,12 +450,16 @@ def get_tournament_api():
         config = get_default_config()
         model_manager = ModelManager(config.system)
 
-        from tournaments import TournamentManager, TournamentAPI, patch_debate_manager_for_tournaments
+        from tournaments import (
+            TournamentManager,
+            TournamentAPI,
+            patch_debate_manager_for_tournaments,
+        )
 
         tournament_manager = TournamentManager(
             db_path="tournaments.db",
             model_manager=model_manager,
-            debate_manager=debate_manager
+            debate_manager=debate_manager,
         )
         tournament_api = TournamentAPI(tournament_manager)
 

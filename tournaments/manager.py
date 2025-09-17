@@ -257,7 +257,7 @@ class TournamentManager:
 
     async def _get_eligible_models(
         self, weight_class: WeightClass
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get models eligible for the specified weight class."""
         if not self.model_manager:
             raise ValueError("Model manager not available")
@@ -289,8 +289,8 @@ class TournamentManager:
         return eligible_models
 
     def _seed_models(
-        self, models: List[Dict[str, Any]], bracket_size: int
-    ) -> List[Dict[str, Any]]:
+        self, models: list[dict[str, Any]], bracket_size: int
+    ) -> list[dict[str, Any]]:
         """Rank models by value_score and return top bracket_size models."""
         # Sort by value_score in descending order (highest value = best seed)
         sorted_models = sorted(
@@ -309,7 +309,7 @@ class TournamentManager:
         return seeded_models
 
     def _generate_bracket(
-        self, tournament_id: int, seeded_models: List[Dict[str, Any]]
+        self, tournament_id: int, seeded_models: list[dict[str, Any]]
     ) -> None:
         """Generate complete tournament bracket with March Madness seeding."""
         bracket_size = len(seeded_models)
@@ -339,8 +339,8 @@ class TournamentManager:
         logger.info(f"Generated bracket for tournament {tournament_id}")
 
     def _generate_first_round_pairs(
-        self, seeded_models: List[Dict[str, Any]]
-    ) -> List[tuple]:
+        self, seeded_models: list[dict[str, Any]]
+    ) -> list[tuple]:
         """Generate first round pairings using March Madness seeding."""
         n = len(seeded_models)
 
@@ -383,7 +383,7 @@ class TournamentManager:
 
         return pairs
 
-    def _generate_unique_topics(self, num_topics: int) -> List[str]:
+    def _generate_unique_topics(self, num_topics: int) -> list[str]:
         """Generate unique topics for tournament matches."""
         if num_topics <= len(DEFAULT_TOPICS):
             # Shuffle and take what we need
@@ -461,7 +461,7 @@ class TournamentManager:
 
     async def _get_round_winners(
         self, tournament_id: int, round_number: int
-    ) -> List[str]:
+    ) -> list[str]:
         """Get winners from completed round."""
         matches = self.db.get_matches(tournament_id, round_number)
         winners = []
@@ -473,7 +473,7 @@ class TournamentManager:
         return winners
 
     async def _generate_next_round(
-        self, tournament_id: int, round_number: int, winners: List[str]
+        self, tournament_id: int, round_number: int, winners: list[str]
     ) -> None:
         """Generate matches for next round."""
         # Pair winners for next round

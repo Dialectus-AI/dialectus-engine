@@ -15,7 +15,7 @@ class TournamentDebateCallback:
         self.tournament_manager = tournament_manager
 
     async def on_debate_completed(
-        self, debate_id: str, judge_result: Dict[str, Any] | None = None
+        self, debate_id: str, judge_result: dict[str, Any] | None = None
     ) -> None:
         """Handle debate completion for tournament matches."""
         try:
@@ -46,7 +46,7 @@ class TournamentDebateCallback:
         except Exception as e:
             logger.error(f"Error handling tournament debate completion: {e}")
 
-    def _extract_winner(self, judge_result: Dict[str, Any] | None) -> str | None:
+    def _extract_winner(self, judge_result: dict[str, Any] | None) -> str | None:
         """Extract winner ID from judge result."""
         if not judge_result:
             return None
@@ -101,7 +101,7 @@ class DebateManagerTournamentExtension:
     def __init__(self, debate_manager, tournament_manager: TournamentManager):
         self.debate_manager = debate_manager
         self.tournament_manager = tournament_manager
-        self.tournament_callbacks: List[Callable] = []
+        self.tournament_callbacks: list[Callable] = []
 
         # Register tournament callback
         self.tournament_callback = TournamentDebateCallback(tournament_manager)
@@ -113,7 +113,7 @@ class DebateManagerTournamentExtension:
         logger.info("Added tournament callback for debate completion")
 
     async def notify_tournament_completion(
-        self, debate_id: str, judge_result: Dict[str, Any] | None = None
+        self, debate_id: str, judge_result: dict[str, Any] | None = None
     ) -> None:
         """Notify all tournament callbacks of debate completion."""
         for callback in self.tournament_callbacks:
@@ -122,7 +122,7 @@ class DebateManagerTournamentExtension:
             except Exception as e:
                 logger.error(f"Tournament callback failed: {e}")
 
-    async def create_tournament_debate(self, setup_data: Dict[str, Any]) -> str | None:
+    async def create_tournament_debate(self, setup_data: dict[str, Any]) -> str | None:
         """Create a debate specifically for tournament matches."""
         try:
             # Convert tournament setup to DebateSetupRequest format
@@ -177,7 +177,7 @@ def patch_debate_manager_for_tournaments(
     if not hasattr(debate_manager, "notify_tournament_completion"):
 
         async def notify_tournament_completion(
-            debate_id: str, judge_result: Dict[str, Any] | None = None
+            debate_id: str, judge_result: dict[str, Any] | None = None
         ) -> None:
             for callback in debate_manager.tournament_callbacks:
                 try:
@@ -189,7 +189,7 @@ def patch_debate_manager_for_tournaments(
 
     if not hasattr(debate_manager, "create_tournament_debate"):
 
-        async def create_tournament_debate(setup_data: Dict[str, Any]) -> str | None:
+        async def create_tournament_debate(setup_data: dict[str, Any]) -> str | None:
             try:
                 from web.debate_setup_request import DebateSetupRequest
 

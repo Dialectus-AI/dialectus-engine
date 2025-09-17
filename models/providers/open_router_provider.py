@@ -74,12 +74,12 @@ class OpenRouterProvider(BaseModelProvider):
             # Update the class variable to track last request time
             OpenRouterProvider._last_request_time = time.time()
 
-    async def get_available_models(self) -> List[str]:
+    async def get_available_models(self) -> list[str]:
         """Get curated list of available models from OpenRouter with intelligent filtering."""
         enhanced_models = await self.get_enhanced_models()
         return [model.id for model in enhanced_models]
 
-    async def get_enhanced_models(self) -> List["OpenRouterEnhancedModelInfo"]:
+    async def get_enhanced_models(self) -> list["OpenRouterEnhancedModelInfo"]:
         """Get enhanced model information with filtering and classification."""
         if not self._client:
             logger.warning("OpenRouter client not initialized - no API key")
@@ -184,7 +184,7 @@ class OpenRouterProvider(BaseModelProvider):
                 return []
 
     async def generate_response(
-        self, model_config: "ModelConfig", messages: List[Dict[str, str]], **overrides
+        self, model_config: "ModelConfig", messages: list[dict[str, str]], **overrides
     ) -> str:
         """Generate a response using OpenRouter."""
         if not self._client:

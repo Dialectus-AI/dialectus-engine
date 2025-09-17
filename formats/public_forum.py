@@ -1,6 +1,5 @@
 """Public Forum Debate format implementation."""
 
-from typing import List, Dict
 from .base import DebateFormat, FormatPhase, Position
 from debate_engine.types import DebatePhase
 
@@ -20,7 +19,7 @@ class PublicForumFormat(DebateFormat):
     def description(self) -> str:
         return "Public Forum Debate format for discussing current events and real-world issues with accessible arguments"
 
-    def get_phases(self, participants: List[str]) -> List[FormatPhase]:
+    def get_phases(self, participants: list[str]) -> list[FormatPhase]:
         """Public Forum format: Constructive Speeches -> Crossfire -> Rebuttals -> Final Focus"""
         if len(participants) < 2:
             raise ValueError("Public Forum format requires at least 2 participants")
@@ -80,14 +79,14 @@ class PublicForumFormat(DebateFormat):
             ),
         ]
 
-    def get_position_assignments(self, participants: List[str]) -> Dict[str, Position]:
+    def get_position_assignments(self, participants: list[str]) -> dict[str, Position]:
         """First participant is Advocate (PRO), second is Opponent (CON)."""
         assignments = {}
         for i, participant in enumerate(participants[:2]):
             assignments[participant] = Position.PRO if i == 0 else Position.CON
         return assignments
 
-    def get_side_labels(self, participants: List[str]) -> Dict[str, str]:
+    def get_side_labels(self, participants: list[str]) -> dict[str, str]:
         """Return Public Forum labels: Advocate and Opponent."""
         labels = {}
         for i, participant in enumerate(participants[:2]):
@@ -121,7 +120,7 @@ class PublicForumFormat(DebateFormat):
         """Public Forum format supports up to 4 participants (2 per side)."""
         return 4
 
-    def get_topic_generation_messages(self) -> List[Dict[str, str]]:
+    def get_topic_generation_messages(self) -> list[dict[str, str]]:
         """Get Public Forum specific messages for AI topic generation."""
         return [
             {

@@ -1,6 +1,5 @@
 """Parliamentary debate format implementation."""
 
-from typing import List, Dict
 from .base import DebateFormat, FormatPhase, Position
 from debate_engine.types import DebatePhase
 
@@ -20,7 +19,7 @@ class ParliamentaryFormat(DebateFormat):
     def description(self) -> str:
         return "Parliamentary debate with Government and Opposition sides, formal procedures and structured speeches"
 
-    def get_phases(self, participants: List[str]) -> List[FormatPhase]:
+    def get_phases(self, participants: list[str]) -> list[FormatPhase]:
         """Parliamentary format: PM -> LO -> Deputy PM -> Deputy LO -> Rebuttals"""
         if len(participants) < 2:
             raise ValueError("Parliamentary format requires at least 2 participants")
@@ -67,14 +66,14 @@ class ParliamentaryFormat(DebateFormat):
             ),
         ]
 
-    def get_position_assignments(self, participants: List[str]) -> Dict[str, Position]:
+    def get_position_assignments(self, participants: list[str]) -> dict[str, Position]:
         """First participant is Government (PRO), second is Opposition (CON)."""
         assignments = {}
         for i, participant in enumerate(participants[:2]):
             assignments[participant] = Position.PRO if i == 0 else Position.CON
         return assignments
 
-    def get_side_labels(self, participants: List[str]) -> Dict[str, str]:
+    def get_side_labels(self, participants: list[str]) -> dict[str, str]:
         """Return Parliamentary labels: Government and Opposition."""
         labels = {}
         for i, participant in enumerate(participants[:2]):
@@ -96,7 +95,7 @@ class ParliamentaryFormat(DebateFormat):
         """Parliamentary can support up to 4 participants (2 per side)."""
         return 4
 
-    def get_topic_generation_messages(self) -> List[Dict[str, str]]:
+    def get_topic_generation_messages(self) -> list[dict[str, str]]:
         """Get Parliamentary specific messages for AI topic generation."""
         return [
             {

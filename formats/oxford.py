@@ -1,6 +1,5 @@
 """Oxford-style debate format implementation."""
 
-from typing import List, Dict
 from .base import DebateFormat, FormatPhase, Position
 from debate_engine.types import DebatePhase
 
@@ -20,7 +19,7 @@ class OxfordFormat(DebateFormat):
     def description(self) -> str:
         return "Oxford Union-style debate with equal time allocation, formal procedure, and structured argument exchange"
 
-    def get_phases(self, participants: List[str]) -> List[FormatPhase]:
+    def get_phases(self, participants: list[str]) -> list[FormatPhase]:
         """Oxford format: Proposition Opening -> Opposition Opening -> Rebuttals -> Cross-Examination -> Closing"""
         if len(participants) < 2:
             raise ValueError("Oxford format requires at least 2 participants")
@@ -78,14 +77,14 @@ class OxfordFormat(DebateFormat):
             ),
         ]
 
-    def get_position_assignments(self, participants: List[str]) -> Dict[str, Position]:
+    def get_position_assignments(self, participants: list[str]) -> dict[str, Position]:
         """First participant is PRO, second is CON."""
         assignments = {}
         for i, participant in enumerate(participants[:2]):
             assignments[participant] = Position.PRO if i == 0 else Position.CON
         return assignments
 
-    def get_side_labels(self, participants: List[str]) -> Dict[str, str]:
+    def get_side_labels(self, participants: list[str]) -> dict[str, str]:
         """Return Oxford-style labels: Proposition and Opposition."""
         labels = {}
         for i, participant in enumerate(participants[:2]):
@@ -109,7 +108,7 @@ class OxfordFormat(DebateFormat):
         """Oxford format supports up to 4 participants (2 per side)."""
         return 4
 
-    def get_topic_generation_messages(self) -> List[Dict[str, str]]:
+    def get_topic_generation_messages(self) -> list[dict[str, str]]:
         """Get Oxford specific messages for AI topic generation."""
         return [
             {

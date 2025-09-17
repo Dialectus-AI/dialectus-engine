@@ -258,7 +258,7 @@ class TournamentCreateRequest(BaseModel):
     format: str = "oxford"
     word_limit: int = 500
     bracket_size: int = 8
-    judge_models: List[str] = ["llama3.1:8b"]
+    judge_models: list[str] = ["llama3.1:8b"]
     judge_provider: str = "ollama"
 
 class Tournament(BaseModel):

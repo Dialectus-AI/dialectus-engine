@@ -40,7 +40,7 @@ class OllamaProvider(BaseModelProvider):
             logger.debug(f"Ollama health check failed: {e}")
             return False
 
-    async def get_available_models(self) -> List[str]:
+    async def get_available_models(self) -> list[str]:
         """Get list of available models from Ollama."""
         # Fast health check first
         if not await self.is_running():
@@ -59,7 +59,7 @@ class OllamaProvider(BaseModelProvider):
             return []
 
     async def generate_response(
-        self, model_config: "ModelConfig", messages: List[Dict[str, str]], **overrides
+        self, model_config: "ModelConfig", messages: list[dict[str, str]], **overrides
     ) -> str:
         """Generate a response using Ollama."""
         if not self._client:
@@ -107,7 +107,7 @@ class OllamaProvider(BaseModelProvider):
         """Validate Ollama model configuration."""
         return model_config.provider == "ollama"
 
-    async def get_enhanced_models(self) -> List["BaseEnhancedModelInfo"]:
+    async def get_enhanced_models(self) -> list["BaseEnhancedModelInfo"]:
         """Get enhanced model information for Ollama models."""
         basic_models = await self.get_available_models()
         enhanced_models = []

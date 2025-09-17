@@ -1,6 +1,6 @@
 """Data models for the debate engine."""
 
-from typing import Dict, List, Any
+from typing import Any
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -18,7 +18,7 @@ class DebateMessage:
     round_number: int
     content: str
     timestamp: datetime = field(default_factory=datetime.now)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -26,9 +26,9 @@ class DebateContext:
     """Full context of an ongoing debate."""
 
     topic: str
-    participants: Dict[str, ModelConfig]
-    messages: List[DebateMessage] = field(default_factory=list)
+    participants: dict[str, ModelConfig]
+    messages: list[DebateMessage] = field(default_factory=list)
     current_phase: DebatePhase = DebatePhase.SETUP
     current_round: int = 1
-    scores: Dict[str, float] = field(default_factory=dict)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    scores: dict[str, float] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
