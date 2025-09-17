@@ -14,7 +14,6 @@ from config.settings import get_default_config, ModelConfig
 from models.manager import ModelManager
 from debate_engine.transcript import TranscriptManager
 from formats import format_registry
-from judges.factory import create_judges
 from web.debate_manager import DebateManager
 from web.debate_reponse import DebateResponse
 from web.debate_setup_request import DebateSetupRequest
@@ -339,7 +338,9 @@ async def get_debate(debate_id: str):
         )
 
     # Judge models are already in list format
-    judge_models_list = config.judging.judge_models if config.judging.judge_models else None
+    judge_models_list = (
+        config.judging.judge_models if config.judging.judge_models else None
+    )
 
     return DebateResponse(
         id=debate_id,
@@ -535,7 +536,9 @@ async def get_debate_transcript(debate_id: str):
                 # Forward to the existing transcript endpoint
                 return await get_transcript(transcript_id)
 
-        raise HTTPException(status_code=404, detail=f"Transcript not found for debate {debate_id}")
+        raise HTTPException(
+            status_code=404, detail=f"Transcript not found for debate {debate_id}"
+        )
     except HTTPException:
         raise
     except Exception as e:
