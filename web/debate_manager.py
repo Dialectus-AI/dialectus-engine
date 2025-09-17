@@ -2,7 +2,7 @@
 
 import asyncio
 import uuid
-from typing import Dict, List, Any
+from typing import Any
 import logging
 
 from fastapi import HTTPException, WebSocket
@@ -21,8 +21,8 @@ class DebateManager:
     """Manages active debates and WebSocket connections."""
 
     def __init__(self):
-        self.active_debates: Dict[str, Dict[str, Any]] = {}
-        self.connections: Dict[str, List[WebSocket]] = {}
+        self.active_debates: dict[str, dict[str, Any]] = {}
+        self.connections: dict[str, list[WebSocket]] = {}
 
     async def create_debate(self, setup: DebateSetupRequest) -> str:
         """Create a new debate session."""
@@ -128,6 +128,7 @@ class DebateManager:
         try:
             # Brief delay to ensure WebSocket connections are established
             await asyncio.sleep(1.0)
+
             # Hook into the engine to broadcast updates in real-time
             async def conduct_round_with_broadcast(format_phase):
                 # Get format phases for progress calculation
@@ -142,7 +143,9 @@ class DebateManager:
                 completed_phases = max(0, current_phase - 1)
 
                 # Log the speaking order for this phase
-                logger.info(f"PHASE START: {format_phase.name} - Speaking order: {format_phase.speaking_order}")
+                logger.info(
+                    f"PHASE START: {format_phase.name} - Speaking order: {format_phase.speaking_order}"
+                )
 
                 # Broadcast phase start with progress info
                 await self._broadcast_to_debate(
@@ -170,9 +173,13 @@ class DebateManager:
                 # Use format-defined speaking order
                 for speaker_id in format_phase.speaking_order:
                     try:
-                        logger.info(f"Attempting to get response from {speaker_id} for {format_phase.name}")
+                        logger.info(
+                            f"Attempting to get response from {speaker_id} for {format_phase.name}"
+                        )
                         # Get individual message (this calls the engine's internal method)
-                        message = await engine._get_format_speaker_response(speaker_id, format_phase)
+                        message = await engine._get_format_speaker_response(
+                            speaker_id, format_phase
+                        )
                         round_messages.append(message)
                         context.messages.append(message)
 
@@ -194,7 +201,9 @@ class DebateManager:
                             },
                         )
 
-                        logger.info(f"SUCCESS: Round {context.current_round}, {format_phase.name}: {speaker_id}")
+                        logger.info(
+                            f"SUCCESS: Round {context.current_round}, {format_phase.name}: {speaker_id}"
+                        )
 
                     except Exception as e:
                         # Get model info for detailed error
@@ -216,7 +225,7 @@ class DebateManager:
                                 "provider": provider,
                                 "phase": format_phase.name,
                                 "exception_type": type(e).__name__,
-                                "exception_message": str(e)
+                                "exception_message": str(e),
                             },
                         )
 
@@ -236,7 +245,13 @@ class DebateManager:
             judge_models = config.judging.judge_models
             judge_provider = config.judging.judge_provider
             criteria = config.judging.criteria
-            judges = create_judges(judge_models, judge_provider, config.system, debate_info["manager"], criteria)
+            judges = create_judges(
+                judge_models,
+                judge_provider,
+                config.system,
+                debate_info["manager"],
+                criteria,
+            )
 
             judge_result = None
             judges_configured = bool(judge_models)  # True if judge_models is not empty
@@ -263,7 +278,7 @@ class DebateManager:
                         {
                             "type": "judge_error",
                             "error": f"Judge evaluation failed: {str(e)}",
-                            "details": f"Error type: {type(e).__name__}"
+                            "details": f"Error type: {type(e).__name__}",
                         },
                     )
 
@@ -279,21 +294,31 @@ class DebateManager:
                 engine.save_transcript_with_judge_result(judge_result)
 
                 # After saving, load the complete judging data from database and broadcast it
-                if judges_configured and judging_succeeded and engine.transcript_manager:
+                if (
+                    judges_configured
+                    and judging_succeeded
+                    and engine.transcript_manager
+                ):
                     transcript_id = context.metadata.get("transcript_id")
                     if transcript_id:
                         try:
                             # Load ensemble summary if it exists
-                            ensemble_summary = engine.transcript_manager.db_manager.load_ensemble_summary(transcript_id)
+                            ensemble_summary = engine.transcript_manager.db_manager.load_ensemble_summary(
+                                transcript_id
+                            )
 
                             if ensemble_summary:
                                 # Ensemble case - load individual decisions and create unified format
-                                individual_decisions = engine.transcript_manager.db_manager.load_judge_decisions(transcript_id)
+                                individual_decisions = engine.transcript_manager.db_manager.load_judge_decisions(
+                                    transcript_id
+                                )
 
                                 # Aggregate all criterion scores from individual decisions
                                 all_criterion_scores = []
                                 for decision in individual_decisions:
-                                    all_criterion_scores.extend(decision["criterion_scores"])
+                                    all_criterion_scores.extend(
+                                        decision["criterion_scores"]
+                                    )
 
                                 # Send unified judge_decision format with ensemble data
                                 await self._broadcast_to_debate(
@@ -301,15 +326,29 @@ class DebateManager:
                                     {
                                         "type": "judge_decision",
                                         "decision": {
-                                            "winner_id": ensemble_summary["final_winner_id"],
-                                            "winner_margin": ensemble_summary["final_margin"],
-                                            "overall_feedback": ensemble_summary["summary_feedback"],
-                                            "reasoning": ensemble_summary["summary_reasoning"],
+                                            "winner_id": ensemble_summary[
+                                                "final_winner_id"
+                                            ],
+                                            "winner_margin": ensemble_summary[
+                                                "final_margin"
+                                            ],
+                                            "overall_feedback": ensemble_summary[
+                                                "summary_feedback"
+                                            ],
+                                            "reasoning": ensemble_summary[
+                                                "summary_reasoning"
+                                            ],
                                             "criterion_scores": all_criterion_scores,
                                             "metadata": {
-                                                "ensemble_size": ensemble_summary["num_judges"],
-                                                "consensus_level": ensemble_summary["consensus_level"],
-                                                "ensemble_method": ensemble_summary["ensemble_method"],
+                                                "ensemble_size": ensemble_summary[
+                                                    "num_judges"
+                                                ],
+                                                "consensus_level": ensemble_summary[
+                                                    "consensus_level"
+                                                ],
+                                                "ensemble_method": ensemble_summary[
+                                                    "ensemble_method"
+                                                ],
                                                 "individual_decisions": individual_decisions,
                                             },
                                         },
@@ -317,7 +356,9 @@ class DebateManager:
                                 )
                             else:
                                 # Single judge case - load single decision
-                                judge_decision = engine.transcript_manager.db_manager.load_judge_decision(transcript_id)
+                                judge_decision = engine.transcript_manager.db_manager.load_judge_decision(
+                                    transcript_id
+                                )
                                 if judge_decision:
                                     await self._broadcast_to_debate(
                                         debate_id,
@@ -328,10 +369,14 @@ class DebateManager:
                                     )
 
                         except Exception as e:
-                            logger.error(f"Failed to load and broadcast judge results from database: {e}")
+                            logger.error(
+                                f"Failed to load and broadcast judge results from database: {e}"
+                            )
 
                 debate_info["status"] = "completed"
-                logger.info(f"Debate {debate_id} completed - transcript saved with judging status: judges_configured={judges_configured}, judging_succeeded={judging_succeeded}")
+                logger.info(
+                    f"Debate {debate_id} completed - transcript saved with judging status: judges_configured={judges_configured}, judging_succeeded={judging_succeeded}"
+                )
 
                 await self._broadcast_to_debate(
                     debate_id, {"type": "debate_completed", "debate_id": debate_id}
@@ -342,7 +387,11 @@ class DebateManager:
                 debate_info["status"] = "error"
                 logger.error(f"Failed to save transcript for {debate_id}: {e}")
                 await self._broadcast_to_debate(
-                    debate_id, {"type": "error", "message": f"Failed to save transcript: {str(e)}"}
+                    debate_id,
+                    {
+                        "type": "error",
+                        "message": f"Failed to save transcript: {str(e)}",
+                    },
                 )
                 raise
 
@@ -359,7 +408,7 @@ class DebateManager:
             )
 
     async def _broadcast_to_debate(
-        self, debate_id: str, message: Dict[str, Any]
+        self, debate_id: str, message: dict[str, Any]
     ) -> None:
         """Broadcast message to all connected clients for a debate."""
         if debate_id not in self.connections:

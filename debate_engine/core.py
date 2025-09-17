@@ -140,8 +140,12 @@ You will be told your specific role and speaking context for each response."""
             "neutral": "Your speaking style is balanced with measured reasoning.",
         }
 
-        role_instruction = position_guidance.get(position, f"You ARE the {role_name} speaker.")
-        style_instruction = personality_guidance.get(personality, "Speak in your natural style.")
+        role_instruction = position_guidance.get(
+            position, f"You ARE the {role_name} speaker."
+        )
+        style_instruction = personality_guidance.get(
+            personality, "Speak in your natural style."
+        )
 
         return f"""{base_prompt}
 
@@ -384,7 +388,11 @@ Remember: You are embodying the {role_name} position throughout this debate. Spe
         role_name = side_labels.get(speaker_id, "Speaker")
 
         # Simplify the instruction to focus on role, not procedure
-        simplified_instruction = format_phase.instruction.replace("As the Proposition,", "").replace("As the Opposition,", "").strip()
+        simplified_instruction = (
+            format_phase.instruction.replace("As the Proposition,", "")
+            .replace("As the Opposition,", "")
+            .strip()
+        )
 
         messages.append(
             {
@@ -715,7 +723,5 @@ Remember: You are embodying the {role_name} position throughout this debate. Spe
             return {
                 "type": "ensemble",
                 "decisions": decisions,
-                "ensemble_summary": calculate_ensemble_result(
-                    decisions, self.context
-                ),
+                "ensemble_summary": calculate_ensemble_result(decisions, self.context),
             }

@@ -184,7 +184,7 @@ class OllamaProvider(BaseModelProvider):
 
         return ModelWeightClass.LIGHTWEIGHT
 
-    def _estimate_ollama_params(self, model_id: str) -> Optional[str]:
+    def _estimate_ollama_params(self, model_id: str) -> str | None:
         """Estimate parameter count from Ollama model name."""
         model_lower = model_id.lower()
 

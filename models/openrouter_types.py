@@ -3,7 +3,7 @@ OpenRouter API types and model filtering logic.
 Handles model selection, pricing analysis, and weight classification.
 """
 
-from typing import List, Dict, Any, Optional
+from typing import Any
 from pydantic import BaseModel, Field
 import re
 import json
@@ -16,77 +16,93 @@ logger = logging.getLogger(__name__)
 
 class FilterConfig:
     """Loads and manages OpenRouter filtering configuration from external JSON file."""
-    
-    def __init__(self, config_path: Optional[Path] = None):
+
+    def __init__(self, config_path: Path | None = None):
         if config_path is None:
             # Default to config/openrouter_filters.json relative to this file
-            config_path = Path(__file__).parent.parent / "config" / "openrouter_filters.json"
-        
+            config_path = (
+                Path(__file__).parent.parent / "config" / "openrouter_filters.json"
+            )
+
         self.config_path = config_path
         self._config = None
         self._load_config()
-    
+
     def _load_config(self) -> None:
         """Load configuration from JSON file with fallback to defaults."""
         try:
             if self.config_path.exists():
-                with open(self.config_path, 'r', encoding='utf-8') as f:
+                with open(self.config_path, "r", encoding="utf-8") as f:
                     self._config = json.load(f)
                 logger.info(f"Loaded OpenRouter filter config from {self.config_path}")
             else:
-                logger.warning(f"Filter config file not found at {self.config_path}, using defaults")
+                logger.warning(
+                    f"Filter config file not found at {self.config_path}, using defaults"
+                )
                 self._config = self._get_default_config()
         except Exception as e:
             logger.error(f"Failed to load filter config from {self.config_path}: {e}")
             self._config = self._get_default_config()
-    
-    def _get_default_config(self) -> Dict[str, Any]:
+
+    def _get_default_config(self) -> dict[str, Any]:
         """Fallback default configuration if JSON file is missing/invalid."""
         return {
             "filters": {
                 "exclude_patterns": [
                     {
                         "category": "meta_routing_models",
-                        "patterns": ["auto.*router", "router", "meta.*llama.*auto", "mixture.*expert", "moe"]
+                        "patterns": [
+                            "auto.*router",
+                            "router",
+                            "meta.*llama.*auto",
+                            "mixture.*expert",
+                            "moe",
+                        ],
                     }
                 ],
                 "preview_patterns": [
                     {
-                        "category": "preview_anonymous_models", 
-                        "patterns": ["^preview-", "^anonymous-", "^beta-", "-preview$", "-beta$"]
+                        "category": "preview_anonymous_models",
+                        "patterns": [
+                            "^preview-",
+                            "^anonymous-",
+                            "^beta-",
+                            "-preview$",
+                            "-beta$",
+                        ],
                     }
-                ]
+                ],
             },
             "settings": {
                 "allow_preview_models": False,
                 "max_cost_per_1k_tokens": 0.02,
                 "min_context_length": 4096,
-                "max_models_per_tier": 8
-            }
+                "max_models_per_tier": 8,
+            },
         }
-    
-    def get_exclude_patterns(self) -> List[str]:
+
+    def get_exclude_patterns(self) -> list[str]:
         """Get all exclusion patterns as a flat list."""
         patterns = []
         filters = self._config.get("filters", {}) if self._config else {}
         for category in filters.get("exclude_patterns", []):
             patterns.extend(category.get("patterns", []))
         return patterns
-    
-    def get_preview_patterns(self) -> List[str]:
+
+    def get_preview_patterns(self) -> list[str]:
         """Get all preview detection patterns as a flat list."""
         patterns = []
         filters = self._config.get("filters", {}) if self._config else {}
         for category in filters.get("preview_patterns", []):
             patterns.extend(category.get("patterns", []))
         return patterns
-    
+
     def get_setting(self, setting_name: str, default=None):
         """Get a setting value with fallback to default."""
         if self._config is None:
             return default
         return self._config.get("settings", {}).get(setting_name, default)
-    
+
     def reload(self) -> None:
         """Reload configuration from file."""
         self._load_config()
@@ -101,22 +117,22 @@ class OpenRouterPricing(BaseModel):
     internal_reasoning: str = "0"
     input_cache_read: str = "0"
     input_cache_write: str = "0"
-    
+
     @property
     def prompt_cost_per_1k(self) -> float:
         """Cost per 1K prompt tokens in dollars."""
         return float(self.prompt) * 1000 if self.prompt != "0" else 0.0
-    
+
     @property
     def completion_cost_per_1k(self) -> float:
         """Cost per 1K completion tokens in dollars."""
         return float(self.completion) * 1000 if self.completion != "0" else 0.0
-    
+
     @property
     def avg_cost_per_1k(self) -> float:
         """Average cost per 1K tokens (assuming 50/50 prompt/completion)."""
         return (self.prompt_cost_per_1k + self.completion_cost_per_1k) / 2
-    
+
     @property
     def is_free(self) -> bool:
         """Check if model is completely free."""
@@ -124,16 +140,16 @@ class OpenRouterPricing(BaseModel):
 
 
 class OpenRouterArchitecture(BaseModel):
-    input_modalities: List[str]
-    output_modalities: List[str]
+    input_modalities: list[str]
+    output_modalities: list[str]
     tokenizer: str
-    instruct_type: Optional[str] = None
+    instruct_type: str | None = None
 
 
 class OpenRouterTopProvider(BaseModel):
     is_moderated: bool
-    context_length: Optional[int] = None
-    max_completion_tokens: Optional[int] = None
+    context_length: int | None = None
+    max_completion_tokens: int | None = None
 
 
 class OpenRouterModel(BaseModel):
@@ -146,131 +162,144 @@ class OpenRouterModel(BaseModel):
     pricing: OpenRouterPricing
     canonical_slug: str
     context_length: int
-    hugging_face_id: Optional[str] = None
-    per_request_limits: Optional[Dict[str, Any]] = None
-    supported_parameters: List[str] = Field(default_factory=list)
+    hugging_face_id: str | None = None
+    per_request_limits: dict[str, Any] | None = None
+    supported_parameters: list[str] = Field(default_factory=list)
 
 
 class OpenRouterModelsResponse(BaseModel):
-    data: List[OpenRouterModel]
+    data: list[OpenRouterModel]
 
 
 class OpenRouterEnhancedModelInfo(BaseEnhancedModelInfo):
     """Enhanced OpenRouter model information extending base class."""
-    
+
     def __init__(self, **data):
         # Handle pricing field - could be OpenRouterPricing (fresh) or dict (cached)
-        if 'pricing' in data:
-            if isinstance(data['pricing'], OpenRouterPricing):
+        if "pricing" in data:
+            if isinstance(data["pricing"], OpenRouterPricing):
                 # Fresh data: convert OpenRouter pricing to generic pricing
-                openrouter_pricing = data['pricing']
-                data['pricing'] = ModelPricing(
+                openrouter_pricing = data["pricing"]
+                data["pricing"] = ModelPricing(
                     prompt_cost_per_1k=openrouter_pricing.prompt_cost_per_1k,
                     completion_cost_per_1k=openrouter_pricing.completion_cost_per_1k,
                     is_free=openrouter_pricing.is_free,
-                    currency="USD"
+                    currency="USD",
                 )
-            elif isinstance(data['pricing'], dict):
+            elif isinstance(data["pricing"], dict):
                 # Cached data: create ModelPricing from dict
-                data['pricing'] = ModelPricing(**data['pricing'])
-        
+                data["pricing"] = ModelPricing(**data["pricing"])
+
         # Handle enum conversions from cached string values
-        if 'weight_class' in data and isinstance(data['weight_class'], str):
+        if "weight_class" in data and isinstance(data["weight_class"], str):
             from .base_types import ModelWeightClass
-            data['weight_class'] = ModelWeightClass(data['weight_class'])
-        
-        if 'tier' in data and isinstance(data['tier'], str):
+
+            data["weight_class"] = ModelWeightClass(data["weight_class"])
+
+        if "tier" in data and isinstance(data["tier"], str):
             from .base_types import ModelTier
-            data['tier'] = ModelTier(data['tier'])
-        
+
+            data["tier"] = ModelTier(data["tier"])
+
         # Store OpenRouter-specific info
-        if 'openrouter_raw' not in data.get('source_info', {}):
-            data.setdefault('source_info', {})['openrouter_raw'] = data.get('raw_model', {})
-        
+        if "openrouter_raw" not in data.get("source_info", {}):
+            data.setdefault("source_info", {})["openrouter_raw"] = data.get(
+                "raw_model", {}
+            )
+
         super().__init__(**data)
 
 
 class OpenRouterCapabilityExtractor:
     """Extract model capabilities from OpenRouter API data automatically."""
-    
+
     @classmethod
-    def extract_parameter_count(cls, model: OpenRouterModel) -> Optional[str]:
+    def extract_parameter_count(cls, model: OpenRouterModel) -> str | None:
         """Extract parameter count from model name, description, or hugging_face_id."""
         import re
-        
+
         # Common sources to check
         sources = [model.name, model.id, model.description]
         if model.hugging_face_id:
             sources.append(model.hugging_face_id)
-        
+
         # Parameter patterns to match (in order of preference)
         param_patterns = [
-            r'(\d+(?:\.\d+)?)B[^a-zA-Z]',  # "7B ", "70.5B-"
-            r'(\d+(?:\.\d+)?)b[^a-zA-Z]',  # "7b ", "13b-"
-            r'(\d+(?:\.\d+)?)B$',          # "405B" at end
-            r'(\d+(?:\.\d+)?)b$',          # "7b" at end
-            r'(\d+(?:\.\d+)?)T[^a-zA-Z]',  # "1T " (trillion parameters)
-            r'(\d+(?:\.\d+)?)M[^a-zA-Z]',  # "500M " (million parameters)
+            r"(\d+(?:\.\d+)?)B[^a-zA-Z]",  # "7B ", "70.5B-"
+            r"(\d+(?:\.\d+)?)b[^a-zA-Z]",  # "7b ", "13b-"
+            r"(\d+(?:\.\d+)?)B$",  # "405B" at end
+            r"(\d+(?:\.\d+)?)b$",  # "7b" at end
+            r"(\d+(?:\.\d+)?)T[^a-zA-Z]",  # "1T " (trillion parameters)
+            r"(\d+(?:\.\d+)?)M[^a-zA-Z]",  # "500M " (million parameters)
         ]
-        
+
         for source in sources:
             source_lower = source.lower()
-            
+
             for pattern in param_patterns:
                 match = re.search(pattern, source_lower)
                 if match:
                     size = float(match.group(1))
-                    
+
                     # Determine unit from pattern
-                    if 'T' in pattern.upper():
+                    if "T" in pattern.upper():
                         return f"{size:.1f}T" if size != int(size) else f"{int(size)}T"
-                    elif 'M' in pattern.upper():
+                    elif "M" in pattern.upper():
                         # Convert millions to billions if over 1000M
                         if size >= 1000:
                             return f"{size/1000:.1f}B"
                         return f"{size:.0f}M"
                     else:  # B (billions)
                         return f"{size:.1f}B" if size != int(size) else f"{int(size)}B"
-        
+
         # Special case patterns for known model families
         name_lower = model.name.lower()
         id_lower = model.id.lower()
-        
+
         # Well-known model sizes
         known_sizes = {
-            'tiny': '1B', 'small': '7B', 'medium': '13B', 'large': '70B', 'xl': '405B',
-            'nano': '1B', 'micro': '3B', 'mini': '7B', 'base': '7B'
+            "tiny": "1B",
+            "small": "7B",
+            "medium": "13B",
+            "large": "70B",
+            "xl": "405B",
+            "nano": "1B",
+            "micro": "3B",
+            "mini": "7B",
+            "base": "7B",
         }
-        
+
         for size_name, param_count in known_sizes.items():
             if size_name in name_lower or size_name in id_lower:
                 return param_count
-        
+
         return None
-    
+
     @classmethod
-    def determine_weight_class(cls, model: OpenRouterModel, estimated_params: Optional[str] = None) -> ModelWeightClass:
+    def determine_weight_class(
+        cls, model: OpenRouterModel, estimated_params: str | None = None
+    ) -> ModelWeightClass:
         """Determine weight class based on context length, parameters, and capabilities."""
-        
+
         # Get parameter count if not provided
         if not estimated_params:
             estimated_params = cls.extract_parameter_count(model)
-        
+
         context_length = model.context_length
-        
+
         # Parameter-based classification (takes precedence)
         if estimated_params:
-            param_value = float(estimated_params.rstrip('BMT'))
+            param_value = float(estimated_params.rstrip("BMT"))
             param_unit = estimated_params[-1].upper()
-            
+
             # Convert to billions for comparison
-            if param_unit == 'T':
+            if param_unit == "T":
                 param_billions = param_value * 1000
-            elif param_unit == 'M':
+            elif param_unit == "M":
                 param_billions = param_value / 1000
             else:  # B
                 param_billions = param_value
-            
+
             # Parameter-based thresholds for debate models
             if param_billions >= 100:  # 100B+ parameters
                 return ModelWeightClass.ULTRAWEIGHT
@@ -280,224 +309,282 @@ class OpenRouterCapabilityExtractor:
                 return ModelWeightClass.MIDDLEWEIGHT
             else:  # <5B
                 return ModelWeightClass.LIGHTWEIGHT
-        
+
         # Context-based fallback classification
         if context_length >= 128000:  # 128K+ context
             return ModelWeightClass.ULTRAWEIGHT
         elif context_length >= 32000:  # 32K-128K
             return ModelWeightClass.HEAVYWEIGHT
-        elif context_length >= 8000:   # 8K-32K
+        elif context_length >= 8000:  # 8K-32K
             return ModelWeightClass.MIDDLEWEIGHT
         else:  # <8K context
             return ModelWeightClass.LIGHTWEIGHT
-    
+
     @classmethod
-    def calculate_debate_score(cls, model: OpenRouterModel, weight_class: ModelWeightClass) -> float:
+    def calculate_debate_score(
+        cls, model: OpenRouterModel, weight_class: ModelWeightClass
+    ) -> float:
         """Calculate debate suitability score based on conversational and reasoning capabilities."""
-        
+
         # Base score from context length (important for following debate flow and context)
-        context_score = min(model.context_length / 32000, 3.0)  # Cap at 3x for 32K+ context
-        
+        context_score = min(
+            model.context_length / 32000, 3.0
+        )  # Cap at 3x for 32K+ context
+
         # Cost efficiency (lower cost = higher score for debates)
         if model.pricing.is_free:
             cost_score = 5.0  # High score for free models
         else:
             avg_cost = max(model.pricing.avg_cost_per_1k, 0.0001)
             cost_score = min(0.005 / avg_cost, 5.0)  # Normalize around $0.005/1K
-        
+
         # Weight class bonus (larger models generally better at reasoning and debate)
         weight_bonus = {
             ModelWeightClass.ULTRAWEIGHT: 1.5,
             ModelWeightClass.HEAVYWEIGHT: 1.3,
             ModelWeightClass.MIDDLEWEIGHT: 1.0,
-            ModelWeightClass.LIGHTWEIGHT: 0.7  # Lower score for small models in debate context
+            ModelWeightClass.LIGHTWEIGHT: 0.7,  # Lower score for small models in debate context
         }.get(weight_class, 1.0)
-        
+
         # Conversational suitability bonus
         conversational_bonus = cls._calculate_conversational_bonus(model)
-        
+
         # Multimodal input capability bonus (often indicates more sophisticated models)
         multimodal_bonus = 1.0
-        if 'text' in model.architecture.input_modalities and 'text' in model.architecture.output_modalities:
+        if (
+            "text" in model.architecture.input_modalities
+            and "text" in model.architecture.output_modalities
+        ):
             # Count non-text input modalities
-            non_text_inputs = [m for m in model.architecture.input_modalities if m != 'text']
-            non_text_outputs = [m for m in model.architecture.output_modalities if m != 'text']
-            
+            non_text_inputs = [
+                m for m in model.architecture.input_modalities if m != "text"
+            ]
+            non_text_outputs = [
+                m for m in model.architecture.output_modalities if m != "text"
+            ]
+
             if len(non_text_outputs) == 0:  # Text-only output (required for debate)
                 if len(non_text_inputs) > 0:  # Multimodal input, text output (ideal)
                     multimodal_bonus = 1.15  # Bonus for advanced multimodal models like GPT-4V, Claude-3
                 else:  # Text-only input and output
-                    multimodal_bonus = 1.0   # Standard text models
+                    multimodal_bonus = 1.0  # Standard text models
             # Note: Models with non-text outputs filtered out earlier
-        
-        return context_score * cost_score * weight_bonus * conversational_bonus * multimodal_bonus
-    
+
+        return (
+            context_score
+            * cost_score
+            * weight_bonus
+            * conversational_bonus
+            * multimodal_bonus
+        )
+
     @classmethod
     def _calculate_conversational_bonus(cls, model: OpenRouterModel) -> float:
         """Calculate bonus score based on model's conversational capabilities."""
         model_name_lower = model.name.lower()
         description_lower = model.description.lower()
-        
+
         # Positive indicators for debate/conversation
         positive_keywords = [
-            'chat', 'instruct', 'assistant', 'conversation', 'dialogue',
-            'gpt', 'claude', 'gemini', 'llama', 'mistral', 'qwen',
-            'roleplay', 'character', 'persona', 'uncensored'  # Good for taking debate positions
+            "chat",
+            "instruct",
+            "assistant",
+            "conversation",
+            "dialogue",
+            "gpt",
+            "claude",
+            "gemini",
+            "llama",
+            "mistral",
+            "qwen",
+            "roleplay",
+            "character",
+            "persona",
+            "uncensored",  # Good for taking debate positions
         ]
-        
+
         # Negative indicators for debate (specialized models)
         negative_keywords = [
-            'code', 'math', 'scientific', 'translation', 'embed',
-            'vision', 'image', 'audio', 'video', 'jailbreak'
+            "code",
+            "math",
+            "scientific",
+            "translation",
+            "embed",
+            "vision",
+            "image",
+            "audio",
+            "video",
+            "jailbreak",
         ]
-        
+
         bonus = 1.0
-        
+
         # Boost for conversational indicators
         for keyword in positive_keywords:
             if keyword in model_name_lower or keyword in description_lower:
                 bonus += 0.1
-        
-        # Penalty for specialized/non-conversational indicators  
+
+        # Penalty for specialized/non-conversational indicators
         for keyword in negative_keywords:
             if keyword in model_name_lower or keyword in description_lower:
                 bonus -= 0.2
-        
+
         # Bonus for models with "chat" or "instruct" in name (strong conversational indicators)
-        if any(word in model_name_lower for word in ['chat', 'instruct']):
+        if any(word in model_name_lower for word in ["chat", "instruct"]):
             bonus += 0.3
-            
+
         # Bonus for roleplay models (excellent for taking debate positions/personas)
-        if any(word in model_name_lower for word in ['roleplay', 'character', 'persona']):
+        if any(
+            word in model_name_lower for word in ["roleplay", "character", "persona"]
+        ):
             bonus += 0.2
-            
+
         # Bonus for uncensored models (may be more willing to take strong positions)
-        if 'uncensored' in model_name_lower:
+        if "uncensored" in model_name_lower:
             bonus += 0.15
-            
+
         # Penalty for base/raw models (usually not fine-tuned for conversation)
-        if 'base' in model_name_lower and 'instruct' not in model_name_lower:
+        if "base" in model_name_lower and "instruct" not in model_name_lower:
             bonus -= 0.3
-        
+
         # Ensure bonus stays in reasonable range
         return max(0.5, min(bonus, 2.0))
 
 
 class OpenRouterModelFilter:
     """Intelligent filtering for OpenRouter models with configurable patterns."""
-    
-    def __init__(self, filter_config: Optional[FilterConfig] = None):
+
+    def __init__(self, filter_config: FilterConfig | None = None):
         """Initialize with optional custom filter configuration."""
         self.filter_config = filter_config or FilterConfig()
-    
+
     @classmethod
     def is_suitable_for_debate(cls, model: OpenRouterModel) -> bool:
         """Check if model is suitable for text-based conversation and debate."""
         # Must have text input and output
-        has_text_input = 'text' in model.architecture.input_modalities
-        has_text_output = 'text' in model.architecture.output_modalities
-        
+        has_text_input = "text" in model.architecture.input_modalities
+        has_text_output = "text" in model.architecture.output_modalities
+
         if not (has_text_input and has_text_output):
             return False
-        
+
         # Exclude models that output non-text (images, audio, video)
         # These are fundamentally different from multimodal models that can INPUT multiple types
-        non_text_outputs = [m for m in model.architecture.output_modalities if m != 'text']
+        non_text_outputs = [
+            m for m in model.architecture.output_modalities if m != "text"
+        ]
         if len(non_text_outputs) > 0:
             return False
-            
+
         # Allow multimodal INPUT models - they're often better at reasoning and text generation
         # Examples: GPT-4V, Claude 3, Gemini Pro Vision - excellent for debates even with image capability
-        
+
         # Additional checks based on model name/description for debate suitability
         model_name_lower = model.name.lower()
         description_lower = model.description.lower()
-        
+
         # Exclude models with names suggesting non-conversational focus
         non_conversational_keywords = [
-            'instruct-only', 'completion-only', 'base-model', 'fine-tuned-only',
-            'retrieval', 'embedding', 'classification'
+            "instruct-only",
+            "completion-only",
+            "base-model",
+            "fine-tuned-only",
+            "retrieval",
+            "embedding",
+            "classification",
         ]
-        
+
         for keyword in non_conversational_keywords:
             if keyword in model_name_lower or keyword in description_lower:
                 return False
-        
+
         return True
-    
+
     def is_preview_model(self, model: OpenRouterModel) -> bool:
         """Detect preview/anonymous models using configurable patterns."""
         model_id_lower = model.id.lower()
         model_name_lower = model.name.lower()
         description_lower = model.description.lower()
-        
+
         # Check configurable preview patterns
         preview_patterns = self.filter_config.get_preview_patterns()
         for pattern in preview_patterns:
-            if re.search(pattern, model_id_lower) or re.search(pattern, model_name_lower):
+            if re.search(pattern, model_id_lower) or re.search(
+                pattern, model_name_lower
+            ):
                 return True
-        
+
         # Check description for preview keywords
-        preview_keywords = ['preview', 'anonymous', 'beta', 'experimental', 'temporary']
+        preview_keywords = ["preview", "anonymous", "beta", "experimental", "temporary"]
         if any(keyword in description_lower for keyword in preview_keywords):
             return True
-        
+
         # Free models with suspicious names (don't match known providers)
         if model.pricing.is_free:
-            known_free_providers = ['meta-llama', 'microsoft', 'google', 'huggingface']
-            if not any(provider in model.id.lower() for provider in known_free_providers):
+            known_free_providers = ["meta-llama", "microsoft", "google", "huggingface"]
+            if not any(
+                provider in model.id.lower() for provider in known_free_providers
+            ):
                 # Could be a preview model
                 return True
-        
+
         return False
-    
+
     def should_exclude_model(self, model: OpenRouterModel) -> bool:
         """Check if model should be excluded entirely using configurable patterns."""
         model_id_lower = model.id.lower()
         model_name_lower = model.name.lower()
-        
+
         # Check configurable exclusion patterns
         exclude_patterns = self.filter_config.get_exclude_patterns()
         for pattern in exclude_patterns:
-            if re.search(pattern, model_id_lower) or re.search(pattern, model_name_lower):
+            if re.search(pattern, model_id_lower) or re.search(
+                pattern, model_name_lower
+            ):
                 logger.debug(f"Excluding model {model.id} due to pattern: {pattern}")
                 return True
-        
+
         return False
-    
+
     @classmethod
-    def classify_model(cls, model: OpenRouterModel) -> tuple[ModelWeightClass, Optional[str]]:
+    def classify_model(
+        cls, model: OpenRouterModel
+    ) -> tuple[ModelWeightClass, str | None]:
         """Classify model into weight class and estimate parameters using dynamic extraction."""
-        
+
         # Use the new capability extractor for automatic classification
         estimated_params = OpenRouterCapabilityExtractor.extract_parameter_count(model)
-        weight_class = OpenRouterCapabilityExtractor.determine_weight_class(model, estimated_params)
-        
+        weight_class = OpenRouterCapabilityExtractor.determine_weight_class(
+            model, estimated_params
+        )
+
         return weight_class, estimated_params
-    
+
     @classmethod
     def calculate_value_score(cls, model: OpenRouterModel) -> float:
         """Calculate value score (higher = better value) using debate-focused scoring."""
-        
+
         # Use the new debate-focused scoring system
         weight_class = OpenRouterCapabilityExtractor.determine_weight_class(model)
         return OpenRouterCapabilityExtractor.calculate_debate_score(model, weight_class)
-    
+
     @classmethod
-    def determine_tier(cls, model: OpenRouterModel, weight_class: ModelWeightClass) -> ModelTier:
+    def determine_tier(
+        cls, model: OpenRouterModel, weight_class: ModelWeightClass
+    ) -> ModelTier:
         """Determine model tier based on debate performance, cost efficiency, and capabilities."""
-        
+
         # Create a temporary filter instance to check if model is preview
         temp_filter = cls()
         if temp_filter.is_preview_model(model):
             return ModelTier.BUDGET  # Preview models are always budget tier
-        
+
         avg_cost = model.pricing.avg_cost_per_1k
         context_length = model.context_length
-        
+
         # Tier determination based on debate suitability
         # Consider: context length (debate flow), cost efficiency, and model size
-        
+
         # Free models are automatically good value
         if model.pricing.is_free:
             if weight_class == ModelWeightClass.ULTRAWEIGHT:
@@ -506,17 +593,19 @@ class OpenRouterModelFilter:
                 return ModelTier.PREMIUM
             else:
                 return ModelTier.BALANCED
-        
+
         # Cost-based tiers with context length consideration
         if weight_class == ModelWeightClass.ULTRAWEIGHT:
             # Large models: Premium if reasonably priced, Flagship if expensive but capable
             if avg_cost <= 0.01:
                 return ModelTier.PREMIUM  # Great large model at good price
             elif avg_cost <= 0.02:
-                return ModelTier.FLAGSHIP if context_length >= 64000 else ModelTier.PREMIUM
+                return (
+                    ModelTier.FLAGSHIP if context_length >= 64000 else ModelTier.PREMIUM
+                )
             else:
                 return ModelTier.FLAGSHIP  # Expensive but most capable
-                
+
         elif weight_class == ModelWeightClass.HEAVYWEIGHT:
             # Medium-large models: Good balance for debates
             if avg_cost <= 0.003:
@@ -525,91 +614,102 @@ class OpenRouterModelFilter:
                 return ModelTier.BALANCED  # Good value
             else:
                 return ModelTier.PREMIUM  # Higher cost but good capabilities
-                
+
         elif weight_class == ModelWeightClass.MIDDLEWEIGHT:
             # Medium models: Depend heavily on cost
             if avg_cost <= 0.002:
                 return ModelTier.BALANCED  # Good value for medium model
             elif avg_cost <= 0.006:
-                return ModelTier.PREMIUM if context_length >= 32000 else ModelTier.BALANCED
+                return (
+                    ModelTier.PREMIUM if context_length >= 32000 else ModelTier.BALANCED
+                )
             else:
                 return ModelTier.PREMIUM  # Expensive medium model, likely high quality
-                
+
         else:  # LIGHTWEIGHT
             # Small models: Mainly for budget tier unless very cheap
             if avg_cost <= 0.001:
-                return ModelTier.BALANCED if context_length >= 16000 else ModelTier.BUDGET
+                return (
+                    ModelTier.BALANCED if context_length >= 16000 else ModelTier.BUDGET
+                )
             else:
                 return ModelTier.BUDGET
-    
+
     @classmethod
     def filter_and_enhance_models(
-        cls, 
-        models: List[OpenRouterModel],
-        include_preview: Optional[bool] = None,
-        max_cost_per_1k: Optional[float] = None,
-        min_context_length: Optional[int] = None,
-        max_models_per_tier: Optional[int] = None,
-        filter_config: Optional[FilterConfig] = None
-    ) -> List[OpenRouterEnhancedModelInfo]:
+        cls,
+        models: list[OpenRouterModel],
+        include_preview: bool | None = None,
+        max_cost_per_1k: float | None = None,
+        min_context_length: int | None = None,
+        max_models_per_tier: int | None = None,
+        filter_config: FilterConfig | None = None,
+    ) -> list[OpenRouterEnhancedModelInfo]:
         """Filter and enhance models with intelligent selection using configurable filters."""
-        
+
         # Initialize filter config and get settings
         config = filter_config or FilterConfig()
-        
+
         # Use config defaults if parameters not specified
         if include_preview is None:
-            include_preview = config.get_setting('allow_preview_models', False)
+            include_preview = config.get_setting("allow_preview_models", False)
         if max_cost_per_1k is None:
-            max_cost_per_1k = config.get_setting('max_cost_per_1k_tokens', 0.02)
+            max_cost_per_1k = config.get_setting("max_cost_per_1k_tokens", 0.02)
         if min_context_length is None:
-            min_context_length = config.get_setting('min_context_length', 4096)
+            min_context_length = config.get_setting("min_context_length", 4096)
         if max_models_per_tier is None:
-            max_models_per_tier = config.get_setting('max_models_per_tier', 5)
-        
+            max_models_per_tier = config.get_setting("max_models_per_tier", 5)
+
         # Create filter instance
         model_filter = cls(config)
         enhanced_models = []
-        
+
         for model in models:
             # Skip excluded models (including meta models)
             if model_filter.should_exclude_model(model):
                 continue
-            
+
             # Skip models not suitable for debate
             if not cls.is_suitable_for_debate(model):
                 continue
-            
+
             # Skip preview models if not requested
             is_preview = model_filter.is_preview_model(model)
             if is_preview and not include_preview:
                 continue
-            
+
             # Skip models that are too expensive
-            if max_cost_per_1k is not None and model.pricing.avg_cost_per_1k > max_cost_per_1k and not model.pricing.is_free:
+            if (
+                max_cost_per_1k is not None
+                and model.pricing.avg_cost_per_1k > max_cost_per_1k
+                and not model.pricing.is_free
+            ):
                 continue
-            
+
             # Skip models with insufficient context
-            if min_context_length is not None and model.context_length < min_context_length:
+            if (
+                min_context_length is not None
+                and model.context_length < min_context_length
+            ):
                 continue
-            
+
             # Classify and score the model
             weight_class, estimated_params = cls.classify_model(model)
             value_score = cls.calculate_value_score(model)
             tier = cls.determine_tier(model, weight_class)
-            
+
             # Convert OpenRouter pricing to generic pricing
             generic_pricing = ModelPricing(
                 prompt_cost_per_1k=model.pricing.prompt_cost_per_1k,
                 completion_cost_per_1k=model.pricing.completion_cost_per_1k,
                 is_free=model.pricing.is_free,
-                currency="USD"
+                currency="USD",
             )
-            
+
             enhanced_model = OpenRouterEnhancedModelInfo(
                 id=model.id,
                 name=model.name,
-                provider='openrouter',
+                provider="openrouter",
                 description=model.description,
                 weight_class=weight_class,
                 tier=tier,
@@ -618,28 +718,33 @@ class OpenRouterModelFilter:
                 pricing=generic_pricing,
                 value_score=value_score,
                 is_preview=is_preview,
-                is_text_only=(len([m for m in model.architecture.input_modalities if m != 'text']) == 0),
+                is_text_only=(
+                    len([m for m in model.architecture.input_modalities if m != "text"])
+                    == 0
+                ),
                 estimated_params=estimated_params,
-                source_info={'openrouter_raw': model.model_dump()}
+                source_info={"openrouter_raw": model.model_dump()},
             )
-            
+
             enhanced_models.append(enhanced_model)
-        
+
         # Sort models by tier and value
         enhanced_models.sort(key=lambda m: m.sort_key)
-        
+
         # Limit models per tier to avoid overwhelming users
         if max_models_per_tier is not None and max_models_per_tier > 0:
             tier_counts = {}
             filtered_models = []
-            
+
             for model in enhanced_models:
                 tier_count = tier_counts.get(model.tier, 0)
                 if tier_count < max_models_per_tier:
                     filtered_models.append(model)
                     tier_counts[model.tier] = tier_count + 1
-            
+
             enhanced_models = filtered_models
-        
-        logger.info(f"Filtered {len(models)} OpenRouter models down to {len(enhanced_models)} suitable for debate")
+
+        logger.info(
+            f"Filtered {len(models)} OpenRouter models down to {len(enhanced_models)} suitable for debate"
+        )
         return enhanced_models

@@ -271,10 +271,10 @@ class Tournament(BaseModel):
     bracket_size: int
     current_round: int
     total_rounds: int
-    created_at: Optional[datetime]
-    started_at: Optional[datetime] 
-    completed_at: Optional[datetime]
-    winner_model_id: Optional[str]
+    created_at: datetime | None
+    started_at: datetime | None 
+    completed_at: datetime | None
+    winner_model_id: str | None
 ```
 
 ## Implementation Priority & Recovery Strategy

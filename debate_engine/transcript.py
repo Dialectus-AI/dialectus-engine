@@ -12,12 +12,14 @@ logger = logging.getLogger(__name__)
 
 class ParticipantInfo(TypedDict):
     """Information about a debate participant."""
+
     name: str
     personality: str
 
 
 class DebateMetadata(TypedDict):
     """Metadata for a debate transcript."""
+
     id: int
     topic: str
     format: str
@@ -33,6 +35,7 @@ class DebateMetadata(TypedDict):
 
 class MessageData(TypedDict):
     """Data structure for a single debate message."""
+
     speaker_id: str
     position: str
     phase: str
@@ -45,6 +48,7 @@ class MessageData(TypedDict):
 
 class FullTranscriptData(TypedDict):
     """Complete transcript data including metadata and messages."""
+
     metadata: Dict[str, Any]  # Contains the same fields as DebateMetadata but nested
     messages: List[MessageData]
     scores: Dict[str, float]
@@ -53,10 +57,10 @@ class FullTranscriptData(TypedDict):
 
 class TranscriptManager:
     """Manages saving and loading of debate transcripts in SQLite database."""
-    
+
     def __init__(self, db_path: str = "debates.db"):
         self.db_manager = DatabaseManager(db_path)
-    
+
     def save_transcript(self, context: DebateContext, total_debate_time_ms: int) -> int:
         """Save a debate transcript to the database and return the debate ID."""
         transcript_data = self._context_to_dict(context, total_debate_time_ms)
@@ -67,24 +71,25 @@ class TranscriptManager:
         except Exception as e:
             logger.error(f"Failed to save transcript to database: {e}")
             raise
-    
-    
-    def _context_to_dict(self, context: DebateContext, total_debate_time_ms: int) -> Dict[str, Any]:
+
+    def _context_to_dict(
+        self, context: DebateContext, total_debate_time_ms: int
+    ) -> Dict[str, Any]:
         """Convert DebateContext to dictionary for JSON serialization."""
         return {
             "metadata": {
                 "topic": context.topic,
-                "format": context.metadata.get('format', 'unknown'),
-                "participants": {pid: {
-                    "name": config.name,
-                    "personality": config.personality
-                } for pid, config in context.participants.items()},
+                "format": context.metadata.get("format", "unknown"),
+                "participants": {
+                    pid: {"name": config.name, "personality": config.personality}
+                    for pid, config in context.participants.items()
+                },
                 "final_phase": context.current_phase.value,
                 "total_rounds": context.current_round,
                 "saved_at": datetime.now().isoformat(),
                 "message_count": len(context.messages),
                 "word_count": sum(len(msg.content.split()) for msg in context.messages),
-                "total_debate_time_ms": total_debate_time_ms
+                "total_debate_time_ms": total_debate_time_ms,
             },
             "messages": [
                 {
@@ -95,15 +100,15 @@ class TranscriptManager:
                     "content": msg.content,
                     "timestamp": msg.timestamp.isoformat(),
                     "word_count": len(msg.content.split()),
-                    "metadata": msg.metadata
+                    "metadata": msg.metadata,
                 }
                 for msg in context.messages
             ],
             "scores": context.scores,
-            "context_metadata": context.metadata
+            "context_metadata": context.metadata,
         }
-    
-    def load_transcript(self, debate_id: int) -> Optional[FullTranscriptData]:
+
+    def load_transcript(self, debate_id: int) -> FullTranscriptData | None:
         """Load a debate transcript by ID."""
         try:
             result = self.db_manager.load_debate(debate_id)
@@ -111,8 +116,10 @@ class TranscriptManager:
         except Exception as e:
             logger.error(f"Failed to load transcript from database: {e}")
             return None
-    
-    def list_transcripts(self, limit: Optional[int] = None, offset: int = 0) -> List[DebateMetadata]:
+
+    def list_transcripts(
+        self, limit: int | None = None, offset: int = 0
+    ) -> List[DebateMetadata]:
         """List transcripts with pagination support."""
         try:
             result = self.db_manager.list_debates(limit=limit, offset=offset)
@@ -120,15 +127,15 @@ class TranscriptManager:
         except Exception as e:
             logger.error(f"Failed to list debates from database: {e}")
             return []
-    
-    def get_transcript_summary(self, debate_id: int) -> Optional[DebateMetadata]:
+
+    def get_transcript_summary(self, debate_id: int) -> DebateMetadata | None:
         """Get summary information about a transcript without loading all messages."""
         debates = self.list_transcripts()
         for debate in debates:
             if debate.get("id") == debate_id:
                 return debate
         return None
-    
+
     def format_transcript_for_judging(self, context: DebateContext) -> str:
         """Format transcript as plain text for AI judging."""
         lines = [
@@ -140,12 +147,12 @@ class TranscriptManager:
             f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
             "",
             "=" * 80,
-            ""
+            "",
         ]
-        
+
         current_round = 0
         current_phase = None
-        
+
         for msg in context.messages:
             # Add round/phase headers when they change
             if msg.round_number != current_round or msg.phase != current_phase:
@@ -155,23 +162,24 @@ class TranscriptManager:
                 lines.append("-" * 40)
                 current_round = msg.round_number
                 current_phase = msg.phase
-            
+
             # Format message
             speaker_header = f"{msg.speaker_id.upper()} ({msg.position.value.upper()})"
-            lines.extend([
-                f"[{speaker_header}]",
-                msg.content.strip(),
-                f"    Words: {len(msg.content.split())} | Time: {msg.timestamp.strftime('%H:%M:%S')}",
-                ""
-            ])
-        
-        lines.extend([
-            "=" * 80,
-            f"END OF TRANSCRIPT - {len(context.messages)} total messages"
-        ])
-        
+            lines.extend(
+                [
+                    f"[{speaker_header}]",
+                    msg.content.strip(),
+                    f"    Words: {len(msg.content.split())} | Time: {msg.timestamp.strftime('%H:%M:%S')}",
+                    "",
+                ]
+            )
+
+        lines.extend(
+            ["=" * 80, f"END OF TRANSCRIPT - {len(context.messages)} total messages"]
+        )
+
         return "\n".join(lines)
-    
+
     def delete_transcript(self, debate_id: int) -> bool:
         """Delete a debate transcript by ID."""
         try:
@@ -179,7 +187,7 @@ class TranscriptManager:
         except Exception as e:
             logger.error(f"Failed to delete transcript {debate_id}: {e}")
             return False
-    
+
     def get_debate_count(self) -> int:
         """Get the total number of debates stored."""
         try:
@@ -187,19 +195,21 @@ class TranscriptManager:
         except Exception as e:
             logger.error(f"Failed to get debate count: {e}")
             return 0
-    
+
     def search_transcripts_by_topic(self, topic_search: str) -> List[DebateMetadata]:
         """Search for transcripts containing the topic search term."""
         debates = self.list_transcripts()
         return [
-            debate for debate in debates
+            debate
+            for debate in debates
             if topic_search.lower() in debate.get("topic", "").lower()
         ]
-    
+
     def get_transcripts_by_format(self, format_name: str) -> List[DebateMetadata]:
         """Get all transcripts for a specific debate format."""
         debates = self.list_transcripts()
         return [
-            debate for debate in debates
+            debate
+            for debate in debates
             if debate.get("format", "").lower() == format_name.lower()
         ]

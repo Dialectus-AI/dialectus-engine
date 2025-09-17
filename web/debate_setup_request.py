@@ -1,4 +1,3 @@
-from typing import Dict, Optional, List
 from pydantic import BaseModel, field_validator
 from config.settings import ModelConfig
 
@@ -9,11 +8,11 @@ class DebateSetupRequest(BaseModel):
     topic: str
     format: str = "oxford"
     word_limit: int = 200
-    models: Dict[str, ModelConfig]
-    judge_models: Optional[List[str]] = None
-    judge_provider: Optional[str] = None
+    models: dict[str, ModelConfig]
+    judge_models: list[str] | None = None
+    judge_provider: str | None = None
 
-    @field_validator('judge_models')
+    @field_validator("judge_models")
     @classmethod
     def validate_judge_models(cls, v):
         """Validate judge_models field."""

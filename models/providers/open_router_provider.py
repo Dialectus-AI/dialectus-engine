@@ -18,11 +18,13 @@ logger = logging.getLogger(__name__)
 
 class OpenRouterProvider(BaseModelProvider):
     """OpenRouter model provider implementation."""
-    
+
     # Class-level rate limiting to prevent 429 errors
-    _last_request_time: ClassVar[Optional[float]] = None
+    _last_request_time: ClassVar[float | None] = None
     _request_lock: ClassVar[asyncio.Lock] = asyncio.Lock()
-    _min_request_interval: ClassVar[float] = 3.0  # Minimum 3 seconds between requests to prevent 429 errors
+    _min_request_interval: ClassVar[float] = (
+        3.0  # Minimum 3 seconds between requests to prevent 429 errors
+    )
 
     def __init__(self, system_config: "SystemConfig"):
         super().__init__(system_config)
@@ -59,14 +61,16 @@ class OpenRouterProvider(BaseModelProvider):
         """Ensure minimum time between requests to avoid 429 errors."""
         async with self._request_lock:
             current_time = time.time()
-            
+
             if self._last_request_time is not None:
                 time_since_last = current_time - self._last_request_time
                 if time_since_last < self._min_request_interval:
                     sleep_time = self._min_request_interval - time_since_last
-                    logger.debug(f"Rate limiting: waiting {sleep_time:.2f}s before next OpenRouter request")
+                    logger.debug(
+                        f"Rate limiting: waiting {sleep_time:.2f}s before next OpenRouter request"
+                    )
                     await asyncio.sleep(sleep_time)
-            
+
             # Update the class variable to track last request time
             OpenRouterProvider._last_request_time = time.time()
 
@@ -98,20 +102,26 @@ class OpenRouterProvider(BaseModelProvider):
                 for model_dict in cached_models:
                     try:
                         # Use model_validate for proper type conversion from cache
-                        enhanced_model = OpenRouterEnhancedModelInfo.model_validate(model_dict)
+                        enhanced_model = OpenRouterEnhancedModelInfo.model_validate(
+                            model_dict
+                        )
                         enhanced_models.append(enhanced_model)
                     except Exception as e:
-                        logger.warning(f"Failed to reconstruct cached OpenRouter model {model_dict.get('id', 'unknown')}: {e}")
+                        logger.warning(
+                            f"Failed to reconstruct cached OpenRouter model {model_dict.get('id', 'unknown')}: {e}"
+                        )
                         # Continue with other models rather than failing entirely
                         continue
-                
+
                 if enhanced_models:
                     logger.info(
                         f"Using cached OpenRouter models ({len(enhanced_models)} models)"
                     )
                     return enhanced_models
                 else:
-                    logger.warning("All cached models failed to reconstruct, fetching fresh data...")
+                    logger.warning(
+                        "All cached models failed to reconstruct, fetching fresh data..."
+                    )
                     # Clear corrupted cache and fall through to fresh API call
                     cache_manager.invalidate("openrouter", "models")
 
@@ -134,7 +144,7 @@ class OpenRouterProvider(BaseModelProvider):
 
             # Apply rate limiting before API request
             await self._rate_limit_request()
-            
+
             async with httpx.AsyncClient() as client:
                 response = await client.get(
                     f"{self.system_config.openrouter.base_url}/models",
@@ -216,7 +226,7 @@ class OpenRouterProvider(BaseModelProvider):
 
             # Apply rate limiting before API request
             await self._rate_limit_request()
-            
+
             async with httpx.AsyncClient() as client:
                 http_response = await client.post(
                     f"{self.system_config.openrouter.base_url}/chat/completions",
