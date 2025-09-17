@@ -111,7 +111,7 @@ class TournamentDatabaseManager:
 
     def list_tournaments(
         self, limit: int | None = None, offset: int = 0
-    ) -> List[TournamentSummary]:
+    ) -> list[TournamentSummary]:
         """List tournaments with summary information."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -155,7 +155,7 @@ class TournamentDatabaseManager:
 
             # Build dynamic update query
             set_clauses = ["status = ?"]
-            params: List[Any] = [status.value]
+            params: list[Any] = [status.value]
 
             if "started_at" in kwargs:
                 set_clauses.append("started_at = ?")
@@ -232,7 +232,7 @@ class TournamentDatabaseManager:
             conn.commit()
             return participant_id
 
-    def get_participants(self, tournament_id: int) -> List[TournamentParticipant]:
+    def get_participants(self, tournament_id: int) -> list[TournamentParticipant]:
         """Get all participants for a tournament."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -317,7 +317,7 @@ class TournamentDatabaseManager:
 
     def get_matches(
         self, tournament_id: int, round_number: int | None = None
-    ) -> List[TournamentMatch]:
+    ) -> list[TournamentMatch]:
         """Get matches for tournament, optionally filtered by round."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -366,7 +366,7 @@ class TournamentDatabaseManager:
 
             # Build dynamic update query
             set_clauses = ["status = ?"]
-            params: List[Any] = [status.value]
+            params: list[Any] = [status.value]
 
             if "winner_model_id" in kwargs:
                 set_clauses.append("winner_model_id = ?")
@@ -418,7 +418,7 @@ class TournamentDatabaseManager:
             conn.commit()
             return judge_id
 
-    def get_judges(self, tournament_id: int) -> List[TournamentJudge]:
+    def get_judges(self, tournament_id: int) -> list[TournamentJudge]:
         """Get all judges for a tournament."""
         with self._get_connection() as conn:
             cursor = conn.cursor()

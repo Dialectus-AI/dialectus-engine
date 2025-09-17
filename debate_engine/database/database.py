@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, TypedDict
 from contextlib import contextmanager
 from judges.base import JudgeDecision
+from .schema import SchemaManager
 
 logger = logging.getLogger(__name__)
 
@@ -60,237 +61,20 @@ class DatabaseManager:
 
     def __init__(self, db_path: str = "debates.db"):
         self.db_path = Path(db_path)
+        self.schema_manager = SchemaManager()
         self._init_database()
 
     def _init_database(self):
-        """Initialize the database with required tables."""
+        """Initialize the database with required tables using schema manager."""
+        # Validate that all required schema files exist
+        if not self.schema_manager.validate_schema_files():
+            raise RuntimeError("Database schema validation failed - missing schema files")
+
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
-            # Create debates table for metadata
-            cursor.execute(
-                """
-                CREATE TABLE IF NOT EXISTS debates (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    topic TEXT NOT NULL,
-                    format TEXT NOT NULL,
-                    participants TEXT NOT NULL,  -- JSON string
-                    final_phase TEXT NOT NULL,
-                    total_rounds INTEGER NOT NULL,
-                    saved_at TEXT NOT NULL,
-                    message_count INTEGER NOT NULL,
-                    word_count INTEGER NOT NULL,
-                    total_debate_time_ms INTEGER NOT NULL,  -- Total debate duration in milliseconds
-                    scores TEXT,  -- JSON string
-                    context_metadata TEXT,  -- JSON string
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-                )
-            """
-            )
-
-            # Create messages table
-            cursor.execute(
-                """
-                CREATE TABLE IF NOT EXISTS messages (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    debate_id INTEGER NOT NULL,
-                    speaker_id TEXT NOT NULL,
-                    position TEXT NOT NULL,
-                    phase TEXT NOT NULL,
-                    round_number INTEGER NOT NULL,
-                    content TEXT NOT NULL,
-                    timestamp TEXT NOT NULL,
-                    word_count INTEGER NOT NULL,
-                    metadata TEXT,  -- JSON string
-                    FOREIGN KEY (debate_id) REFERENCES debates (id) ON DELETE CASCADE
-                )
-            """
-            )
-
-            # Create judge_decisions table (individual judge decisions only)
-            cursor.execute(
-                """
-                CREATE TABLE IF NOT EXISTS judge_decisions (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    debate_id INTEGER NOT NULL,
-                    judge_model TEXT NOT NULL,
-                    judge_provider TEXT NOT NULL,
-                    winner_id TEXT NOT NULL,
-                    winner_margin REAL NOT NULL,
-                    overall_feedback TEXT,
-                    reasoning TEXT,
-                    generation_time_ms INTEGER,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (debate_id) REFERENCES debates(id) ON DELETE CASCADE
-                )
-            """
-            )
-
-            # Create ensemble_summary table (ensemble aggregation results)
-            cursor.execute(
-                """
-                CREATE TABLE IF NOT EXISTS ensemble_summary (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    debate_id INTEGER NOT NULL UNIQUE,
-                    final_winner_id TEXT NOT NULL,
-                    final_margin REAL NOT NULL,
-                    ensemble_method TEXT NOT NULL DEFAULT 'majority',
-                    num_judges INTEGER NOT NULL,
-                    consensus_level REAL,
-                    summary_reasoning TEXT,
-                    summary_feedback TEXT,
-                    participating_judge_decision_ids TEXT,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (debate_id) REFERENCES debates(id) ON DELETE CASCADE
-                )
-            """
-            )
-
-            # Create criterion_scores table
-            cursor.execute(
-                """
-                CREATE TABLE IF NOT EXISTS criterion_scores (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    judge_decision_id INTEGER NOT NULL,
-                    criterion TEXT NOT NULL,
-                    participant_id TEXT NOT NULL,
-                    score REAL NOT NULL,
-                    feedback TEXT,
-                    FOREIGN KEY (judge_decision_id) REFERENCES judge_decisions (id) ON DELETE CASCADE
-                )
-            """
-            )
-
-            # Create indexes for better query performance
-            cursor.execute(
-                """
-                CREATE INDEX IF NOT EXISTS idx_messages_debate_id
-                ON messages (debate_id)
-            """
-            )
-
-            cursor.execute(
-                """
-                CREATE INDEX IF NOT EXISTS idx_messages_round_phase
-                ON messages (debate_id, round_number, phase)
-            """
-            )
-
-            cursor.execute(
-                """
-                CREATE INDEX IF NOT EXISTS idx_judge_decisions_debate_id
-                ON judge_decisions (debate_id)
-            """
-            )
-
-            cursor.execute(
-                """
-                CREATE INDEX IF NOT EXISTS idx_criterion_scores_decision_id
-                ON criterion_scores (judge_decision_id)
-            """
-            )
-
-            cursor.execute(
-                """
-                CREATE INDEX IF NOT EXISTS idx_ensemble_summary_debate_id
-                ON ensemble_summary (debate_id)
-            """
-            )
-
-            # Tournament system tables
-            cursor.execute(
-                """
-                CREATE TABLE IF NOT EXISTS tournaments (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT NOT NULL,
-                    weight_class TEXT NOT NULL,  -- 'free', 'budget', 'economy', 'premium', 'elite'
-                    format TEXT NOT NULL,
-                    word_limit INTEGER NOT NULL,
-                    status TEXT NOT NULL,  -- 'created', 'in_progress', 'completed', 'cancelled'
-                    bracket_size INTEGER NOT NULL,  -- 4, 8, 16, 32, 64
-                    current_round INTEGER DEFAULT 1,
-                    total_rounds INTEGER NOT NULL,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    started_at DATETIME,
-                    completed_at DATETIME,
-                    winner_model_id TEXT,
-                    tournament_metadata TEXT  -- JSON: judge_models, settings
-                )
-            """
-            )
-
-            cursor.execute(
-                """
-                CREATE TABLE IF NOT EXISTS tournament_participants (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    tournament_id INTEGER NOT NULL,
-                    model_id TEXT NOT NULL,
-                    model_name TEXT NOT NULL,
-                    seed_number INTEGER NOT NULL,  -- 1-64 seeding
-                    eliminated_in_round INTEGER,  -- NULL if still active
-                    FOREIGN KEY (tournament_id) REFERENCES tournaments (id) ON DELETE CASCADE
-                )
-            """
-            )
-
-            cursor.execute(
-                """
-                CREATE TABLE IF NOT EXISTS tournament_matches (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    tournament_id INTEGER NOT NULL,
-                    round_number INTEGER NOT NULL,
-                    match_number INTEGER NOT NULL,
-                    model_a_id TEXT NOT NULL,
-                    model_b_id TEXT,  -- NULL for bye matches
-                    winner_model_id TEXT,  -- NULL until debate completes
-                    debate_id TEXT,  -- Links to existing debates table
-                    topic TEXT NOT NULL,  -- Unique topic per match
-                    status TEXT NOT NULL,  -- 'pending', 'in_progress', 'completed', 'bye'
-                    FOREIGN KEY (tournament_id) REFERENCES tournaments (id) ON DELETE CASCADE
-                )
-            """
-            )
-
-            cursor.execute(
-                """
-                CREATE TABLE IF NOT EXISTS tournament_judges (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    tournament_id INTEGER NOT NULL,
-                    judge_model_id TEXT NOT NULL,
-                    judge_provider TEXT NOT NULL,
-                    FOREIGN KEY (tournament_id) REFERENCES tournaments (id) ON DELETE CASCADE
-                )
-            """
-            )
-
-            # Tournament indexes for performance
-            cursor.execute(
-                """
-                CREATE INDEX IF NOT EXISTS idx_tournament_participants_tournament_id
-                ON tournament_participants (tournament_id)
-            """
-            )
-
-            cursor.execute(
-                """
-                CREATE INDEX IF NOT EXISTS idx_tournament_matches_tournament_id
-                ON tournament_matches (tournament_id)
-            """
-            )
-
-            cursor.execute(
-                """
-                CREATE INDEX IF NOT EXISTS idx_tournament_matches_round
-                ON tournament_matches (tournament_id, round_number)
-            """
-            )
-
-            cursor.execute(
-                """
-                CREATE INDEX IF NOT EXISTS idx_tournament_judges_tournament_id
-                ON tournament_judges (tournament_id)
-            """
-            )
+            # Use schema manager to initialize all tables and indexes
+            self.schema_manager.initialize_database_schema(cursor)
 
             conn.commit()
             logger.info(f"Database initialized at {self.db_path}")
