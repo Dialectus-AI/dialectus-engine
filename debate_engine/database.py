@@ -197,6 +197,101 @@ class DatabaseManager:
             """
             )
 
+            # Tournament system tables
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS tournaments (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    weight_class TEXT NOT NULL,  -- 'free', 'budget', 'economy', 'premium', 'elite'
+                    format TEXT NOT NULL,
+                    word_limit INTEGER NOT NULL,
+                    status TEXT NOT NULL,  -- 'created', 'in_progress', 'completed', 'cancelled'
+                    bracket_size INTEGER NOT NULL,  -- 4, 8, 16, 32, 64
+                    current_round INTEGER DEFAULT 1,
+                    total_rounds INTEGER NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    started_at DATETIME,
+                    completed_at DATETIME,
+                    winner_model_id TEXT,
+                    tournament_metadata TEXT  -- JSON: judge_models, settings
+                )
+            """
+            )
+
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS tournament_participants (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    tournament_id INTEGER NOT NULL,
+                    model_id TEXT NOT NULL,
+                    model_name TEXT NOT NULL,
+                    seed_number INTEGER NOT NULL,  -- 1-64 seeding
+                    eliminated_in_round INTEGER,  -- NULL if still active
+                    FOREIGN KEY (tournament_id) REFERENCES tournaments (id) ON DELETE CASCADE
+                )
+            """
+            )
+
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS tournament_matches (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    tournament_id INTEGER NOT NULL,
+                    round_number INTEGER NOT NULL,
+                    match_number INTEGER NOT NULL,
+                    model_a_id TEXT NOT NULL,
+                    model_b_id TEXT,  -- NULL for bye matches
+                    winner_model_id TEXT,  -- NULL until debate completes
+                    debate_id TEXT,  -- Links to existing debates table
+                    topic TEXT NOT NULL,  -- Unique topic per match
+                    status TEXT NOT NULL,  -- 'pending', 'in_progress', 'completed', 'bye'
+                    FOREIGN KEY (tournament_id) REFERENCES tournaments (id) ON DELETE CASCADE
+                )
+            """
+            )
+
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS tournament_judges (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    tournament_id INTEGER NOT NULL,
+                    judge_model_id TEXT NOT NULL,
+                    judge_provider TEXT NOT NULL,
+                    FOREIGN KEY (tournament_id) REFERENCES tournaments (id) ON DELETE CASCADE
+                )
+            """
+            )
+
+            # Tournament indexes for performance
+            cursor.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_tournament_participants_tournament_id
+                ON tournament_participants (tournament_id)
+            """
+            )
+
+            cursor.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_tournament_matches_tournament_id
+                ON tournament_matches (tournament_id)
+            """
+            )
+
+            cursor.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_tournament_matches_round
+                ON tournament_matches (tournament_id, round_number)
+            """
+            )
+
+            cursor.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_tournament_judges_tournament_id
+                ON tournament_judges (tournament_id)
+            """
+            )
+
             conn.commit()
             logger.info(f"Database initialized at {self.db_path}")
 
