@@ -2,10 +2,8 @@
 
 import json
 import logging
-from typing import Dict, List
 import re
 import uuid
-
 from models.manager import ModelManager
 from config.settings import SystemConfig
 from debate_engine.models import DebateContext
@@ -22,7 +20,7 @@ class AIJudge(BaseJudge):
         self,
         model_manager: ModelManager,
         judge_model_name: str,
-        criteria: List[str],
+        criteria: list[str],
         system_config: SystemConfig,
         judge_provider: str,
     ):
@@ -40,7 +38,6 @@ class AIJudge(BaseJudge):
 
         # Register judge model with manager
         from config.settings import ModelConfig
-
 
         judge_config = ModelConfig(
             name=judge_model_name,
@@ -104,8 +101,8 @@ class AIJudge(BaseJudge):
         return "\n".join(lines)
 
     def _get_participant_labels(
-        self, participants: List[str], context: DebateContext
-    ) -> Dict[str, str]:
+        self, participants: list[str], context: DebateContext
+    ) -> dict[str, str]:
         """Get format-specific labels for participants."""
         try:
             # Get format name from context metadata
@@ -131,7 +128,7 @@ class AIJudge(BaseJudge):
             return fallback_labels
 
     def _map_side_label_to_participant_id(
-        self, side_label: str, participants: List[str], context: DebateContext
+        self, side_label: str, participants: list[str], context: DebateContext
     ) -> str:
         """Map side label back to participant ID."""
         # Create mapping from side labels to participant IDs
@@ -171,7 +168,7 @@ class AIJudge(BaseJudge):
 
         # Use model manager to generate response
         # Add some randomness for ensemble judges to get different evaluations
-        temperature = getattr(self, '_ensemble_temperature', 0.3)
+        temperature = getattr(self, "_ensemble_temperature", 0.3)
 
         async with self.model_manager.model_session(self.judge_id):
             response = await self.model_manager.generate_response(
@@ -202,8 +199,8 @@ class AIJudge(BaseJudge):
     def _create_evaluation_prompt(
         self,
         transcript: str,
-        participants: List[str],
-        criteria: List[str],
+        participants: list[str],
+        criteria: list[str],
         context: DebateContext,
     ) -> str:
         """Create the evaluation prompt for the judge."""
@@ -219,13 +216,15 @@ class AIJudge(BaseJudge):
 
         # Use current time and a random element for uniqueness
         evaluation_id = int(time.time() * 1000) % 10000
-        random_instruction = random.choice([
-            "Pay particular attention to the strength of evidence presented.",
-            "Focus especially on how well arguments address counterpoints.",
-            "Consider the persuasive impact and clarity of each argument.",
-            "Evaluate the logical consistency and reasoning quality.",
-            "Assess how effectively each side builds their case."
-        ])
+        random_instruction = random.choice(
+            [
+                "Pay particular attention to the strength of evidence presented.",
+                "Focus especially on how well arguments address counterpoints.",
+                "Consider the persuasive impact and clarity of each argument.",
+                "Evaluate the logical consistency and reasoning quality.",
+                "Assess how effectively each side builds their case.",
+            ]
+        )
 
         # Create complete example showing all participants and criteria
         example_scores = []
@@ -292,30 +291,36 @@ Provide your evaluation as valid JSON only, no additional text:"""
 
             # Extract JSON from response (handle markdown code fences and extra text)
             # First, try to extract from markdown code fences
-            markdown_match = re.search(r"```(?:json)?\s*(\{.*\})\s*```", evaluation, re.DOTALL)
+            markdown_match = re.search(
+                r"```(?:json)?\s*(\{.*\})\s*```", evaluation, re.DOTALL
+            )
             if markdown_match:
                 json_text = markdown_match.group(1)
-                logger.debug(f"Extracted JSON from markdown (first 300 chars): {json_text[:300]}")
+                logger.debug(
+                    f"Extracted JSON from markdown (first 300 chars): {json_text[:300]}"
+                )
             else:
                 # Fallback to looking for bare JSON - find the complete JSON object
                 # Look for opening brace and find matching closing brace
-                start_idx = evaluation.find('{')
+                start_idx = evaluation.find("{")
                 if start_idx != -1:
                     # Count braces to find the complete JSON object
                     brace_count = 0
                     end_idx = start_idx
                     for i, char in enumerate(evaluation[start_idx:], start_idx):
-                        if char == '{':
+                        if char == "{":
                             brace_count += 1
-                        elif char == '}':
+                        elif char == "}":
                             brace_count -= 1
                             if brace_count == 0:
                                 end_idx = i
                                 break
 
                     if brace_count == 0:  # Found matching closing brace
-                        json_text = evaluation[start_idx:end_idx + 1]
-                        logger.debug(f"Extracted bare JSON (first 300 chars): {json_text[:300]}")
+                        json_text = evaluation[start_idx : end_idx + 1]
+                        logger.debug(
+                            f"Extracted bare JSON (first 300 chars): {json_text[:300]}"
+                        )
                     else:
                         logger.debug(
                             "No complete JSON object found, attempting to parse entire response"
@@ -446,17 +451,19 @@ Provide your evaluation as valid JSON only, no additional text:"""
                 logger.debug("Closed unclosed quote")
 
             # Remove any trailing comma
-            repair_json = repair_json.rstrip().rstrip(',')
+            repair_json = repair_json.rstrip().rstrip(",")
 
             # Count open braces and brackets to determine what to close
-            open_braces = repair_json.count('{') - repair_json.count('}')
-            open_brackets = repair_json.count('[') - repair_json.count(']')
+            open_braces = repair_json.count("{") - repair_json.count("}")
+            open_brackets = repair_json.count("[") - repair_json.count("]")
 
             # Close arrays first, then objects
-            repair_json += ']' * open_brackets
-            repair_json += '}' * open_braces
+            repair_json += "]" * open_brackets
+            repair_json += "}" * open_braces
 
-            logger.debug(f"Completed truncated JSON with {open_brackets} ] and {open_braces} }}")
+            logger.debug(
+                f"Completed truncated JSON with {open_brackets} ] and {open_braces} }}"
+            )
 
         # Remove any text after the final closing brace
         last_brace = repair_json.rfind("}")
@@ -469,7 +476,7 @@ Provide your evaluation as valid JSON only, no additional text:"""
         return repair_json
 
     def _validate_complete_scoring(
-        self, criterion_scores: List, participants: List[str], context: DebateContext
+        self, criterion_scores: list, participants: list[str], context: DebateContext
     ) -> None:
         """Validate that judge provided complete scoring for all participants and criteria."""
         expected_combinations = len(participants) * len(self.criteria)

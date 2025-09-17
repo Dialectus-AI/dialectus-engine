@@ -1,7 +1,6 @@
 """Factory for creating judges."""
 
 import logging
-from typing import Optional, List
 
 from models.manager import ModelManager
 from config.settings import SystemConfig
@@ -11,12 +10,12 @@ logger = logging.getLogger(__name__)
 
 
 def create_judges(
-    judge_models: List[str],
-    judge_provider: Optional[str],
+    judge_models: list[str],
+    judge_provider: str,
     system_config: SystemConfig,
     model_manager: ModelManager,
-    criteria: Optional[List[str]] = None
-) -> List[AIJudge]:
+    criteria: list[str] | None = None,
+) -> list[AIJudge]:
     """Factory function to create list of AI judges."""
 
     if not judge_models or len(judge_models) == 0:
@@ -39,7 +38,7 @@ def create_judges(
             judge_model_name=model_name,
             criteria=criteria,
             system_config=system_config,
-            judge_provider=judge_provider
+            judge_provider=judge_provider,
         )
         # Add slightly higher temperature for ensemble judges to increase variation
         if len(judge_models) > 1:
@@ -54,17 +53,17 @@ def create_judge_with_auto_config(
     system_config: SystemConfig,
     model_manager: ModelManager,
     judge_model: str = "openthinker:7b",
-    criteria: Optional[list] = None
+    criteria: list | None = None,
 ) -> AIJudge:
     """Quick factory for creating AI judge with sensible defaults."""
     if criteria is None:
         criteria = ["logic", "evidence", "persuasiveness"]
-    
+
     logger.info(f"Auto-configuring AI judge with {judge_model}")
     return AIJudge(
         model_manager=model_manager,
         judge_model_name=judge_model,
         criteria=criteria,
         system_config=system_config,
-        judge_provider="ollama"  # Default for auto-config with ollama model names
+        judge_provider="ollama",  # Default for auto-config with ollama model names
     )

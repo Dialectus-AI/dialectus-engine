@@ -1,7 +1,7 @@
 """Ensemble judging utilities - standalone functions for combining judge decisions."""
 
 import logging
-from typing import List, Dict, Any, TypedDict, Optional
+from typing import Any, TypedDict
 
 from .base import JudgeDecision
 from debate_engine.models import DebateContext
@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 class SerializedCriterionScore(TypedDict):
     """Serialized criterion score for storage."""
+
     criterion: str
     participant_id: str
     score: float
@@ -19,20 +20,21 @@ class SerializedCriterionScore(TypedDict):
 
 class SerializedJudgeDecision(TypedDict):
     """Serialized judge decision for storage in ensemble metadata."""
+
     winner_id: str
     winner_margin: float
     overall_feedback: str
     reasoning: str
-    criterion_scores: List[SerializedCriterionScore]
+    criterion_scores: list[SerializedCriterionScore]
     judge_model: str
     judge_provider: str
-    generation_time_ms: Optional[int]
+    generation_time_ms: int | None
 
 
 def calculate_ensemble_result(
-    decisions: List[JudgeDecision],
+    decisions: list[JudgeDecision],
     context: DebateContext,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Calculate ensemble result from multiple judge decisions."""
 
     # Debug: Check if all decisions are identical

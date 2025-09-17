@@ -3,7 +3,7 @@
 import sqlite3
 import logging
 from pathlib import Path
-from typing import Optional, Dict, Any, List, TypedDict, TYPE_CHECKING
+from typing import Any, TypedDict
 from contextlib import contextmanager
 from judges.base import JudgeDecision
 
@@ -23,7 +23,7 @@ class DebateMetadata(TypedDict):
     id: int
     topic: str
     format: str
-    participants: Dict[str, ParticipantInfo]
+    participants: dict[str, ParticipantInfo]
     final_phase: str
     total_rounds: int
     saved_at: str
@@ -43,16 +43,16 @@ class MessageData(TypedDict):
     content: str
     timestamp: str
     word_count: int
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
 
 
 class FullTranscriptData(TypedDict):
     """Complete transcript data including metadata and messages."""
 
-    metadata: Dict[str, Any]  # Contains the same fields as DebateMetadata but nested
-    messages: List[MessageData]
-    scores: Dict[str, float]
-    context_metadata: Dict[str, Any]
+    metadata: dict[str, Any]  # Contains the same fields as DebateMetadata but nested
+    messages: list[MessageData]
+    scores: dict[str, float]
+    context_metadata: dict[str, Any]
 
 
 class DatabaseManager:
@@ -146,7 +146,6 @@ class DatabaseManager:
             """
             )
 
-
             # Create criterion_scores table
             cursor.execute(
                 """
@@ -198,7 +197,6 @@ class DatabaseManager:
             """
             )
 
-
             conn.commit()
             logger.info(f"Database initialized at {self.db_path}")
 
@@ -222,7 +220,7 @@ class DatabaseManager:
             if conn:
                 conn.close()
 
-    def save_debate(self, debate_data: Dict[str, Any]) -> int:
+    def save_debate(self, debate_data: dict[str, Any]) -> int:
         """Save a complete debate to the database and return the debate ID."""
         import json
 
@@ -283,7 +281,7 @@ class DatabaseManager:
             )
             return debate_id
 
-    def load_debate(self, debate_id: int) -> Optional[FullTranscriptData]:
+    def load_debate(self, debate_id: int) -> FullTranscriptData | None:
         """Load a complete debate by ID."""
         import json
 
@@ -347,8 +345,8 @@ class DatabaseManager:
             return debate_data
 
     def list_debates(
-        self, limit: Optional[int] = None, offset: int = 0
-    ) -> List[DebateMetadata]:
+        self, limit: int | None = None, offset: int = 0
+    ) -> list[DebateMetadata]:
         """List debates with metadata only (no messages)."""
         import json
 
@@ -388,8 +386,8 @@ class DatabaseManager:
             ]
 
     def list_debates_with_metadata(
-        self, limit: Optional[int] = None, offset: int = 0
-    ) -> List[Dict[str, Any]]:
+        self, limit: int | None = None, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """List debates with metadata including judge model info via SQL joins."""
         import json
 
@@ -504,7 +502,7 @@ class DatabaseManager:
             return judge_decision_id
 
     def save_ensemble_summary(
-        self, debate_id: int, ensemble_summary: Dict[str, Any]
+        self, debate_id: int, ensemble_summary: dict[str, Any]
     ) -> int:
         """Save ensemble summary to the ensemble_summary table."""
         with self._get_connection() as conn:
@@ -540,7 +538,7 @@ class DatabaseManager:
             logger.info(f"Saved ensemble summary {ensemble_id} for debate {debate_id}")
             return ensemble_id
 
-    def load_judge_decisions(self, debate_id: int) -> List[Dict[str, Any]]:
+    def load_judge_decisions(self, debate_id: int) -> list[dict[str, Any]]:
         """Load all individual judge decisions for a debate with their criterion scores."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -591,7 +589,7 @@ class DatabaseManager:
 
             return decisions
 
-    def load_ensemble_summary(self, debate_id: int) -> Optional[Dict[str, Any]]:
+    def load_ensemble_summary(self, debate_id: int) -> dict[str, Any] | None:
         """Load ensemble summary for a debate."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -620,7 +618,7 @@ class DatabaseManager:
                 ],
             }
 
-    def load_judge_decision(self, debate_id: int) -> Optional[Dict[str, Any]]:
+    def load_judge_decision(self, debate_id: int) -> dict[str, Any] | None:
         """Load the first/primary judge decision for a debate."""
         decisions = self.load_judge_decisions(debate_id)
         return decisions[0] if decisions else None
