@@ -1,6 +1,6 @@
 """Tournament system for AI debate competitions."""
 
-from .manager import TournamentManager
+from manager import TournamentManager
 from .database import TournamentDatabaseManager
 from .models import (
     Tournament,
@@ -10,18 +10,18 @@ from .models import (
     TournamentStatus,
     WeightClass,
     BracketData,
-    MatchStatus
+    MatchStatus,
 )
 
 __all__ = [
-    'TournamentManager',
-    'TournamentDatabaseManager',
-    'Tournament',
-    'TournamentParticipant',
-    'TournamentMatch',
-    'TournamentJudge',
-    'TournamentStatus',
-    'WeightClass',
-    'BracketData',
-    'MatchStatus'
+    "TournamentManager",
+    "TournamentDatabaseManager",
+    "Tournament",
+    "TournamentParticipant",
+    "TournamentMatch",
+    "TournamentJudge",
+    "TournamentStatus",
+    "WeightClass",
+    "BracketData",
+    "MatchStatus",
 ]
