@@ -109,16 +109,10 @@ The engine provides REST API and WebSocket endpoints consumed by the **dialectus
 ### Code Quality & Type Safety
 
 - Uses strict Python type hints throughout the codebase
-- Pylance/mypy compatible with proper Optional[] typing for nullable parameters
+- Pylance compatible with proper `| None` typing for nullable parameters
 - Key patterns for clean code:
-  - Use `Optional[Type]` for parameters that accept None (not `Type = None`)
+  - Use `= Type | None` for parameters that accept None (not `Type = None`)
   - Use `getattr()` for dynamic method access when type checking fails
   - Cache manager handles JSON serialization with Pydantic v2 `model_dump()` (not deprecated `dict()`)
   - Model filtering uses configurable JSON patterns instead of hardcoded exclusions
-
-### Common Type Issues Fixed
-
-- Model manager uses `getattr()` for dynamic provider method calls
-- Cache manager properly handles `Optional[Path]`, `Optional[Dict]` parameters  
-- OpenRouter types avoid None attribute access with proper null checking
-- Import cleanup: remove unused imports (`List`, `Enum`, `Optional`, etc.)
+  - Remove unused imports and variables
