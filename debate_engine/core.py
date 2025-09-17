@@ -107,39 +107,52 @@ GENERAL RULES:
 6. Follow the debate format structure
 
 RESPONSE FORMAT:
+- Speak directly as your assigned role without any labels, prefixes, or announcements
 - Use plain text without markdown formatting (avoid **bold**, *italics*, # headers, bullet points)
-- Start directly with your argument - do not begin with labels like "Proposition Opening Statement"
-- Write in natural conversational style as if speaking in a live debate
-- Focus on content over formatting
+- Write in natural conversational style as if speaking live to an audience
+- Do not add labels like "COUNTER:", "STATEMENT:", "OPENING:", etc. - just speak your argument
+- Focus on content, not formatting or structure
 
-Current phase will be specified in each turn."""
+You will be told your specific role and speaking context for each response."""
 
     def _create_participant_prompt(
         self, base_prompt: str, position: Position, personality: str, model_id: str
     ) -> str:
-        """Create a participant-specific system prompt."""
+        """Create a participant-specific system prompt using role-based identity."""
+        if not self.context:
+            raise RuntimeError("No active debate context")
+
+        # Get the proper role name for this format (Opposition, Proposition, etc.)
+        model_ids = list(self.context.participants.keys())
+        side_labels = self.format.get_side_labels(model_ids)
+        role_name = side_labels.get(model_id, position.value.title())
+
         position_guidance = {
-            Position.PRO: "You are arguing FOR the topic. Present strong supporting arguments.",
-            Position.CON: "You are arguing AGAINST the topic. Present strong opposing arguments.",
+            Position.PRO: f"You ARE the {role_name} speaker. You support the motion and believe it is correct.",
+            Position.CON: f"You ARE the {role_name} speaker. You oppose the motion and believe it is wrong.",
         }
 
         personality_guidance = {
-            "analytical": "Focus on data, logic, and systematic reasoning.",
-            "passionate": "Be persuasive and emotionally engaging while maintaining facts.",
-            "scholarly": "Reference academic sources and theoretical frameworks.",
-            "practical": "Emphasize real-world applications and practical implications.",
-            "neutral": "Present balanced arguments with measured reasoning.",
+            "analytical": "Your speaking style is data-driven, logical, and systematic.",
+            "passionate": "Your speaking style is persuasive and emotionally engaging while factual.",
+            "scholarly": "Your speaking style references academic sources and theoretical frameworks.",
+            "practical": "Your speaking style emphasizes real-world applications and practical implications.",
+            "neutral": "Your speaking style is balanced with measured reasoning.",
         }
+
+        role_instruction = position_guidance.get(position, f"You ARE the {role_name} speaker.")
+        style_instruction = personality_guidance.get(personality, "Speak in your natural style.")
 
         return f"""{base_prompt}
 
-POSITION: {position.value.upper()}
-{position_guidance.get(position, "")}
+YOUR ROLE: {role_instruction}
+You are not describing what {role_name} would say - you ARE {role_name} speaking directly.
+Speak as if you are standing at the podium addressing the audience.
+Do not announce your role, add labels, or use prefixes like "COUNTER:" or "STATEMENT:" - simply speak your argument.
 
-PERSONALITY: {personality.title()}
-{personality_guidance.get(personality, "")}
+YOUR SPEAKING STYLE: {style_instruction}
 
-Remember: You are {model_id} and should maintain consistency in your argumentation style throughout the debate."""
+Remember: You are embodying the {role_name} position throughout this debate. Speak naturally and directly as that person would speak."""
 
     async def conduct_round(self, phase: DebatePhase) -> list[DebateMessage]:
         """Conduct a single round of the debate."""
@@ -314,12 +327,16 @@ Remember: You are {model_id} and should maintain consistency in your argumentati
                 {"role": "system", "content": self._system_prompts[speaker_id]}
             )
 
-        # Add phase-specific instruction
+        # Add role-focused phase instruction
+        model_ids = list(self.context.participants.keys())
+        side_labels = self.format.get_side_labels(model_ids)
+        role_name = side_labels.get(speaker_id, "Speaker")
+
         phase_instruction = self._get_phase_instruction(phase)
         messages.append(
             {
                 "role": "system",
-                "content": f"CURRENT PHASE: {phase.value.upper()}\n{phase_instruction}",
+                "content": f"You are now speaking as {role_name}. {phase_instruction}",
             }
         )
 
@@ -340,8 +357,8 @@ Remember: You are {model_id} and should maintain consistency in your argumentati
                     }
                 )
 
-        # Add current turn prompt
-        turn_prompt = f"Your turn to speak in the {phase.value} phase. Remember to stay under {self.config.debate.word_limit} words."
+        # Add current turn prompt with role focus
+        turn_prompt = f"Now speak as {role_name}. Stay under {self.config.debate.word_limit} words."
         messages.append({"role": "user", "content": turn_prompt})
 
         return messages
@@ -361,11 +378,18 @@ Remember: You are {model_id} and should maintain consistency in your argumentati
                 {"role": "system", "content": self._system_prompts[speaker_id]}
             )
 
-        # Add format-specific phase instruction
+        # Add role-focused phase instruction instead of procedural description
+        model_ids = list(self.context.participants.keys())
+        side_labels = self.format.get_side_labels(model_ids)
+        role_name = side_labels.get(speaker_id, "Speaker")
+
+        # Simplify the instruction to focus on role, not procedure
+        simplified_instruction = format_phase.instruction.replace("As the Proposition,", "").replace("As the Opposition,", "").strip()
+
         messages.append(
             {
                 "role": "system",
-                "content": f"CURRENT PHASE: {format_phase.name.upper()}\n{format_phase.instruction}",
+                "content": f"You are now speaking as {role_name}. {simplified_instruction}",
             }
         )
 
@@ -386,9 +410,9 @@ Remember: You are {model_id} and should maintain consistency in your argumentati
                     }
                 )
 
-        # Add current turn prompt
+        # Add current turn prompt with role focus
         word_limit = int(self.config.debate.word_limit * format_phase.time_multiplier)
-        turn_prompt = f"Your turn to speak in the {format_phase.name} phase. Remember to stay under {word_limit} words."
+        turn_prompt = f"Now speak as {role_name}. Stay under {word_limit} words."
         messages.append({"role": "user", "content": turn_prompt})
 
         return messages
