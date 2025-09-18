@@ -14,17 +14,18 @@ Core debate orchestration engine and REST API for the Dialectus AI debate system
 
 ## Overview
 
-The Dialectus Engine provides the core logic for managing AI-powered debates, including participant coordination, turn management, and judge integration. It exposes a RESTful API and WebSocket interface for real-time debate interactions.
+The Dialectus Engine provides the core logic for managing AI-powered debates, including participant coordination, turn management, judge integration, and user authentication. It exposes a RESTful API and WebSocket interface for real-time debate interactions with secure user management.
 
 ## Components
 
 - **Core Engine** (`debate_engine/`) - Main debate orchestration logic
-- **REST API** (`web/`) - FastAPI-based web service
+- **REST API** (`web/`) - FastAPI-based web service with authentication
+- **User Authentication** (`web/auth_*`) - JWT-based user management with email verification
 - **Models** (`models/`) - AI model provider integrations (Ollama, OpenRouter)
 - **Configuration** (`config/`) - System configuration management
 - **Judges** (`judges/`) - AI judge implementations with ensemble support
 - **Formats** (`formats/`) - Debate format definitions (Oxford, Parliamentary, Socratic)
-- **Transcripts** (`transcripts/`) - SQLite database for debate storage
+- **Transcripts** (`transcripts/`) - SQLite database for debate storage and user data
 
 ## Quick Start
 
@@ -120,6 +121,14 @@ Used by the web interface's "refresh topic" feature:
 - `POST /api/debates/{id}/cancel` - Cancel running debate
 - `GET /api/debates/{id}/transcript` - Get debate transcript
 - `WebSocket /ws/debate/{id}` - Real-time debate streaming
+
+### User Authentication
+- `POST /api/auth/register` - Register new user account
+- `POST /api/auth/verify` - Verify email address with token
+- `POST /api/auth/complete-registration` - Complete registration with username
+- `POST /api/auth/login` - User login with JWT token
+- `POST /api/auth/logout` - User logout
+- `GET /api/auth/me` - Get current authenticated user
 
 ### Utilities
 - `GET /api/generate-topic` - Generate random debate topic
