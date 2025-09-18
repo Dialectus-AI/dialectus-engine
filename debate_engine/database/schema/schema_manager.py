@@ -30,6 +30,9 @@ class SchemaManager:
             "tournament_participants.sql",
             "tournament_matches.sql",
             "tournament_judges.sql",
+            "users.sql",
+            "email_verifications.sql",
+            "password_resets.sql",
             "indexes.sql"  # Create indexes last
         ]
 

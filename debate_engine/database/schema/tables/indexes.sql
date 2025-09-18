@@ -27,3 +27,22 @@ ON tournament_matches (tournament_id, round_number);
 
 CREATE INDEX IF NOT EXISTS idx_tournament_judges_tournament_id
 ON tournament_judges (tournament_id);
+
+-- Authentication table indexes for performance
+CREATE INDEX IF NOT EXISTS idx_users_email
+ON users (email);
+
+CREATE INDEX IF NOT EXISTS idx_users_username
+ON users (username);
+
+CREATE INDEX IF NOT EXISTS idx_email_verifications_token
+ON email_verifications (token);
+
+CREATE INDEX IF NOT EXISTS idx_email_verifications_user_id
+ON email_verifications (user_id);
+
+CREATE INDEX IF NOT EXISTS idx_password_resets_token
+ON password_resets (token);
+
+CREATE INDEX IF NOT EXISTS idx_password_resets_user_id
+ON password_resets (user_id);
