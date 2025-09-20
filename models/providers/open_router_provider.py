@@ -1,8 +1,9 @@
 import os
 import asyncio
 import time
+import json
 from abc import ABC, abstractmethod
-from typing import Dict, List, TYPE_CHECKING, Optional, ClassVar
+from typing import Dict, List, TYPE_CHECKING, Optional, ClassVar, Callable, Awaitable
 import logging
 from openai import OpenAI
 import httpx
@@ -259,3 +260,135 @@ class OpenRouterProvider(BaseModelProvider):
     def validate_model_config(self, model_config: "ModelConfig") -> bool:
         """Validate OpenRouter model configuration."""
         return model_config.provider == "openrouter"
+
+    def supports_streaming(self) -> bool:
+        """OpenRouter supports streaming responses."""
+        return True
+
+    async def generate_response_stream(
+        self,
+        model_config: "ModelConfig",
+        messages: list[dict[str, str]],
+        chunk_callback: Callable[[str, bool], Awaitable[None]],
+        **overrides
+    ) -> str:
+        """Generate a streaming response using OpenRouter with SSE."""
+        if not self._client:
+            raise RuntimeError("OpenRouter client not initialized - check API key")
+
+        # Prepare generation parameters
+        params = {
+            "model": model_config.name,
+            "messages": messages,
+            "max_tokens": overrides.get("max_tokens", model_config.max_tokens),
+            "temperature": overrides.get("temperature", model_config.temperature),
+            "stream": True,  # Enable streaming
+        }
+
+        try:
+            api_key = self.system_config.openrouter.api_key or os.getenv("OPENROUTER_API_KEY")
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            }
+
+            if self.system_config.openrouter.site_url:
+                headers["HTTP-Referer"] = self.system_config.openrouter.site_url
+            if self.system_config.openrouter.app_name:
+                headers["X-Title"] = self.system_config.openrouter.app_name
+
+            # Build the payload with reasoning parameter and streaming
+            payload = {
+                "model": params["model"],
+                "messages": params["messages"],
+                "max_tokens": params["max_tokens"],
+                "temperature": params["temperature"],
+                "stream": True,
+                "reasoning": {"exclude": True},
+            }
+
+            # Apply rate limiting before API request
+            await self._rate_limit_request()
+
+            complete_content = ""
+
+            async with httpx.AsyncClient() as client:
+                async with client.stream(
+                    "POST",
+                    f"{self.system_config.openrouter.base_url}/chat/completions",
+                    json=payload,
+                    headers=headers,
+                    timeout=self.system_config.openrouter.timeout,
+                ) as response:
+                    response.raise_for_status()
+
+                    # Process SSE stream
+                    buffer = ""
+                    async for chunk in response.aiter_text():
+                        buffer += chunk
+
+                        # Process complete lines from buffer
+                        while True:
+                            line_end = buffer.find('\n')
+                            if line_end == -1:
+                                break
+
+                            line = buffer[:line_end].strip()
+                            buffer = buffer[line_end + 1:]
+
+                            # Skip empty lines and comments
+                            if not line or line.startswith(':'):
+                                continue
+
+                            # Process SSE data lines
+                            if line.startswith('data: '):
+                                data = line[6:]  # Remove 'data: ' prefix
+
+                                # Check for end of stream
+                                if data == '[DONE]':
+                                    break
+
+                                try:
+                                    # Parse the JSON chunk
+                                    parsed = json.loads(data)
+
+                                    # Check for errors in the stream
+                                    if 'error' in parsed:
+                                        error_msg = parsed['error'].get('message', 'Unknown streaming error')
+                                        logger.error(f"OpenRouter streaming error: {error_msg}")
+                                        raise RuntimeError(f"Streaming error: {error_msg}")
+
+                                    # Extract content from the delta
+                                    choices = parsed.get('choices', [])
+                                    if choices and 'delta' in choices[0]:
+                                        delta = choices[0]['delta']
+                                        content_chunk = delta.get('content', '')
+
+                                        if content_chunk:
+                                            complete_content += content_chunk
+
+                                            # Call the chunk callback with the new content
+                                            await chunk_callback(content_chunk, False)
+
+                                        # Check if this is the final chunk
+                                        finish_reason = choices[0].get('finish_reason')
+                                        if finish_reason:
+                                            # Final callback to indicate completion
+                                            await chunk_callback("", True)
+                                            break
+
+                                except json.JSONDecodeError as e:
+                                    # Skip invalid JSON - this can happen with SSE comments
+                                    logger.debug(f"Skipping invalid JSON in stream: {data[:100]}...")
+                                    continue
+                                except Exception as e:
+                                    logger.error(f"Error processing stream chunk: {e}")
+                                    # Continue processing other chunks rather than failing entirely
+                                    continue
+
+            logger.debug(f"OpenRouter streaming completed: {len(complete_content)} chars from {model_config.name}")
+            return complete_content.strip()
+
+        except Exception as e:
+            logger.error(f"OpenRouter streaming failed for {model_config.name}: {e}")
+            raise

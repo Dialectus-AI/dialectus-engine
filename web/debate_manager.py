@@ -176,19 +176,71 @@ class DebateManager:
                         logger.info(
                             f"Attempting to get response from {speaker_id} for {format_phase.name}"
                         )
-                        # Get individual message (this calls the engine's internal method)
-                        message = await engine._get_format_speaker_response(
-                            speaker_id, format_phase
+
+                        # Create a unique message ID for streaming
+                        import uuid
+                        message_id = str(uuid.uuid4())
+                        accumulated_content = ""
+
+                        # Broadcast message start
+                        await self._broadcast_to_debate(
+                            debate_id,
+                            {
+                                "type": "message_start",
+                                "message_id": message_id,
+                                "speaker_id": speaker_id,
+                                "position": format_phase.speaking_order.index(speaker_id) % 2,  # Simple alternating logic
+                                "phase": format_phase.phase.value,
+                                "round_number": context.current_round,
+                            },
                         )
+
+                        # Define streaming callback for this message
+                        async def stream_callback(chunk: str, is_complete: bool):
+                            nonlocal accumulated_content
+                            if chunk:  # Only process non-empty chunks
+                                accumulated_content += chunk
+                                # Broadcast chunk
+                                await self._broadcast_to_debate(
+                                    debate_id,
+                                    {
+                                        "type": "message_chunk",
+                                        "message_id": message_id,
+                                        "speaker_id": speaker_id,
+                                        "chunk": chunk,
+                                        "is_complete": is_complete,
+                                        "total_content": accumulated_content,
+                                    },
+                                )
+                            elif is_complete:
+                                # Final completion signal
+                                await self._broadcast_to_debate(
+                                    debate_id,
+                                    {
+                                        "type": "message_chunk",
+                                        "message_id": message_id,
+                                        "speaker_id": speaker_id,
+                                        "chunk": "",
+                                        "is_complete": True,
+                                        "total_content": accumulated_content,
+                                    },
+                                )
+
+                        # Get streaming response using the engine's internal method with streaming
+                        message = await engine._get_format_speaker_response_stream(
+                            speaker_id, format_phase, stream_callback, message_id
+                        )
+
                         round_messages.append(message)
                         context.messages.append(message)
 
-                        # Broadcast message immediately after generation
+                        # Broadcast complete message for compatibility and final state
                         await self._broadcast_to_debate(
                             debate_id,
                             {
                                 "type": "new_message",
                                 "message": {
+                                    "message_id": message_id,
                                     "speaker_id": message.speaker_id,
                                     "position": message.position.value,
                                     "phase": message.phase.value,

@@ -1,7 +1,9 @@
-from typing import Dict, List, Optional, TYPE_CHECKING
+from typing import Dict, List, Optional, TYPE_CHECKING, Callable, Awaitable
+import json
 from openai import OpenAI
 from .base_model_provider import BaseModelProvider
 import logging
+import httpx
 
 if TYPE_CHECKING:
     from openai.types.chat import ChatCompletion
@@ -106,6 +108,113 @@ class OllamaProvider(BaseModelProvider):
     def validate_model_config(self, model_config: "ModelConfig") -> bool:
         """Validate Ollama model configuration."""
         return model_config.provider == "ollama"
+
+    def supports_streaming(self) -> bool:
+        """Ollama supports streaming responses."""
+        return True
+
+    async def generate_response_stream(
+        self,
+        model_config: "ModelConfig",
+        messages: list[dict[str, str]],
+        chunk_callback: Callable[[str, bool], Awaitable[None]],
+        **overrides
+    ) -> str:
+        """Generate a streaming response using Ollama."""
+        if not self._client:
+            raise RuntimeError("Ollama client not initialized")
+
+        # Prepare generation parameters
+        params = {
+            "model": model_config.name,
+            "messages": messages,
+            "max_tokens": overrides.get("max_tokens", model_config.max_tokens),
+            "temperature": overrides.get("temperature", model_config.temperature),
+            "stream": True,
+        }
+
+        # Add Ollama-specific parameters
+        ollama_config = self.system_config.ollama
+        extra_body = {}
+        if ollama_config.keep_alive is not None:
+            extra_body["keep_alive"] = ollama_config.keep_alive
+        if ollama_config.repeat_penalty is not None:
+            extra_body["repeat_penalty"] = ollama_config.repeat_penalty
+        if ollama_config.num_gpu_layers is not None:
+            extra_body["num_gpu"] = ollama_config.num_gpu_layers
+        if ollama_config.num_thread is not None:
+            extra_body["num_thread"] = ollama_config.num_thread
+        if ollama_config.main_gpu is not None:
+            extra_body["main_gpu"] = ollama_config.main_gpu
+
+        try:
+            complete_content = ""
+
+            # Use direct HTTP streaming since Ollama supports SSE
+            async with httpx.AsyncClient() as client:
+                # Convert OpenAI format to Ollama format
+                payload = {
+                    "model": params["model"],
+                    "messages": params["messages"],
+                    "stream": True,
+                    "options": {
+                        "temperature": params["temperature"],
+                        "num_predict": params["max_tokens"],
+                        **extra_body
+                    }
+                }
+
+                async with client.stream(
+                    "POST",
+                    f"{self._ollama_base_url}/api/chat",
+                    json=payload,
+                    timeout=120.0,
+                ) as response:
+                    response.raise_for_status()
+
+                    # Process streaming JSON responses
+                    async for line in response.aiter_lines():
+                        if not line.strip():
+                            continue
+
+                        try:
+                            # Parse the JSON chunk (Ollama sends one JSON object per line)
+                            parsed = json.loads(line)
+
+                            # Check for errors
+                            if "error" in parsed:
+                                error_msg = parsed["error"]
+                                logger.error(f"Ollama streaming error: {error_msg}")
+                                raise RuntimeError(f"Streaming error: {error_msg}")
+
+                            # Extract content from the message
+                            if "message" in parsed and "content" in parsed["message"]:
+                                content_chunk = parsed["message"]["content"]
+
+                                if content_chunk:
+                                    complete_content += content_chunk
+                                    # Call the chunk callback with the new content
+                                    await chunk_callback(content_chunk, False)
+
+                            # Check if this is the final chunk
+                            if parsed.get("done", False):
+                                # Final callback to indicate completion
+                                await chunk_callback("", True)
+                                break
+
+                        except json.JSONDecodeError as e:
+                            logger.debug(f"Skipping invalid JSON in Ollama stream: {line[:100]}...")
+                            continue
+                        except Exception as e:
+                            logger.error(f"Error processing Ollama stream chunk: {e}")
+                            continue
+
+            logger.debug(f"Ollama streaming completed: {len(complete_content)} chars from {model_config.name}")
+            return complete_content.strip()
+
+        except Exception as e:
+            logger.error(f"Ollama streaming failed for {model_config.name}: {e}")
+            raise
 
     async def get_enhanced_models(self) -> list["BaseEnhancedModelInfo"]:
         """Get enhanced model information for Ollama models."""

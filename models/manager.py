@@ -1,6 +1,6 @@
 """Model manager with multi-provider support."""
 
-from typing import TYPE_CHECKING, Any, Protocol, cast
+from typing import TYPE_CHECKING, Any, Protocol, cast, Callable, Awaitable
 import logging
 from contextlib import asynccontextmanager
 from config.settings import ModelConfig, SystemConfig
@@ -73,6 +73,44 @@ class ModelManager:
 
         except Exception as e:
             logger.error(f"Generation failed for {model_id} ({config.provider}): {e}")
+            raise
+
+    async def generate_response_stream(
+        self,
+        model_id: str,
+        messages: list[dict[str, str]],
+        chunk_callback: Callable[[str, bool], Awaitable[None]],
+        **overrides
+    ) -> str:
+        """Generate a streaming response from the specified model."""
+        if model_id not in self._model_configs:
+            raise ValueError(f"Model {model_id} not registered")
+
+        config = self._model_configs[model_id]
+        provider = self._get_provider(config.provider)
+
+        try:
+            # Check if provider supports streaming
+            if provider.supports_streaming():
+                response = await provider.generate_response_stream(
+                    config, messages, chunk_callback, **overrides
+                )
+                logger.debug(
+                    f"Generated {len(response)} chars via streaming from {model_id} ({config.provider})"
+                )
+            else:
+                # Fallback to non-streaming for providers that don't support it
+                response = await provider.generate_response(config, messages, **overrides)
+                # Send all content at once via callback
+                await chunk_callback(response, True)
+                logger.debug(
+                    f"Generated {len(response)} chars via fallback non-streaming from {model_id} ({config.provider})"
+                )
+
+            return response
+
+        except Exception as e:
+            logger.error(f"Streaming generation failed for {model_id} ({config.provider}): {e}")
             raise
 
     @asynccontextmanager

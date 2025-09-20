@@ -1,6 +1,6 @@
 """Core debate engine for orchestrating AI model debates."""
 
-from typing import Any
+from typing import Any, Callable, Awaitable
 import asyncio
 import logging
 import time
@@ -314,6 +314,65 @@ Remember: You are embodying the {role_name} position throughout this debate. Spe
             round_number=self.context.current_round,
             content=cleaned_response,
             metadata={"generation_time_ms": int(generation_time * 1000)},
+        )
+
+    async def _get_format_speaker_response_stream(
+        self,
+        speaker_id: str,
+        format_phase: FormatPhase,
+        chunk_callback: Callable[[str, bool], Awaitable[None]],
+        message_id: str | None = None
+    ) -> DebateMessage:
+        """Get a streaming response from a specific speaker using format phase."""
+        if not self.context:
+            raise RuntimeError("No active debate context")
+
+        # Determine position
+        model_ids = list(self.context.participants.keys())
+        position_assignments = self.format.get_position_assignments(model_ids)
+        speaker_position = position_assignments.get(speaker_id, Position.NEUTRAL)
+
+        # Build conversation context with format-specific instruction
+        messages = self._build_format_conversation_context(speaker_id, format_phase)
+
+        # Calculate max tokens with format time multiplier
+        base_max_tokens = min(
+            self.config.models[speaker_id].max_tokens, self._calculate_max_tokens()
+        )
+        adjusted_max_tokens = int(base_max_tokens * format_phase.time_multiplier)
+
+        # Generate streaming response with timing and detailed error handling
+        start_time = time.time()
+        try:
+            logger.info(
+                f"CORE ENGINE: Starting streaming response generation for {speaker_id} ({self.config.models[speaker_id].name}) via {self.config.models[speaker_id].provider}"
+            )
+            async with self.model_manager.model_session(speaker_id):
+                response_content = await self.model_manager.generate_response_stream(
+                    speaker_id, messages, chunk_callback, max_tokens=adjusted_max_tokens
+                )
+            generation_time = time.time() - start_time
+            logger.info(
+                f"CORE ENGINE: Successfully generated {len(response_content)} chars via streaming for {speaker_id} in {generation_time:.2f}s"
+            )
+        except Exception as e:
+            generation_time = time.time() - start_time
+            model_config = self.config.models[speaker_id]
+            error_msg = f"CORE ENGINE STREAMING FAILURE: {speaker_id} ({model_config.name}) via {model_config.provider} failed after {generation_time:.2f}s: {type(e).__name__}: {str(e)}"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg) from e
+
+        # Clean the response to remove any echoed prefixes
+        cleaned_response = self._clean_model_response(response_content, speaker_id)
+
+        return DebateMessage(
+            speaker_id=speaker_id,
+            position=speaker_position,
+            phase=format_phase.phase,
+            round_number=self.context.current_round,
+            content=cleaned_response,
+            metadata={"generation_time_ms": int(generation_time * 1000)},
+            message_id=message_id,
         )
 
     def _build_conversation_context(
