@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, TYPE_CHECKING, Callable, Awaitable
+from typing import TYPE_CHECKING, Callable, Awaitable
 import json
 from openai import OpenAI
 from .base_model_provider import BaseModelProvider
@@ -31,15 +31,22 @@ class OllamaProvider(BaseModelProvider):
 
     async def is_running(self) -> bool:
         """Fast health check to see if Ollama server is running."""
-        try:
-            import httpx
+        import requests
 
-            async with httpx.AsyncClient(timeout=1.0) as client:
-                response = await client.get(f"{self._ollama_base_url}/api/tags")
-                response.raise_for_status()
-                return True
+        try:
+
+            # Use synchronous requests for simplicity and speed
+            response = requests.get(f"{self._ollama_base_url}/api/tags", timeout=1.0)
+            response.raise_for_status()
+            return True
+        except requests.exceptions.Timeout as e:
+            logger.error(f"Ollama health check timeout after 1s: {e}")
+            return False
+        except requests.exceptions.ConnectionError as e:
+            logger.error(f"Ollama health check connection error: {e}")
+            return False
         except Exception as e:
-            logger.debug(f"Ollama health check failed: {e}")
+            logger.error(f"Ollama health check failed: {type(e).__name__}: {e}")
             return False
 
     async def get_available_models(self) -> list[str]:
@@ -118,7 +125,7 @@ class OllamaProvider(BaseModelProvider):
         model_config: "ModelConfig",
         messages: list[dict[str, str]],
         chunk_callback: Callable[[str, bool], Awaitable[None]],
-        **overrides
+        **overrides,
     ) -> str:
         """Generate a streaming response using Ollama."""
         if not self._client:
@@ -160,8 +167,8 @@ class OllamaProvider(BaseModelProvider):
                     "options": {
                         "temperature": params["temperature"],
                         "num_predict": params["max_tokens"],
-                        **extra_body
-                    }
+                        **extra_body,
+                    },
                 }
 
                 async with client.stream(
@@ -203,13 +210,17 @@ class OllamaProvider(BaseModelProvider):
                                 break
 
                         except json.JSONDecodeError as e:
-                            logger.debug(f"Skipping invalid JSON in Ollama stream: {line[:100]}...")
+                            logger.debug(
+                                f"Skipping invalid JSON in Ollama stream: {line[:100]}..."
+                            )
                             continue
                         except Exception as e:
                             logger.error(f"Error processing Ollama stream chunk: {e}")
                             continue
 
-            logger.debug(f"Ollama streaming completed: {len(complete_content)} chars from {model_config.name}")
+            logger.debug(
+                f"Ollama streaming completed: {len(complete_content)} chars from {model_config.name}"
+            )
             return complete_content.strip()
 
         except Exception as e:

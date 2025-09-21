@@ -570,14 +570,18 @@ class OpenRouterModelFilter:
 
     @classmethod
     def determine_tier(
-        cls, model: OpenRouterModel, weight_class: ModelWeightClass
+        cls,
+        model: OpenRouterModel,
+        weight_class: ModelWeightClass,
+        model_filter: "OpenRouterModelFilter",
     ) -> ModelTier:
         """Determine model tier based on debate performance, cost efficiency, and capabilities."""
 
-        # Create a temporary filter instance to check if model is preview
-        temp_filter = cls()
-        if temp_filter.is_preview_model(model):
+        # Check if model is preview using provided filter instance or create minimal check
+        if model_filter and model_filter.is_preview_model(model):
             return ModelTier.BUDGET  # Preview models are always budget tier
+        elif not model_filter and "preview" in model.name.lower():
+            return ModelTier.BUDGET  # Fallback preview check without filter
 
         avg_cost = model.pricing.avg_cost_per_1k
         context_length = model.context_length
@@ -696,7 +700,7 @@ class OpenRouterModelFilter:
             # Classify and score the model
             weight_class, estimated_params = cls.classify_model(model)
             value_score = cls.calculate_value_score(model)
-            tier = cls.determine_tier(model, weight_class)
+            tier = cls.determine_tier(model, weight_class, model_filter)
 
             # Convert OpenRouter pricing to generic pricing
             generic_pricing = ModelPricing(
