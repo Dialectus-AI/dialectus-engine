@@ -447,6 +447,9 @@ Provide your evaluation as valid JSON only, no additional text:"""
         """Attempt to repair common JSON issues from small models."""
         repair_json = json_text.strip()
 
+        # Remove control characters that cause JSON parsing errors
+        repair_json = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', repair_json)
+
         # Remove any trailing comma before closing braces/brackets
         repair_json = re.sub(r",(\s*[}\]])", r"\1", repair_json)
 
