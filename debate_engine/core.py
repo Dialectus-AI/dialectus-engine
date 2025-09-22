@@ -4,6 +4,7 @@ from typing import Any, Callable, Awaitable
 import asyncio
 import logging
 import time
+from datetime import datetime
 
 from config.settings import AppConfig
 from models.manager import ModelManager
@@ -341,39 +342,46 @@ Remember: You are embodying the {role_name} position throughout this debate. Spe
         )
         adjusted_max_tokens = int(base_max_tokens * format_phase.time_multiplier)
 
-        # Generate streaming response with timing and detailed error handling
-        start_time = time.time()
+        # Generate streaming response with metadata for cost tracking
         try:
             logger.info(
                 f"CORE ENGINE: Starting streaming response generation for {speaker_id} ({self.config.models[speaker_id].name}) via {self.config.models[speaker_id].provider}"
             )
             async with self.model_manager.model_session(speaker_id):
-                response_content = await self.model_manager.generate_response_stream(
+                generation_metadata = await self.model_manager.generate_response_stream_with_metadata(
                     speaker_id, messages, chunk_callback, max_tokens=adjusted_max_tokens
                 )
-            generation_time = time.time() - start_time
             logger.info(
-                f"CORE ENGINE: Successfully generated {len(response_content)} chars via streaming for {speaker_id} in {generation_time:.2f}s"
+                f"CORE ENGINE: Successfully generated {len(generation_metadata.content)} chars via streaming for {speaker_id}, "
+                f"generation_id: {generation_metadata.generation_id}"
             )
         except Exception as e:
-            generation_time = time.time() - start_time
             model_config = self.config.models[speaker_id]
-            error_msg = f"CORE ENGINE STREAMING FAILURE: {speaker_id} ({model_config.name}) via {model_config.provider} failed after {generation_time:.2f}s: {type(e).__name__}: {str(e)}"
+            error_msg = f"CORE ENGINE STREAMING FAILURE: {speaker_id} ({model_config.name}) via {model_config.provider} failed: {type(e).__name__}: {str(e)}"
             logger.error(error_msg)
             raise RuntimeError(error_msg) from e
 
         # Clean the response to remove any echoed prefixes
-        cleaned_response = self._clean_model_response(response_content, speaker_id)
+        cleaned_response = self._clean_model_response(generation_metadata.content, speaker_id)
 
-        return DebateMessage(
+        # Create message with cost tracking fields
+        debate_message = DebateMessage(
             speaker_id=speaker_id,
             position=speaker_position,
             phase=format_phase.phase,
             round_number=self.context.current_round,
             content=cleaned_response,
-            metadata={"generation_time_ms": int(generation_time * 1000)},
+            metadata={"generation_time_ms": generation_metadata.generation_time_ms or 0},
             message_id=message_id,
+            cost=generation_metadata.cost,
+            generation_id=generation_metadata.generation_id,
         )
+
+        # Schedule background cost query for OpenRouter models
+        if generation_metadata.generation_id and generation_metadata.provider == "openrouter":
+            asyncio.create_task(self._query_and_update_cost(debate_message, speaker_id))
+
+        return debate_message
 
     def _build_conversation_context(
         self, speaker_id: str, phase: DebatePhase
@@ -784,3 +792,35 @@ Remember: You are embodying the {role_name} position throughout this debate. Spe
                 "decisions": decisions,
                 "ensemble_summary": calculate_ensemble_result(decisions, self.context),
             }
+
+    async def _query_and_update_cost(self, message: DebateMessage, speaker_id: str) -> None:
+        """Background task to query and update cost for a message with generation_id."""
+        if not message.generation_id:
+            return
+
+        try:
+            # Wait a bit to ensure the generation is finalized on OpenRouter's end
+            await asyncio.sleep(2.0)
+
+            cost = await self.model_manager.query_generation_cost(speaker_id, message.generation_id)
+            if cost is not None:
+                # Update the message object
+                message.cost = cost
+                message.cost_queried_at = datetime.now()
+
+                logger.info(f"Updated cost for message {message.generation_id}: ${cost}")
+
+                # If we have a transcript manager, update the database
+                if (self.transcript_manager and
+                    self.context and
+                    hasattr(self.context, 'metadata') and
+                    'transcript_id' in self.context.metadata):
+
+                    # For now, just log that we would update the database
+                    # The actual database update would happen when the transcript is saved
+                    logger.info(f"Cost ${cost} retrieved for generation {message.generation_id}, will be saved with transcript")
+            else:
+                logger.warning(f"Failed to retrieve cost for generation {message.generation_id}")
+
+        except Exception as e:
+            logger.error(f"Failed to query cost for generation {message.generation_id}: {e}")

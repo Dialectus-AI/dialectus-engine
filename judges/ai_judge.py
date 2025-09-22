@@ -4,6 +4,9 @@ import json
 import logging
 import re
 import uuid
+import asyncio
+import time
+from datetime import datetime
 from models.manager import ModelManager
 from config.settings import SystemConfig
 from debate_engine.models import DebateContext
@@ -171,16 +174,19 @@ class AIJudge(BaseJudge):
         temperature = getattr(self, "_ensemble_temperature", 0.3)
 
         async with self.model_manager.model_session(self.judge_id):
-            response = await self.model_manager.generate_response(
+            generation_metadata = await self.model_manager.generate_response_with_metadata(
                 self.judge_id, messages, max_tokens=3000, temperature=temperature
             )
 
         generation_time = time.time() - start_time
 
-        # Store timing in instance variable for use in decision creation
-        self._last_generation_time_ms = int(generation_time * 1000)
+        # Store generation metadata for use in decision creation
+        self._last_generation_time_ms = generation_metadata.generation_time_ms or int(generation_time * 1000)
+        self._last_generation_cost = generation_metadata.cost
+        self._last_generation_id = generation_metadata.generation_id
+        self._last_generation_provider = generation_metadata.provider
 
-        return response
+        return generation_metadata.content
 
     def _get_judge_system_prompt(self) -> str:
         """Get system prompt for the AI judge."""
@@ -412,7 +418,7 @@ Provide your evaluation as valid JSON only, no additional text:"""
                     f"Judge declared winner {winner_id} but highest scoring participant is {calculated_winner}"
                 )
 
-            return JudgeDecision(
+            judge_decision = JudgeDecision(
                 winner_id=winner_id,
                 winner_margin=calculated_margin,  # Calculated from actual scores
                 criterion_scores=criterion_scores,
@@ -421,7 +427,16 @@ Provide your evaluation as valid JSON only, no additional text:"""
                 judge_model=self.judge_model_name,
                 judge_provider=self.judge_provider,
                 generation_time_ms=getattr(self, "_last_generation_time_ms", None),
+                cost=getattr(self, "_last_generation_cost", None),
+                generation_id=getattr(self, "_last_generation_id", None),
             )
+
+            # Schedule background cost query for OpenRouter judges
+            if (judge_decision.generation_id and
+                getattr(self, "_last_generation_provider", None) == "openrouter"):
+                asyncio.create_task(self._query_and_update_judge_cost(judge_decision))
+
+            return judge_decision
 
         except (json.JSONDecodeError, KeyError, ValueError) as e:
             logger.error(f"Failed to parse AI judge evaluation: {e}")
@@ -515,6 +530,28 @@ Provide your evaluation as valid JSON only, no additional text:"""
                 raise ValueError(
                     f"Judge provided incomplete scoring for {side_label}: {', '.join(error_parts)}"
                 )
+
+    async def _query_and_update_judge_cost(self, judge_decision: "JudgeDecision") -> None:
+        """Background task to query and update cost for a judge decision with generation_id."""
+        if not judge_decision.generation_id:
+            return
+
+        try:
+            # Wait a bit to ensure the generation is finalized on OpenRouter's end
+            await asyncio.sleep(2.0)
+
+            cost = await self.model_manager.query_generation_cost(self.judge_id, judge_decision.generation_id)
+            if cost is not None:
+                # Update the judge decision object
+                judge_decision.cost = cost
+                judge_decision.cost_queried_at = datetime.now().isoformat()
+
+                logger.info(f"Updated cost for judge decision {judge_decision.generation_id}: ${cost}")
+            else:
+                logger.warning(f"Failed to retrieve cost for judge generation {judge_decision.generation_id}")
+
+        except Exception as e:
+            logger.error(f"Failed to query cost for judge generation {judge_decision.generation_id}: {e}")
 
 
 # EnsembleJudge class deleted - ensemble logic moved to core.py coordinator

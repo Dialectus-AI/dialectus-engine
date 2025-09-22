@@ -8,6 +8,9 @@ CREATE TABLE IF NOT EXISTS judge_decisions (
     overall_feedback TEXT,
     reasoning TEXT,
     generation_time_ms INTEGER,
+    cost REAL,  -- Cost in USD for OpenRouter judge models (NULL for Ollama/free models)
+    generation_id TEXT,  -- OpenRouter generation ID for cost queries
+    cost_queried_at DATETIME,  -- When cost was successfully retrieved
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (debate_id) REFERENCES debates(id) ON DELETE CASCADE
 );

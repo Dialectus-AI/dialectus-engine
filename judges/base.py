@@ -40,6 +40,9 @@ class JudgeDecision:
     judge_model: str
     judge_provider: str
     generation_time_ms: int | None = None
+    cost: float | None = None
+    generation_id: str | None = None
+    cost_queried_at: str | None = None
 
 
 class BaseJudge(ABC):

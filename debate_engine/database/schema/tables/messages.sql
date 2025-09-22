@@ -9,5 +9,8 @@ CREATE TABLE IF NOT EXISTS messages (
     timestamp TEXT NOT NULL,
     word_count INTEGER NOT NULL,
     metadata TEXT,  -- JSON string
+    cost REAL,  -- Cost in USD for OpenRouter models (NULL for Ollama/free models)
+    generation_id TEXT,  -- OpenRouter generation ID for cost queries
+    cost_queried_at DATETIME,  -- When cost was successfully retrieved
     FOREIGN KEY (debate_id) REFERENCES debates (id) ON DELETE CASCADE
 );

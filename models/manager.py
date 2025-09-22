@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any, Protocol, cast, Callable, Awaitable
 import logging
 from contextlib import asynccontextmanager
 from config.settings import ModelConfig, SystemConfig
-from .providers.base_model_provider import BaseModelProvider
+from .providers.base_model_provider import BaseModelProvider, GenerationMetadata
 from .providers.providers import ProviderFactory
 
 if TYPE_CHECKING:
@@ -239,3 +239,53 @@ class ModelManager:
             logger.info(f"Filtered out {blacklisted_count} blacklisted model(s) with problematic safety filters")
 
         return filtered_models
+
+    async def generate_response_with_metadata(
+        self, model_id: str, messages: list[dict[str, str]], **overrides
+    ) -> GenerationMetadata:
+        """Generate a response with full metadata for cost tracking."""
+        if model_id not in self._model_configs:
+            raise ValueError(f"Model {model_id} not registered")
+
+        config = self._model_configs[model_id]
+        provider = self._get_provider(config.provider)
+
+        metadata = await provider.generate_response_with_metadata(config, messages, **overrides)
+        logger.debug(
+            f"Generated {len(metadata.content)} chars with metadata from {model_id} ({config.provider}), "
+            f"generation_id: {metadata.generation_id}"
+        )
+        return metadata
+
+    async def generate_response_stream_with_metadata(
+        self,
+        model_id: str,
+        messages: list[dict[str, str]],
+        chunk_callback: Callable[[str, bool], Awaitable[None]],
+        **overrides
+    ) -> GenerationMetadata:
+        """Generate a streaming response with full metadata for cost tracking."""
+        if model_id not in self._model_configs:
+            raise ValueError(f"Model {model_id} not registered")
+
+        config = self._model_configs[model_id]
+        provider = self._get_provider(config.provider)
+
+        metadata = await provider.generate_response_stream_with_metadata(
+            config, messages, chunk_callback, **overrides
+        )
+        logger.debug(
+            f"Generated {len(metadata.content)} chars via streaming with metadata from {model_id} ({config.provider}), "
+            f"generation_id: {metadata.generation_id}"
+        )
+        return metadata
+
+    async def query_generation_cost(self, model_id: str, generation_id: str) -> float | None:
+        """Query the cost for a specific generation using the appropriate provider."""
+        if model_id not in self._model_configs:
+            raise ValueError(f"Model {model_id} not registered")
+
+        config = self._model_configs[model_id]
+        provider = self._get_provider(config.provider)
+
+        return await provider.query_generation_cost(generation_id)

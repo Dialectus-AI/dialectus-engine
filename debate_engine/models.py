@@ -20,6 +20,9 @@ class DebateMessage:
     timestamp: datetime = field(default_factory=datetime.now)
     metadata: dict[str, Any] = field(default_factory=dict)
     message_id: str | None = None
+    cost: float | None = None
+    generation_id: str | None = None
+    cost_queried_at: datetime | None = None
 
 
 @dataclass

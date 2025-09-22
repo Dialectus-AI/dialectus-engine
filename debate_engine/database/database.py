@@ -45,6 +45,25 @@ class MessageData(TypedDict):
     timestamp: str
     word_count: int
     metadata: dict[str, Any]
+    cost: float | None
+    generation_id: str | None
+    cost_queried_at: str | None
+
+
+class MessageCostQuery(TypedDict):
+    """Data structure for messages pending cost queries."""
+
+    id: int
+    generation_id: str
+    speaker_id: str
+
+
+class JudgeDecisionCostQuery(TypedDict):
+    """Data structure for judge decisions pending cost queries."""
+
+    id: int
+    generation_id: str
+    judge_model: str
 
 
 class FullTranscriptData(TypedDict):
@@ -138,8 +157,8 @@ class DatabaseManager:
                     """
                     INSERT INTO messages (
                         debate_id, speaker_id, position, phase, round_number,
-                        content, timestamp, word_count, metadata
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        content, timestamp, word_count, metadata, cost, generation_id, cost_queried_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                     (
                         debate_id,
@@ -151,6 +170,9 @@ class DatabaseManager:
                         message["timestamp"],
                         message["word_count"],
                         json.dumps(message["metadata"]),
+                        message.get("cost"),
+                        message.get("generation_id"),
+                        message.get("cost_queried_at"),
                     ),
                 )
 
@@ -177,7 +199,7 @@ class DatabaseManager:
             # Load messages
             cursor.execute(
                 """
-                SELECT * FROM messages WHERE debate_id = ? 
+                SELECT * FROM messages WHERE debate_id = ?
                 ORDER BY round_number, id
             """,
                 (debate_id,),
@@ -212,6 +234,9 @@ class DatabaseManager:
                         "metadata": (
                             json.loads(row["metadata"]) if row["metadata"] else {}
                         ),
+                        "cost": row["cost"],
+                        "generation_id": row["generation_id"],
+                        "cost_queried_at": row["cost_queried_at"],
                     }
                     for row in message_rows
                 ],
@@ -338,8 +363,8 @@ class DatabaseManager:
                 """
                 INSERT INTO judge_decisions (
                     debate_id, judge_model, judge_provider, winner_id, winner_margin,
-                    overall_feedback, reasoning, generation_time_ms
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    overall_feedback, reasoning, generation_time_ms, cost, generation_id, cost_queried_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     debate_id,
@@ -350,6 +375,9 @@ class DatabaseManager:
                     judge_decision.overall_feedback,
                     judge_decision.reasoning,
                     judge_decision.generation_time_ms,
+                    getattr(judge_decision, 'cost', None),
+                    getattr(judge_decision, 'generation_id', None),
+                    getattr(judge_decision, 'cost_queried_at', None),
                 ),
             )
 
@@ -508,3 +536,79 @@ class DatabaseManager:
             cursor = conn.cursor()
             cursor.execute("SELECT COUNT(*) FROM debates")
             return cursor.fetchone()[0]
+
+    def update_message_cost(self, message_id: int, cost: float, cost_queried_at: str) -> bool:
+        """Update cost information for a message after cost query completes."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                UPDATE messages
+                SET cost = ?, cost_queried_at = ?
+                WHERE id = ?
+            """,
+                (cost, cost_queried_at, message_id),
+            )
+            updated = cursor.rowcount > 0
+            conn.commit()
+            return updated
+
+    def update_judge_decision_cost(self, judge_decision_id: int, cost: float, cost_queried_at: str) -> bool:
+        """Update cost information for a judge decision after cost query completes."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                UPDATE judge_decisions
+                SET cost = ?, cost_queried_at = ?
+                WHERE id = ?
+            """,
+                (cost, cost_queried_at, judge_decision_id),
+            )
+            updated = cursor.rowcount > 0
+            conn.commit()
+            return updated
+
+    def get_messages_pending_cost_query(self, limit: int = 10) -> list[MessageCostQuery]:
+        """Get messages with generation_id but no cost yet (for background cost queries)."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT id, generation_id, speaker_id
+                FROM messages
+                WHERE generation_id IS NOT NULL AND cost IS NULL
+                LIMIT ?
+            """,
+                (limit,),
+            )
+            return [
+                MessageCostQuery(
+                    id=row["id"],
+                    generation_id=row["generation_id"],
+                    speaker_id=row["speaker_id"]
+                )
+                for row in cursor.fetchall()
+            ]
+
+    def get_judge_decisions_pending_cost_query(self, limit: int = 10) -> list[JudgeDecisionCostQuery]:
+        """Get judge decisions with generation_id but no cost yet (for background cost queries)."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT id, generation_id, judge_model
+                FROM judge_decisions
+                WHERE generation_id IS NOT NULL AND cost IS NULL
+                LIMIT ?
+            """,
+                (limit,),
+            )
+            return [
+                JudgeDecisionCostQuery(
+                    id=row["id"],
+                    generation_id=row["generation_id"],
+                    judge_model=row["judge_model"]
+                )
+                for row in cursor.fetchall()
+            ]

@@ -1,9 +1,24 @@
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Callable, Awaitable
+from dataclasses import dataclass
 from openai import OpenAI
 
 if TYPE_CHECKING:
     from config.settings import SystemConfig, ModelConfig
+
+
+@dataclass
+class GenerationMetadata:
+    """Strongly-typed metadata returned from model generation for cost tracking."""
+    content: str
+    generation_id: str | None = None  # OpenRouter generation ID for cost queries
+    cost: float | None = None  # Cost in USD if available immediately
+    prompt_tokens: int | None = None  # Input tokens used
+    completion_tokens: int | None = None  # Output tokens generated
+    total_tokens: int | None = None  # Total tokens (prompt + completion)
+    generation_time_ms: int | None = None  # Generation time in milliseconds
+    model: str | None = None  # Actual model used (may differ from requested)
+    provider: str | None = None  # Provider name
 
 
 class BaseModelProvider(ABC):
@@ -67,3 +82,40 @@ class BaseModelProvider(ABC):
         complete_response = await self.generate_response(model_config, messages, **overrides)
         await chunk_callback(complete_response, True)
         return complete_response
+
+    async def generate_response_with_metadata(
+        self, model_config: "ModelConfig", messages: list[dict[str, str]], **overrides
+    ) -> GenerationMetadata:
+        """
+        Generate a response with full metadata for cost tracking.
+
+        Default implementation calls generate_response() and returns basic metadata.
+        Providers should override this for full metadata support.
+        """
+        content = await self.generate_response(model_config, messages, **overrides)
+        return GenerationMetadata(content=content)
+
+    async def generate_response_stream_with_metadata(
+        self,
+        model_config: "ModelConfig",
+        messages: list[dict[str, str]],
+        chunk_callback: Callable[[str, bool], Awaitable[None]],
+        **overrides
+    ) -> GenerationMetadata:
+        """
+        Generate a streaming response with full metadata for cost tracking.
+
+        Default implementation calls generate_response_stream() and returns basic metadata.
+        Providers should override this for full metadata support.
+        """
+        content = await self.generate_response_stream(model_config, messages, chunk_callback, **overrides)
+        return GenerationMetadata(content=content)
+
+    async def query_generation_cost(self, generation_id: str) -> float | None:
+        """
+        Query the cost for a specific generation ID.
+
+        Returns cost in USD or None if not supported by this provider.
+        Only OpenRouter provider implements this - others return None.
+        """
+        return None

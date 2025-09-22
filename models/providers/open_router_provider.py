@@ -8,7 +8,8 @@ import logging
 from openai import OpenAI
 import httpx
 
-from .base_model_provider import BaseModelProvider
+from .base_model_provider import BaseModelProvider, GenerationMetadata
+from .openrouter_generation_types import OpenRouterChatCompletionResponse, OpenRouterGenerationApiResponse
 
 if TYPE_CHECKING:
     from config.settings import SystemConfig, ModelConfig
@@ -391,4 +392,138 @@ class OpenRouterProvider(BaseModelProvider):
 
         except Exception as e:
             logger.error(f"OpenRouter streaming failed for {model_config.name}: {e}")
+            raise
+
+    async def generate_response_with_metadata(
+        self, model_config: "ModelConfig", messages: list[dict[str, str]], **overrides
+    ) -> GenerationMetadata:
+        """Generate response with full metadata including generation ID for cost tracking."""
+        if not self._client:
+            raise RuntimeError("OpenRouter client not initialized - check API key")
+
+        # Prepare generation parameters
+        params = {
+            "model": model_config.name,
+            "messages": messages,
+            "max_tokens": overrides.get("max_tokens", model_config.max_tokens),
+            "temperature": overrides.get("temperature", model_config.temperature),
+        }
+
+        try:
+            api_key = self.system_config.openrouter.api_key or os.getenv("OPENROUTER_API_KEY")
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            }
+
+            if self.system_config.openrouter.site_url:
+                headers["HTTP-Referer"] = self.system_config.openrouter.site_url
+            if self.system_config.openrouter.app_name:
+                headers["X-Title"] = self.system_config.openrouter.app_name
+
+            # Build the payload with reasoning parameter
+            payload = {
+                "model": params["model"],
+                "messages": params["messages"],
+                "max_tokens": params["max_tokens"],
+                "temperature": params["temperature"],
+                "reasoning": {"exclude": True},
+            }
+
+            # Apply rate limiting before API request
+            await self._rate_limit_request()
+
+            start_time = time.time()
+
+            async with httpx.AsyncClient() as client:
+                http_response = await client.post(
+                    f"{self.system_config.openrouter.base_url}/chat/completions",
+                    json=payload,
+                    headers=headers,
+                    timeout=self.system_config.openrouter.timeout,
+                )
+                http_response.raise_for_status()
+                response_data: OpenRouterChatCompletionResponse = http_response.json()
+
+            generation_time_ms = int((time.time() - start_time) * 1000)
+            content = response_data["choices"][0]["message"]["content"] or ""
+            generation_id = response_data.get("id")  # This is the key field we need
+
+            # Fail fast if we don't get a generation ID from OpenRouter
+            if not generation_id:
+                raise RuntimeError(f"OpenRouter response missing generation ID: {response_data}")
+
+            # Extract usage information if available
+            usage = response_data.get("usage")
+            prompt_tokens = usage.get("prompt_tokens") if usage else None
+            completion_tokens = usage.get("completion_tokens") if usage else None
+            total_tokens = usage.get("total_tokens") if usage else None
+
+            logger.debug(
+                f"Generated {len(content)} chars from OpenRouter {model_config.name}, "
+                f"generation_id: {generation_id}, tokens: {total_tokens}"
+            )
+
+            return GenerationMetadata(
+                content=content,
+                generation_id=generation_id,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=total_tokens,
+                generation_time_ms=generation_time_ms,
+                model=model_config.name,
+                provider="openrouter"
+            )
+
+        except Exception as e:
+            logger.error(f"OpenRouter metadata generation failed for {model_config.name}: {e}")
+            raise
+
+    async def query_generation_cost(self, generation_id: str) -> float:
+        """Query OpenRouter for the cost of a specific generation. Fails fast on errors."""
+        if not self._client:
+            raise RuntimeError("OpenRouter client not initialized - this should not happen if we got a generation_id")
+
+        if not generation_id:
+            raise ValueError("generation_id is required for cost queries")
+
+        try:
+            api_key = self.system_config.openrouter.api_key or os.getenv("OPENROUTER_API_KEY")
+            if not api_key:
+                raise RuntimeError("OpenRouter API key missing - cannot query generation cost")
+
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            }
+
+            if self.system_config.openrouter.site_url:
+                headers["HTTP-Referer"] = self.system_config.openrouter.site_url
+            if self.system_config.openrouter.app_name:
+                headers["X-Title"] = self.system_config.openrouter.app_name
+
+            # Apply rate limiting before API request
+            await self._rate_limit_request()
+
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.system_config.openrouter.base_url}/generation",
+                    params={"id": generation_id},
+                    headers=headers,
+                    timeout=10.0,  # Shorter timeout for cost queries
+                )
+                response.raise_for_status()
+
+                cost_data: OpenRouterGenerationApiResponse = response.json()
+
+                if "data" not in cost_data:
+                    raise RuntimeError(f"Invalid cost response format: {cost_data}")
+
+                total_cost = cost_data["data"]["total_cost"]
+
+                logger.debug(f"Retrieved cost for generation {generation_id}: ${total_cost}")
+                return total_cost
+
+        except Exception as e:
+            logger.error(f"Failed to query cost for generation {generation_id}: {e}")
             raise

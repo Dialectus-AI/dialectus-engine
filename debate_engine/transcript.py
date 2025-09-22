@@ -6,6 +6,7 @@ import logging
 
 from .models import DebateContext
 from .database import DatabaseManager
+from .database.database import FullTranscriptData
 
 logger = logging.getLogger(__name__)
 
@@ -33,26 +34,7 @@ class DebateMetadata(TypedDict):
     created_at: str
 
 
-class MessageData(TypedDict):
-    """Data structure for a single debate message."""
 
-    speaker_id: str
-    position: str
-    phase: str
-    round_number: int
-    content: str
-    timestamp: str
-    word_count: int
-    metadata: dict[str, Any]
-
-
-class FullTranscriptData(TypedDict):
-    """Complete transcript data including metadata and messages."""
-
-    metadata: dict[str, Any]  # Contains the same fields as DebateMetadata but nested
-    messages: list[MessageData]
-    scores: dict[str, float]
-    context_metadata: dict[str, Any]
 
 
 class TranscriptManager:
@@ -101,6 +83,9 @@ class TranscriptManager:
                     "timestamp": msg.timestamp.isoformat(),
                     "word_count": len(msg.content.split()),
                     "metadata": msg.metadata,
+                    "cost": msg.cost,
+                    "generation_id": msg.generation_id,
+                    "cost_queried_at": msg.cost_queried_at.isoformat() if msg.cost_queried_at else None,
                 }
                 for msg in context.messages
             ],
