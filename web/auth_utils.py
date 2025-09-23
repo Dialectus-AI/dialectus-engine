@@ -6,10 +6,9 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import bcrypt
 from jose import JWTError, jwt
-from passlib.context import CryptContext
-from fastapi import HTTPException, Request, Depends
-from fastapi.security import HTTPBearer
+from fastapi import HTTPException, Request
 from starlette.status import HTTP_401_UNAUTHORIZED
 
 logger = logging.getLogger(__name__)
@@ -21,10 +20,10 @@ JWT_EXPIRE_HOURS = 168  # 7 days
 ACCESS_TOKEN_COOKIE_NAME = "access_token"
 
 # Password hashing configuration
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
+BCRYPT_ROUNDS = 12
 
 # Security logger for auth events
-security_logger = logging.getLogger('security')
+security_logger = logging.getLogger("security")
 
 
 class AuthenticationError(HTTPException):
@@ -39,13 +38,16 @@ class PasswordUtils:
 
     @staticmethod
     def hash_password(password: str) -> str:
-        """Hash a password using bcrypt with minimum 12 rounds."""
-        return pwd_context.hash(password)
+        """Hash a password using bcrypt with 12 rounds."""
+        salt = bcrypt.gensalt(rounds=BCRYPT_ROUNDS)
+        return bcrypt.hashpw(password.encode("utf-8"), salt).decode("utf-8")
 
     @staticmethod
     def verify_password(plain_password: str, hashed_password: str) -> bool:
         """Verify a password against its hash."""
-        return pwd_context.verify(plain_password, hashed_password)
+        return bcrypt.checkpw(
+            plain_password.encode("utf-8"), hashed_password.encode("utf-8")
+        )
 
     @staticmethod
     def validate_password_strength(password: str) -> tuple[bool, list[str]]:
@@ -95,7 +97,9 @@ class JWTUtils:
     """Utilities for JWT token creation and validation."""
 
     @staticmethod
-    def create_access_token(user_id: int, email: str, username: str | None = None) -> str:
+    def create_access_token(
+        user_id: int, email: str, username: str | None = None
+    ) -> str:
         """
         Create a JWT access token for a user.
 
@@ -233,7 +237,9 @@ async def get_current_user(request: Request) -> dict[str, Any]:
     return get_current_user_from_token(request)
 
 
-def log_security_event(event_type: str, details: dict[str, Any], request: Request | None = None):
+def log_security_event(
+    event_type: str, details: dict[str, Any], request: Request | None = None
+):
     """
     Log security-related events for monitoring and auditing.
 
@@ -245,7 +251,7 @@ def log_security_event(event_type: str, details: dict[str, Any], request: Reques
     log_data = {
         "event_type": event_type,
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        **details
+        **details,
     }
 
     if request and request.client:
