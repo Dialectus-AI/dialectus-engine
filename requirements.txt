@@ -15,7 +15,7 @@ anyio==4.10.0
     #   starlette
     #   watchfiles
 bcrypt==4.3.0
-    # via passlib
+    # via -r requirements.in
 certifi==2025.8.3
     # via
     #   httpcore
@@ -70,8 +70,6 @@ openai==1.105.0
     # via -r requirements.in
 packaging==25.0
     # via limits
-passlib[bcrypt]==1.7.4
-    # via -r requirements.in
 pyasn1==0.6.1
     # via
     #   python-jose
