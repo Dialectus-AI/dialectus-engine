@@ -29,11 +29,8 @@ class DebateEngine:
         # Initialize transcript manager if enabled
         self.transcript_manager: TranscriptManager | None = None
         if config.system.save_transcripts:
-            from pathlib import Path
-
-            transcript_dir = Path(config.system.transcript_dir)
-            transcript_dir.mkdir(parents=True, exist_ok=True)
-            db_path = transcript_dir / "debates.db"
+            # Use root directory for debates.db
+            db_path = "debates.db"
             self.transcript_manager = TranscriptManager(str(db_path))
 
     async def initialize_debate(self, topic: str | None = None) -> DebateContext:

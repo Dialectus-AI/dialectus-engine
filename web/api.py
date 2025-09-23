@@ -568,10 +568,7 @@ async def get_transcripts(page: int = 1, limit: int = 20):
         offset = (page - 1) * limit
 
         # Get transcripts from database with explicit path
-        config = get_default_config()
-        transcript_dir = Path(config.system.transcript_dir)
-        transcript_dir.mkdir(parents=True, exist_ok=True)  # Ensure directory exists
-        db_path = transcript_dir / "debates.db"
+        db_path = "debates.db"
         transcript_manager = TranscriptManager(str(db_path))
         transcripts = transcript_manager.db_manager.list_debates_with_metadata(
             limit=limit, offset=offset
@@ -599,10 +596,7 @@ async def get_transcripts(page: int = 1, limit: int = 20):
 async def get_transcript(transcript_id: int):
     """Get a specific transcript by ID with full message content."""
     try:
-        config = get_default_config()
-        transcript_dir = Path(config.system.transcript_dir)
-        transcript_dir.mkdir(parents=True, exist_ok=True)  # Ensure directory exists
-        db_path = transcript_dir / "debates.db"
+        db_path = "debates.db"
         transcript_manager = TranscriptManager(str(db_path))
         transcript_data = transcript_manager.load_transcript(transcript_id)
 
@@ -723,20 +717,32 @@ async def register(request: Request, user_data: UserRegistrationSchema):
         # Hash password
         password_hash = PasswordUtils.hash_password(user_data.password)
 
-        # Create user account (unverified)
-        user_id = auth_db.create_user(user_data.email, password_hash)
+        # Get config to check development mode
+        config = get_default_config()
+        auth_config = getattr(config, 'auth', None)
+        is_development = getattr(auth_config, 'development_mode', False) if auth_config else False
 
-        # Generate email verification token
-        token = TokenUtils.generate_secure_token()
-        token_hash = TokenUtils.hash_token(token)
-        auth_db.create_email_verification(user_id, token_hash)
+        # Create user account
+        user_id = auth_db.create_user(user_data.email, password_hash, is_verified=is_development)
 
-        # TODO: Send verification email with token
-        # For now, log the token for development
-        logger.info(f"Email verification token for {user_data.email}: {token}")
+        if is_development:
+            # Development mode: skip email verification, auto-verify user
+            logger.info(f"Development mode: Auto-verified user {user_data.email}")
+            log_security_event("registration_success", {"email": user_data.email, "user_id": user_id, "auto_verified": True}, request)
+            return RegistrationResponse(message=f"Account created and verified for {user_data.email}")
+        else:
+            # Production mode: require email verification
+            # Generate email verification token
+            token = TokenUtils.generate_secure_token()
+            token_hash = TokenUtils.hash_token(token)
+            auth_db.create_email_verification(user_id, token_hash)
 
-        log_security_event("registration_success", {"email": user_data.email, "user_id": user_id}, request)
-        return RegistrationResponse(message=f"Verification email sent to {user_data.email}")
+            # TODO: Send verification email with token
+            # For now, log the token for development
+            logger.info(f"Email verification token for {user_data.email}: {token}")
+
+            log_security_event("registration_success", {"email": user_data.email, "user_id": user_id}, request)
+            return RegistrationResponse(message=f"Verification email sent to {user_data.email}")
 
     except HTTPException:
         raise
