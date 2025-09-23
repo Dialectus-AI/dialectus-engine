@@ -141,6 +141,15 @@ class SystemConfig(BaseModel):
         return v
 
 
+class AuthConfig(BaseModel):
+    """Authentication configuration."""
+
+    development_mode: bool = Field(
+        default=True,
+        description="Skip email verification in development mode (localhost)"
+    )
+
+
 class AppConfig(BaseModel):
     """Complete application configuration."""
 
@@ -148,6 +157,7 @@ class AppConfig(BaseModel):
     models: dict[str, ModelConfig]
     judging: JudgingConfig
     system: SystemConfig
+    auth: AuthConfig = Field(default_factory=AuthConfig, description="Authentication settings")
 
     @classmethod
     def load_from_file(cls, config_path: Path) -> "AppConfig":
@@ -262,5 +272,8 @@ def get_template_config() -> AppConfig:
             log_level="INFO",
             debate_topic_source="openrouter",
             debate_topic_model="anthropic/claude-3-haiku",
+        ),
+        auth=AuthConfig(
+            development_mode=True,
         ),
     )
