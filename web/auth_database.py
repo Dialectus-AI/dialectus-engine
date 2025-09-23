@@ -48,13 +48,14 @@ class AuthDatabaseManager:
             if conn:
                 conn.close()
 
-    def create_user(self, email: str, password_hash: str) -> int:
+    def create_user(self, email: str, password_hash: str, is_verified: bool = False) -> int:
         """
         Create a new user account.
 
         Args:
             email: User's email address
             password_hash: Bcrypt hashed password
+            is_verified: Whether the user is already verified (for development mode)
 
         Returns:
             User ID of created user
@@ -68,9 +69,9 @@ class AuthDatabaseManager:
             cursor.execute(
                 """
                 INSERT INTO users (email, password_hash, is_verified, created_at, updated_at)
-                VALUES (?, ?, FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             """,
-                (email, password_hash),
+                (email, password_hash, is_verified),
             )
 
             user_id = cursor.lastrowid
@@ -78,7 +79,7 @@ class AuthDatabaseManager:
                 raise RuntimeError("Failed to get user ID from database")
 
             conn.commit()
-            logger.info(f"Created user account for email: {email}")
+            logger.info(f"Created user account for email: {email} (verified: {is_verified})")
             return user_id
 
     def get_user_by_email(self, email: str) -> UserData | None:
