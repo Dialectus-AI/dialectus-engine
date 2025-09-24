@@ -50,6 +50,7 @@ coverage.xml
 .env.production
 
 # IDE
+pyrightconfig.json
 .vscode/
 .idea/
 *.swp
