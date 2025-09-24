@@ -618,7 +618,7 @@ Remember: You are embodying the {role_name} position throughout this debate. Spe
 
         return self.context
 
-    def save_transcript_with_judge_result(self, judge_result=None) -> None:
+    def save_transcript_with_judge_result(self, judge_result=None, user_id: int | None = None) -> None:
         """Save transcript to database with optional judge result (single decision or ensemble)."""
         if not self.transcript_manager or not self.context:
             return
@@ -628,7 +628,7 @@ Remember: You are embodying the {role_name} position throughout this debate. Spe
             total_debate_time_ms = self.context.metadata.get("total_debate_time_ms", 0)
 
             transcript_id = self.transcript_manager.save_transcript(
-                self.context, total_debate_time_ms
+                self.context, total_debate_time_ms, user_id=user_id
             )
             logger.info(f"Transcript saved to database with ID {transcript_id}")
             self.context.metadata["transcript_id"] = transcript_id

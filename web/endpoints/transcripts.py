@@ -2,10 +2,11 @@
 
 import logging
 
-from fastapi import HTTPException, APIRouter
+from fastapi import HTTPException, APIRouter, Depends
 
 from debate_engine.transcript import TranscriptManager
 from formats import format_registry
+from web.auth_utils import get_current_user
 
 logger = logging.getLogger(__name__)
 
@@ -13,8 +14,8 @@ router = APIRouter(prefix="/api")
 
 
 @router.get("/transcripts")
-async def get_transcripts(page: int = 1, limit: int = 20):
-    """Get paginated list of saved transcripts from SQLite database."""
+async def get_transcripts(page: int = 1, limit: int = 20, current_user: dict = Depends(get_current_user)):
+    """Get paginated list of saved transcripts from SQLite database, filtered by authenticated user."""
     try:
         # Validate pagination parameters
         if page < 1:
@@ -25,13 +26,14 @@ async def get_transcripts(page: int = 1, limit: int = 20):
         # Calculate offset for pagination
         offset = (page - 1) * limit
 
-        # Get transcripts from database with explicit path
+        # Get transcripts from database with explicit path, filtered by user
         db_path = "debates.db"
         transcript_manager = TranscriptManager(str(db_path))
+        user_id = current_user["id"]
         transcripts = transcript_manager.db_manager.list_debates_with_metadata(
-            limit=limit, offset=offset
+            limit=limit, offset=offset, user_id=user_id
         )
-        total_count = transcript_manager.get_debate_count()
+        total_count = transcript_manager.get_debate_count(user_id=user_id)
 
         # Format response with pagination metadata
         return {
@@ -51,11 +53,20 @@ async def get_transcripts(page: int = 1, limit: int = 20):
 
 
 @router.get("/transcripts/{transcript_id}")
-async def get_transcript(transcript_id: int):
-    """Get a specific transcript by ID with full message content."""
+async def get_transcript(transcript_id: int, current_user: dict = Depends(get_current_user)):
+    """Get a specific transcript by ID with full message content, verifying user ownership."""
     try:
         db_path = "debates.db"
         transcript_manager = TranscriptManager(str(db_path))
+
+        # First verify the transcript exists and belongs to the current user
+        user_id = current_user["id"]
+        user_transcripts = transcript_manager.db_manager.list_debates_with_metadata(user_id=user_id)
+        transcript_exists = any(t["id"] == transcript_id for t in user_transcripts)
+
+        if not transcript_exists:
+            raise HTTPException(status_code=404, detail="Transcript not found")
+
         transcript_data = transcript_manager.load_transcript(transcript_id)
 
         if not transcript_data:

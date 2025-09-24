@@ -43,12 +43,12 @@ class TranscriptManager:
     def __init__(self, db_path: str = "debates.db"):
         self.db_manager = DatabaseManager(db_path)
 
-    def save_transcript(self, context: DebateContext, total_debate_time_ms: int) -> int:
+    def save_transcript(self, context: DebateContext, total_debate_time_ms: int, user_id: int | None = None) -> int:
         """Save a debate transcript to the database and return the debate ID."""
         transcript_data = self._context_to_dict(context, total_debate_time_ms)
         try:
-            debate_id = self.db_manager.save_debate(transcript_data)
-            logger.info(f"Saved transcript to database with ID {debate_id}")
+            debate_id = self.db_manager.save_debate(transcript_data, user_id=user_id)
+            logger.info(f"Saved transcript to database with ID {debate_id}" + (f" for user {user_id}" if user_id else ""))
             return debate_id
         except Exception as e:
             logger.error(f"Failed to save transcript to database: {e}")
@@ -173,10 +173,10 @@ class TranscriptManager:
             logger.error(f"Failed to delete transcript {debate_id}: {e}")
             return False
 
-    def get_debate_count(self) -> int:
-        """Get the total number of debates stored."""
+    def get_debate_count(self, user_id: int | None = None) -> int:
+        """Get the total number of debates stored, optionally filtered by user."""
         try:
-            return self.db_manager.get_debate_count()
+            return self.db_manager.get_debate_count(user_id=user_id)
         except Exception as e:
             logger.error(f"Failed to get debate count: {e}")
             return 0

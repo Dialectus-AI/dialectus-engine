@@ -11,5 +11,7 @@ CREATE TABLE IF NOT EXISTS debates (
     total_debate_time_ms INTEGER NOT NULL,  -- Total debate duration in milliseconds
     scores TEXT,  -- JSON string
     context_metadata TEXT,  -- JSON string
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    user_id INTEGER,  -- Foreign key to users.id, NULL for unauthenticated debates
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 );

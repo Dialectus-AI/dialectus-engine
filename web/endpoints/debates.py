@@ -2,7 +2,7 @@
 
 import logging
 
-from fastapi import HTTPException, WebSocket, WebSocketDisconnect, APIRouter
+from fastapi import HTTPException, WebSocket, WebSocketDisconnect, APIRouter, Depends
 
 from config.settings import get_default_config, ModelConfig
 from models.manager import ModelManager
@@ -10,6 +10,7 @@ from formats import format_registry
 from web.debate_manager import DebateManager
 from web.debate_reponse import DebateResponse
 from web.debate_setup_request import DebateSetupRequest
+from web.auth_utils import get_current_user_optional
 
 logger = logging.getLogger(__name__)
 
@@ -25,11 +26,13 @@ def setup_debate_manager():
 
 
 @router.post("/debates", response_model=DebateResponse)
-async def create_debate(setup: DebateSetupRequest):
+async def create_debate(setup: DebateSetupRequest, current_user: dict | None = Depends(get_current_user_optional)):
     """Create a new debate."""
     try:
         debate_manager = setup_debate_manager()
-        debate_id = await debate_manager.create_debate(setup)
+        user_id = current_user["id"] if current_user else None
+        logger.info(f"Creating debate - current_user: {current_user}, user_id: {user_id}")
+        debate_id = await debate_manager.create_debate(setup, user_id=user_id)
         debate_info = debate_manager.active_debates[debate_id]
 
         # Get format-specific side labels

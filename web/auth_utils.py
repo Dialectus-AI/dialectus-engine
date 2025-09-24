@@ -237,6 +237,30 @@ async def get_current_user(request: Request) -> dict[str, Any]:
     return get_current_user_from_token(request)
 
 
+async def get_current_user_optional(request: Request) -> dict[str, Any] | None:
+    """
+    FastAPI dependency to get current authenticated user, returning None if not authenticated.
+
+    Usage in route:
+        @app.post("/debates")
+        async def create_debate(setup: DebateSetupRequest, current_user: dict | None = Depends(get_current_user_optional)):
+            user_id = current_user["id"] if current_user else None
+    """
+    try:
+        # Log cookie info for debugging
+        cookies = dict(request.cookies)
+        logger.info(f"get_current_user_optional: Request cookies: {list(cookies.keys())}")
+        if 'access_token' in cookies:
+            logger.info(f"get_current_user_optional: Found access_token cookie (length: {len(cookies['access_token'])})")
+
+        user = get_current_user_from_token(request)
+        logger.info(f"get_current_user_optional: Successfully authenticated user: {user}")
+        return user
+    except AuthenticationError as e:
+        logger.info(f"get_current_user_optional: Authentication failed: {e}")
+        return None
+
+
 def log_security_event(
     event_type: str, details: dict[str, Any], request: Request | None = None
 ):

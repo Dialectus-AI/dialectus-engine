@@ -24,7 +24,7 @@ class DebateManager:
         self.active_debates: dict[str, dict[str, Any]] = {}
         self.connections: dict[str, list[WebSocket]] = {}
 
-    async def create_debate(self, setup: DebateSetupRequest) -> str:
+    async def create_debate(self, setup: DebateSetupRequest, user_id: int | None = None) -> str:
         """Create a new debate session."""
         debate_id = str(uuid.uuid4())
 
@@ -60,6 +60,7 @@ class DebateManager:
             "context": None,
             "status": "created",
             "task": None,
+            "user_id": user_id,
         }
 
         self.connections[debate_id] = []
@@ -343,7 +344,9 @@ class DebateManager:
                     raise RuntimeError(error_msg)
 
                 # Save transcript (with judge decision if judges succeeded, without if no judges configured)
-                engine.save_transcript_with_judge_result(judge_result)
+                user_id = debate_info.get("user_id")
+                logger.info(f"Saving transcript for debate {debate_id} with user_id: {user_id}")
+                engine.save_transcript_with_judge_result(judge_result, user_id=user_id)
 
                 # After saving, load the complete judging data from database and broadcast it
                 if (

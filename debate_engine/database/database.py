@@ -118,7 +118,7 @@ class DatabaseManager:
             if conn:
                 conn.close()
 
-    def save_debate(self, debate_data: dict[str, Any]) -> int:
+    def save_debate(self, debate_data: dict[str, Any], user_id: int | None = None) -> int:
         """Save a complete debate to the database and return the debate ID."""
         import json
 
@@ -131,8 +131,8 @@ class DatabaseManager:
                 """
                 INSERT INTO debates (
                     topic, format, participants, final_phase, total_rounds,
-                    saved_at, message_count, word_count, total_debate_time_ms
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    saved_at, message_count, word_count, total_debate_time_ms, user_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     metadata["topic"],
@@ -144,6 +144,7 @@ class DatabaseManager:
                     metadata["message_count"],
                     metadata["word_count"],
                     metadata["total_debate_time_ms"],
+                    user_id,
                 ),
             )
 
@@ -290,7 +291,7 @@ class DatabaseManager:
             ]
 
     def list_debates_with_metadata(
-        self, limit: int | None = None, offset: int = 0
+        self, limit: int | None = None, offset: int = 0, user_id: int | None = None
     ) -> list[dict[str, Any]]:
         """List debates with metadata including judge model info via SQL joins."""
         import json
@@ -306,10 +307,15 @@ class DatabaseManager:
                     jd.judge_model
                 FROM debates d
                 LEFT JOIN judge_decisions jd ON d.id = jd.debate_id
-                ORDER BY d.created_at DESC
             """
 
             params = []
+            if user_id is not None:
+                query += " WHERE d.user_id = ?"
+                params.append(user_id)
+
+            query += " ORDER BY d.created_at DESC"
+
             if limit:
                 query += " LIMIT ? OFFSET ?"
                 params.extend([limit, offset])
@@ -530,11 +536,14 @@ class DatabaseManager:
         decisions = self.load_judge_decisions(debate_id)
         return decisions[0] if decisions else None
 
-    def get_debate_count(self) -> int:
-        """Get total number of debates."""
+    def get_debate_count(self, user_id: int | None = None) -> int:
+        """Get total number of debates, optionally filtered by user."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) FROM debates")
+            if user_id is not None:
+                cursor.execute("SELECT COUNT(*) FROM debates WHERE user_id = ?", (user_id,))
+            else:
+                cursor.execute("SELECT COUNT(*) FROM debates")
             return cursor.fetchone()[0]
 
     def update_message_cost(self, message_id: int, cost: float, cost_queried_at: str) -> bool:
