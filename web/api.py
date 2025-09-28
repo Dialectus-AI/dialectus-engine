@@ -1,17 +1,12 @@
 """FastAPI web application for Dialectus AI Debate System."""
 
 import asyncio
-from pathlib import Path
 import logging
 from contextlib import asynccontextmanager
-
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
-
 from web.debate_manager import DebateManager
-from web.auth_database import AuthDatabaseManager
 
-# Import endpoint routers
+# Endpoint routers
 from web.endpoints.models import router as models_router
 from web.endpoints.system import router as system_router
 from web.endpoints.debates import router as debates_router, ws_router as debates_ws_router
@@ -24,20 +19,18 @@ logger = logging.getLogger(__name__)
 # Cache cleanup scheduler
 cleanup_task = None
 
-
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     """Manage application lifespan - startup and shutdown."""
     global cleanup_task
 
-    # Startup: Start cache cleanup scheduler
     logger.info("Starting cache cleanup scheduler...")
     cleanup_task = asyncio.create_task(cache_cleanup_scheduler())
 
-    # Initialize auth database - ensure database is created with schema
     from debate_engine.database.database import DatabaseManager
+   
     # This will create the database with all tables including auth tables
-    DatabaseManager()  # Initialize to ensure database exists with schema
+    DatabaseManager()
 
     yield
 
@@ -91,9 +84,3 @@ app.include_router(debates_ws_router)
 app.include_router(tournaments_router)
 app.include_router(transcripts_router)
 app.include_router(auth_router)
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run(app, host="0.0.0.0", port=8000)
