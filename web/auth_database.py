@@ -3,7 +3,7 @@
 import sqlite3
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import Any, TypedDict
+from typing import TypedDict
 from contextlib import contextmanager
 from pathlib import Path
 
