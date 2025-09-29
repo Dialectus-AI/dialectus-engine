@@ -20,7 +20,7 @@ from web.auth_database import AuthDatabaseManager
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/auth")
+router = APIRouter(prefix="/auth")
 
 # Initialize auth database manager
 auth_db = AuthDatabaseManager()

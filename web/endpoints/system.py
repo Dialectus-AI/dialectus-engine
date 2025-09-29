@@ -8,7 +8,7 @@ from formats import format_registry
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api")
+router = APIRouter()
 
 
 @router.get("/health")

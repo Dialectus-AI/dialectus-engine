@@ -9,7 +9,7 @@ from models.manager import ModelManager
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api")
+router = APIRouter()
 
 # Tournament endpoints
 tournament_manager = None

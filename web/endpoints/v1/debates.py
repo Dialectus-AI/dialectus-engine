@@ -14,7 +14,7 @@ from web.auth_utils import get_current_user_optional
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api")
+router = APIRouter()
 ws_router = APIRouter()
 
 
