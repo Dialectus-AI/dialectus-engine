@@ -52,18 +52,18 @@ The tournament system creates single-elimination brackets where AI models compet
 
 ### Tournament Management
 ```http
-POST   /api/tournaments                    # Create tournament
-GET    /api/tournaments                    # List tournaments
-GET    /api/tournaments/{id}               # Tournament details
-POST   /api/tournaments/{id}/start         # Start tournament
-POST   /api/tournaments/{id}/advance       # Manual advancement
-DELETE /api/tournaments/{id}               # Cancel tournament
+POST   /tournaments                    # Create tournament
+GET    /tournaments                    # List tournaments
+GET    /tournaments/{id}               # Tournament details
+POST   /tournaments/{id}/start         # Start tournament
+POST   /tournaments/{id}/advance       # Manual advancement
+DELETE /tournaments/{id}               # Cancel tournament
 ```
 
 ### Tournament Data
 ```http
-GET    /api/tournaments/{id}/bracket       # Bracket visualization data
-GET    /api/tournaments/{id}/matches       # Current round matches
+GET    /tournaments/{id}/bracket       # Bracket visualization data
+GET    /tournaments/{id}/matches       # Current round matches
 WebSocket /ws/tournament/{id}              # Real-time updates
 ```
 

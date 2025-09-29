@@ -192,14 +192,14 @@ Add to existing `web/api.py`:
 
 ```python
 # Tournament API endpoints
-POST /api/tournaments                    # Create tournament
-GET  /api/tournaments                    # List tournaments
-GET  /api/tournaments/{id}               # Tournament details  
-POST /api/tournaments/{id}/start         # Begin tournament
-POST /api/tournaments/{id}/advance       # Advance to next round
-GET  /api/tournaments/{id}/bracket       # Bracket visualization
-GET  /api/tournaments/{id}/matches       # Current round matches
-DELETE /api/tournaments/{id}             # Cancel tournament
+POST /tournaments                    # Create tournament
+GET  /tournaments                    # List tournaments
+GET  /tournaments/{id}               # Tournament details  
+POST /tournaments/{id}/start         # Begin tournament
+POST /tournaments/{id}/advance       # Advance to next round
+GET  /tournaments/{id}/bracket       # Bracket visualization
+GET  /tournaments/{id}/matches       # Current round matches
+DELETE /tournaments/{id}             # Cancel tournament
 WebSocket /ws/tournament/{id}            # Real-time updates
 ```
 

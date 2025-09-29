@@ -76,24 +76,24 @@ Configuration follows the pattern: Base config → Web UI overrides → Final de
 ### API Endpoints
 
 Key REST endpoints:
-- `POST /api/debates` - Create new debate
-- `GET /api/debates/{id}` - Get debate details
+- `POST /debates` - Create new debate
+- `GET /debates/{id}` - Get debate details
 - `WebSocket /ws/debate/{id}` - Real-time debate updates
-- `GET /api/models` - Available models across providers
-- `GET /api/providers` - Provider status
+- `GET /models` - Available models across providers
+- `GET /providers` - Provider status
 
 ## Frontend Integration
 
 The engine provides REST API and WebSocket endpoints consumed by the **dialectus-web** frontend:
 
 **Model Picker Integration** (`dialectus-web/src/components/model-picker-modal.ts`):
-- Fetches models via `/api/models` endpoint (app.py:351)
+- Fetches models via `/models` endpoint (app.py:351)
 - Uses enhanced models from `models/manager.py:104`
 - OpenRouter models filtered by `models/openrouter_types.py:565`
 - Filtering patterns configured in `config/openrouter_filters.json`
 
 **Debate Flow**:
-- Frontend creates debates via `/api/debates` → `web/app.py:454`
+- Frontend creates debates via `/debates` → `web/app.py:454`
 - Real-time updates via WebSocket `/ws/debate/{id}` → `web/app.py:697`
 - Core debate logic in `debate_engine/core.py`
 

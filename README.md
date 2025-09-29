@@ -64,7 +64,7 @@ The engine uses `debate_config.json` for system configuration. Key sections:
     },
     "openrouter": {
       "api_key": "your-openrouter-api-key-here",
-      "base_url": "https://openrouter.ai/api/v1",
+      "base_url": "https://openrouter.ai/v1",
       "timeout": 60,
       "max_retries": 3
     }
@@ -109,37 +109,37 @@ Used by the web interface's "refresh topic" feature:
 ## API Endpoints
 
 ### Core Endpoints
-- `GET /api/health` - API health check
-- `GET /api/models` - List available AI models from all providers
-- `GET /api/providers` - List provider status and configuration
-- `GET /api/formats` - List available debate formats
+- `GET /health` - API health check
+- `GET /models` - List available AI models from all providers
+- `GET /providers` - List provider status and configuration
+- `GET /formats` - List available debate formats
 
 ### Debate Management
-- `POST /api/debates` - Create new debate
-- `GET /api/debates/{id}` - Get debate status and details
-- `POST /api/debates/{id}/start` - Start debate execution
-- `POST /api/debates/{id}/cancel` - Cancel running debate
-- `GET /api/debates/{id}/transcript` - Get debate transcript
+- `POST /debates` - Create new debate
+- `GET /debates/{id}` - Get debate status and details
+- `POST /debates/{id}/start` - Start debate execution
+- `POST /debates/{id}/cancel` - Cancel running debate
+- `GET /debates/{id}/transcript` - Get debate transcript
 - `WebSocket /ws/debate/{id}` - Real-time debate streaming
 
 ### User Authentication
-- `POST /api/auth/register` - Register new user account
-- `POST /api/auth/verify` - Verify email address with token
-- `POST /api/auth/complete-registration` - Complete registration with username
-- `POST /api/auth/login` - User login with JWT token
-- `POST /api/auth/logout` - User logout
-- `GET /api/auth/me` - Get current authenticated user
+- `POST /auth/register` - Register new user account
+- `POST /auth/verify` - Verify email address with token
+- `POST /auth/complete-registration` - Complete registration with username
+- `POST /auth/login` - User login with JWT token
+- `POST /auth/logout` - User logout
+- `GET /auth/me` - Get current authenticated user
 
 ### Utilities
-- `GET /api/generate-topic` - Generate random debate topic
-- `GET /api/transcripts` - List stored debate transcripts
-- `GET /api/transcripts/{id}` - Get specific transcript details
+- `GET /generate-topic` - Generate random debate topic
+- `GET /transcripts` - List stored debate transcripts
+- `GET /transcripts/{id}` - Get specific transcript details
 
 ### System Management
-- `GET /api/ollama/health` - Check Ollama provider health
-- `GET /api/cache/stats` - View model cache statistics
-- `POST /api/cache/cleanup` - Clean up expired cache entries
-- `DELETE /api/cache/models` - Clear model cache
+- `GET /ollama/health` - Check Ollama provider health
+- `GET /cache/stats` - View model cache statistics
+- `POST /cache/cleanup` - Clean up expired cache entries
+- `DELETE /cache/models` - Clear model cache
 
 ### Model Integration
 - **Ollama**: Local model management with hardware optimization
