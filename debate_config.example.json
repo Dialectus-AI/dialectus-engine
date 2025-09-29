@@ -56,15 +56,16 @@
   },
   "auth": {
     "development_mode": true,
-    "skip_email_verification": true,
     "email": {
       "enabled": false,
-      "smtp_server": "smtp.your-hosting-provider.com",
+      "smtp_server": "smtp.example.com",
       "smtp_port": 587,
-      "smtp_user": "noreply@dialectus.ai",
-      "smtp_password": "your-email-password",
-      "from_email": "noreply@dialectus.ai",
-      "from_name": "Dialectus AI"
+      "smtp_user": "your-smtp-username",
+      "smtp_password": "your-smtp-password",
+      "from_email": "noreply@yourdomain.com",
+      "from_name": "Your App Name",
+      "use_tls": true,
+      "frontend_url": "http://localhost:5173"
     }
   }
 }

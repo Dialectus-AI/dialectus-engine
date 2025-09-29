@@ -44,9 +44,15 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
     cleanup_task = asyncio.create_task(cache_cleanup_scheduler())
 
     from debate_engine.database.database import DatabaseManager
-   
+    from config.settings import get_default_config
+    from web.email_service import initialize_email_service
+
     # This will create the database with all tables including auth tables
     DatabaseManager()
+
+    # Initialize email service from config
+    config = get_default_config()
+    initialize_email_service(config)
 
     yield
 

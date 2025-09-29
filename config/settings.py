@@ -141,12 +141,57 @@ class SystemConfig(BaseModel):
         return v
 
 
+class EmailConfig(BaseModel):
+    """Email service configuration."""
+
+    enabled: bool = Field(
+        default=False,
+        description="Enable email sending functionality"
+    )
+    smtp_server: str = Field(
+        default="smtp.gmail.com",
+        description="SMTP server hostname"
+    )
+    smtp_port: int = Field(
+        default=587,
+        description="SMTP server port (usually 587 for TLS or 465 for SSL)"
+    )
+    smtp_user: str = Field(
+        default="",
+        description="SMTP username/email for authentication"
+    )
+    smtp_password: str = Field(
+        default="",
+        description="SMTP password or app-specific password"
+    )
+    from_email: str = Field(
+        default="noreply@example.com",
+        description="From email address"
+    )
+    from_name: str = Field(
+        default="Dialectus AI",
+        description="From name displayed in emails"
+    )
+    use_tls: bool = Field(
+        default=True,
+        description="Use TLS for SMTP connection"
+    )
+    frontend_url: str = Field(
+        default="http://localhost:5173",
+        description="Frontend base URL for email links (e.g., https://yourdomain.com)"
+    )
+
+
 class AuthConfig(BaseModel):
     """Authentication configuration."""
 
     development_mode: bool = Field(
         default=True,
         description="Skip email verification in development mode (localhost)"
+    )
+    email: EmailConfig = Field(
+        default_factory=EmailConfig,
+        description="Email service configuration"
     )
 
 

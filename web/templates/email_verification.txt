@@ -1,0 +1,12 @@
+Welcome to Dialectus!
+
+Thank you for registering with Dialectus AI Debate System. To complete your registration,
+please verify your email address by visiting this link:
+
+{{verification_url}}
+
+This link will expire in 24 hours.
+
+If you did not create an account with Dialectus, please ignore this email.
+
+© 2025 Dialectus AI. All rights reserved.

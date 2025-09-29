@@ -17,6 +17,7 @@ from web.auth_utils import (
     log_security_event, AuthenticationError
 )
 from web.auth_database import AuthDatabaseManager
+from web.email_service import get_email_service
 
 logger = logging.getLogger(__name__)
 
@@ -59,9 +60,15 @@ async def register(request: Request, user_data: UserRegistrationSchema):
             token_hash = TokenUtils.hash_token(token)
             auth_db.create_email_verification(user_id, token_hash)
 
-            # TODO: Send verification email with token
-            # For now, log the token for development
-            logger.info(f"Email verification token for {user_data.email}: {token}")
+            # Send verification email if service is configured
+            email_service = get_email_service()
+            if email_service:
+                email_sent = email_service.send_verification_email(user_data.email, token)
+                if not email_sent:
+                    logger.error(f"Failed to send verification email to {user_data.email}")
+            else:
+                # Email service not configured, log token for manual verification
+                logger.warning(f"Email service not configured. Verification token for {user_data.email}: {token}")
 
             log_security_event("registration_success", {"email": user_data.email, "user_id": user_id}, request)
             return RegistrationResponse(message=f"Verification email sent to {user_data.email}")
@@ -229,9 +236,15 @@ async def forgot_password(request: Request, forgot_data: ForgotPasswordSchema):
             # Create password reset record (expires in 1 hour)
             auth_db.create_password_reset(user["id"], token_hash, expires_hours=1)
 
-            # TODO: Send password reset email with token
-            # For now, log the token for development
-            logger.info(f"Password reset token for {forgot_data.email}: {token}")
+            # Send password reset email if service is configured
+            email_service = get_email_service()
+            if email_service:
+                email_sent = email_service.send_password_reset_email(forgot_data.email, token)
+                if not email_sent:
+                    logger.error(f"Failed to send password reset email to {forgot_data.email}")
+            else:
+                # Email service not configured, log token for manual password reset
+                logger.warning(f"Email service not configured. Password reset token for {forgot_data.email}: {token}")
 
             log_security_event("password_reset_requested", {"email": forgot_data.email, "user_id": user["id"]}, request)
 
