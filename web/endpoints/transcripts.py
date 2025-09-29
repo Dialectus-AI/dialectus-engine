@@ -10,7 +10,7 @@ from web.auth_utils import get_current_user
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api")
+router = APIRouter()
 
 
 @router.get("/transcripts")
