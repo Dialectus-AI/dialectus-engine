@@ -32,7 +32,7 @@ class OpenRouterProvider(BaseModelProvider):
         super().__init__(system_config)
 
         # Get API key from config or environment
-        api_key = system_config.openrouter.api_key or os.getenv("OPENROUTER_API_KEY")
+        api_key = self._get_api_key()
 
         if not api_key:
             logger.warning(
@@ -54,6 +54,14 @@ class OpenRouterProvider(BaseModelProvider):
                 max_retries=system_config.openrouter.max_retries,
                 default_headers=headers,
             )
+
+    def _get_api_key(self) -> str | None:
+        """Get OpenRouter API key from environment or config.
+
+        Returns:
+            API key string if found, None otherwise
+        """
+        return os.getenv("OPENROUTER_API_KEY") or self.system_config.openrouter.api_key
 
     @property
     def provider_name(self) -> str:
@@ -130,9 +138,7 @@ class OpenRouterProvider(BaseModelProvider):
             # Cache miss - fetch fresh data from OpenRouter API
             logger.info("Fetching fresh OpenRouter models from API...")
 
-            api_key = self.system_config.openrouter.api_key or os.getenv(
-                "OPENROUTER_API_KEY"
-            )
+            api_key = self._get_api_key()
 
             headers = {
                 "Authorization": f"Bearer {api_key}",
@@ -204,9 +210,7 @@ class OpenRouterProvider(BaseModelProvider):
             # For OpenRouter, we need to make direct HTTP requests to support reasoning parameter
             import httpx
 
-            api_key = self.system_config.openrouter.api_key or os.getenv(
-                "OPENROUTER_API_KEY"
-            )
+            api_key = self._get_api_key()
             headers = {
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
@@ -287,7 +291,7 @@ class OpenRouterProvider(BaseModelProvider):
         }
 
         try:
-            api_key = self.system_config.openrouter.api_key or os.getenv("OPENROUTER_API_KEY")
+            api_key = self._get_api_key()
             headers = {
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
@@ -410,7 +414,7 @@ class OpenRouterProvider(BaseModelProvider):
         }
 
         try:
-            api_key = self.system_config.openrouter.api_key or os.getenv("OPENROUTER_API_KEY")
+            api_key = self._get_api_key()
             headers = {
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
@@ -488,7 +492,7 @@ class OpenRouterProvider(BaseModelProvider):
             raise ValueError("generation_id is required for cost queries")
 
         try:
-            api_key = self.system_config.openrouter.api_key or os.getenv("OPENROUTER_API_KEY")
+            api_key = self._get_api_key()
             if not api_key:
                 raise RuntimeError("OpenRouter API key missing - cannot query generation cost")
 
