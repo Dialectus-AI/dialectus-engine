@@ -206,6 +206,9 @@ def initialize_email_service(config: 'AppConfig') -> None:
         _email_service = None
         return
 
+    # Type assertion: smtp_password is guaranteed non-None after validation
+    assert smtp_password is not None
+
     _email_service = EmailService(
         smtp_server=email_config.smtp_server,
         smtp_port=email_config.smtp_port,
