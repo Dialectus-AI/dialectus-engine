@@ -1,5 +1,6 @@
 """SQLite database manager for debate transcripts."""
 
+import os
 import sqlite3
 import logging
 from pathlib import Path
@@ -9,6 +10,29 @@ from judges.base import JudgeDecision
 from .schema import SchemaManager
 
 logger = logging.getLogger(__name__)
+
+
+def get_database_path() -> Path:
+    """Get the database path from config, environment, or default.
+
+    Priority: config > env var > default
+    This is the single source of truth for database location.
+    """
+    db_path = None
+
+    # Try to get from config first
+    try:
+        from config.settings import get_default_config
+        config = get_default_config()
+        db_path = config.system.database_path
+    except Exception:
+        pass
+
+    # Fall back to environment variable or default
+    if db_path is None:
+        db_path = os.environ.get("DATABASE_PATH", "debates.db")
+
+    return Path(db_path)
 
 
 class ParticipantInfo(TypedDict):
@@ -78,8 +102,13 @@ class FullTranscriptData(TypedDict):
 class DatabaseManager:
     """Manages SQLite database connections and schema for debate transcripts."""
 
-    def __init__(self, db_path: str = "debates.db"):
-        self.db_path = Path(db_path)
+    def __init__(self, db_path: str | None = None):
+        # Priority: explicit parameter > config > env var > default
+        if db_path is None:
+            self.db_path = get_database_path()
+        else:
+            self.db_path = Path(db_path)
+
         self.schema_manager = SchemaManager()
         self._init_database()
 

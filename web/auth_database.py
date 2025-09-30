@@ -6,6 +6,7 @@ from datetime import datetime, timezone, timedelta
 from typing import TypedDict
 from contextlib import contextmanager
 from pathlib import Path
+from debate_engine.database.database import get_database_path
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +25,12 @@ class UserData(TypedDict):
 class AuthDatabaseManager:
     """Database manager specifically for authentication operations."""
 
-    def __init__(self, db_path: str = "debates.db"):
+    def __init__(self, db_path: str | None = None):
         """Initialize with database path."""
-        self.db_path = Path(db_path)
+        if db_path is None:
+            self.db_path = get_database_path()
+        else:
+            self.db_path = Path(db_path)
 
     @contextmanager
     def _get_connection(self):

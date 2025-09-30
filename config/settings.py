@@ -122,6 +122,10 @@ class SystemConfig(BaseModel):
     transcript_dir: str = Field(
         default="transcripts", description="Directory to save transcripts"
     )
+    database_path: str | None = Field(
+        default=None,
+        description="SQLite database file path (falls back to DATABASE_PATH env var, then 'debates.db')"
+    )
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = Field(default="INFO")
 
     # Topic generation settings
@@ -160,9 +164,9 @@ class EmailConfig(BaseModel):
         default="",
         description="SMTP username/email for authentication"
     )
-    smtp_password: str = Field(
-        default="",
-        description="SMTP password or app-specific password"
+    smtp_password: str | None = Field(
+        default=None,
+        description="SMTP password (prefer SMTP_PASSWORD env var for security)"
     )
     from_email: str = Field(
         default="noreply@example.com",

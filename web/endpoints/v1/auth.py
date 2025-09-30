@@ -40,10 +40,12 @@ async def register(request: Request, user_data: UserRegistrationSchema):
         # Hash password
         password_hash = PasswordUtils.hash_password(user_data.password)
 
-        # Get config to check development mode
+        # Get config to check development mode (env var overrides config file)
+        import os
         config = get_default_config()
         auth_config = getattr(config, 'auth', None)
-        is_development = getattr(auth_config, 'development_mode', False) if auth_config else False
+        config_dev_mode = getattr(auth_config, 'development_mode', False) if auth_config else False
+        is_development = os.environ.get('AUTH_DEVELOPMENT_MODE', str(config_dev_mode)).lower() in ('true', '1', 'yes')
 
         # Create user account
         user_id = auth_db.create_user(user_data.email, password_hash, is_verified=is_development)
