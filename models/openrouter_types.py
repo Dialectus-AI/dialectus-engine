@@ -75,6 +75,7 @@ class FilterConfig:
             },
             "settings": {
                 "allow_preview_models": False,
+                "exclude_free_tier_models": False,
                 "max_cost_per_1k_tokens": 0.02,
                 "min_context_length": 4096,
                 "max_models_per_tier": 8,
@@ -98,7 +99,31 @@ class FilterConfig:
         return patterns
 
     def get_setting(self, setting_name: str, default=None):
-        """Get a setting value with fallback to default."""
+        """Get a setting value with fallback to default.
+
+        Priority:
+        1. Environment variable (OPENROUTER_<SETTING_NAME> in uppercase)
+        2. Config file setting
+        3. Default value
+        """
+        import os
+
+        # Check environment variable first (Railway/production)
+        env_var_name = f"OPENROUTER_{setting_name.upper()}"
+        env_value = os.getenv(env_var_name)
+
+        if env_value is not None:
+            # Convert string env var to appropriate type
+            if env_value.lower() in ("true", "1", "yes"):
+                return True
+            elif env_value.lower() in ("false", "0", "no"):
+                return False
+            elif env_value.replace(".", "", 1).isdigit():
+                # Numeric value
+                return float(env_value) if "." in env_value else int(env_value)
+            return env_value
+
+        # Fall back to config file
         if self._config is None:
             return default
         return self._config.get("settings", {}).get(setting_name, default)
@@ -664,6 +689,9 @@ class OpenRouterModelFilter:
         if max_models_per_tier is None:
             max_models_per_tier = config.get_setting("max_models_per_tier", 5)
 
+        # Get free tier exclusion setting
+        exclude_free_tier = config.get_setting("exclude_free_tier_models", False)
+
         # Create filter instance
         model_filter = cls(config)
         enhanced_models = []
@@ -680,6 +708,11 @@ class OpenRouterModelFilter:
             # Skip preview models if not requested
             is_preview = model_filter.is_preview_model(model)
             if is_preview and not include_preview:
+                continue
+
+            # Skip :free tier models if configured to exclude them (production setting)
+            if exclude_free_tier and model.id.endswith(":free"):
+                logger.debug(f"Excluding free-tier model {model.id} (exclude_free_tier_models=true)")
                 continue
 
             # Skip models that are too expensive
