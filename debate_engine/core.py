@@ -716,102 +716,6 @@ Remember: You are embodying the {role_name} position throughout this debate. Spe
 
         return self.context
 
-    def save_transcript_with_judge_result(self, judge_result=None, user_id: int | None = None) -> None:
-        """Save transcript to database with optional judge result (single decision or ensemble)."""
-        if not self.transcript_manager or not self.context:
-            return
-
-        try:
-            # Get debate time from metadata
-            total_debate_time_ms = self.context.metadata.get("total_debate_time_ms", 0)
-
-            transcript_id = self.transcript_manager.save_transcript(
-                self.context, total_debate_time_ms, user_id=user_id
-            )
-            logger.info(f"Transcript saved to database with ID {transcript_id}")
-            self.context.metadata["transcript_id"] = transcript_id
-
-            # Save judge result to database if provided
-            if judge_result:
-                if (
-                    isinstance(judge_result, dict)
-                    and judge_result.get("type") == "ensemble"
-                ):
-                    # Ensemble case - save individual decisions and ensemble summary
-                    self._save_ensemble_result(transcript_id, judge_result)
-                else:
-                    # Single judge case
-                    self._save_individual_decision(transcript_id, judge_result)
-            else:
-                logger.info(
-                    f"No judge result provided - transcript {transcript_id} saved without judge evaluation"
-                )
-
-        except Exception as e:
-            logger.error(f"Failed to save transcript: {e}")
-            raise
-
-    def _save_individual_decision(self, transcript_id: int, judge_decision) -> int:
-        """Save a single judge decision to the database."""
-        if not self.transcript_manager:
-            raise RuntimeError("Transcript manager not initialized")
-
-        logger.info(
-            f"Saving individual judge decision to database for transcript {transcript_id}"
-        )
-
-        # Save to judge_decisions table using strongly-typed JudgeDecision object
-        decision_id = self.transcript_manager.db_manager.save_judge_decision(
-            transcript_id, judge_decision
-        )
-        logger.info(
-            f"Successfully saved judge decision {decision_id} to database for transcript {transcript_id}"
-        )
-        return decision_id
-
-    def _save_ensemble_result(self, transcript_id: int, ensemble_result: dict) -> None:
-        """Save ensemble result - individual decisions + ensemble summary."""
-
-        decisions = ensemble_result["decisions"]
-        ensemble_summary = ensemble_result["ensemble_summary"]
-
-        logger.info(
-            f"Saving ensemble result with {len(decisions)} individual decisions for transcript {transcript_id}"
-        )
-
-        # Save each individual decision to judge_decisions table
-        decision_ids = []
-        for i, decision in enumerate(decisions):
-            decision_id = self._save_individual_decision(transcript_id, decision)
-            decision_ids.append(decision_id)
-            logger.info(
-                f"Saved individual judge decision {i+1}/{len(decisions)} with ID {decision_id}"
-            )
-
-        # Save ensemble summary to ensemble_summary table
-        ensemble_summary_with_metadata = {
-            **ensemble_summary,
-            "participating_judge_decision_ids": ",".join(
-                map(str, decision_ids)
-            ),  # Store as comma-separated string
-        }
-
-        if not self.transcript_manager:
-            raise RuntimeError("Transcript manager not initialized")
-
-        ensemble_id = self.transcript_manager.db_manager.save_ensemble_summary(
-            transcript_id, ensemble_summary_with_metadata
-        )
-        logger.info(
-            f"Successfully saved ensemble summary {ensemble_id} for transcript {transcript_id} with {len(decisions)} individual decisions"
-        )
-
-    def get_transcript_for_judging(self) -> str | None:
-        """Get formatted transcript suitable for AI judging."""
-        if not self.context or not self.transcript_manager:
-            return None
-        return self.transcript_manager.format_transcript_for_judging(self.context)
-
     async def judge_debate_with_judges(self, judges: list) -> Any | None:
         """Judge the completed debate using a list of AI judges."""
         if not self.context or self.context.current_phase != DebatePhase.COMPLETED:
@@ -899,21 +803,11 @@ Remember: You are embodying the {role_name} position throughout this debate. Spe
 
             cost = await self.model_manager.query_generation_cost(speaker_id, message.generation_id)
             if cost is not None:
-                # Update the message object
+                # Update the message object in memory
+                # The web API will save this when it saves the transcript
                 message.cost = cost
                 message.cost_queried_at = datetime.now()
-
                 logger.info(f"Updated cost for message {message.generation_id}: ${cost}")
-
-                # If we have a transcript manager, update the database
-                if (self.transcript_manager and
-                    self.context and
-                    hasattr(self.context, 'metadata') and
-                    'transcript_id' in self.context.metadata):
-
-                    # For now, just log that we would update the database
-                    # The actual database update would happen when the transcript is saved
-                    logger.info(f"Cost ${cost} retrieved for generation {message.generation_id}, will be saved with transcript")
             else:
                 logger.warning(f"Failed to retrieve cost for generation {message.generation_id}")
 
