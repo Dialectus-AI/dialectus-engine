@@ -65,7 +65,7 @@ def start_web_server():
 
 def main():
     """Main entry point."""
-    # Check for production environment (Railway, Docker, etc.)
+    # Check for production environment (Railway, Docker, Heroku, etc.)
     is_production = any([
         "RAILWAY_ENVIRONMENT" in os.environ,
         "PORT" in os.environ,

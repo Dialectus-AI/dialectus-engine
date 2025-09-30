@@ -1,5 +1,6 @@
 """Authentication utilities for JWT, password hashing, and token generation."""
 
+import os
 import secrets
 import hashlib
 import logging
@@ -13,10 +14,11 @@ from starlette.status import HTTP_401_UNAUTHORIZED
 
 logger = logging.getLogger(__name__)
 
-# Configuration constants - these should come from environment variables in production
-JWT_SECRET_KEY = "your-secret-key-here"  # TODO: Move to environment variable
+# Configuration constants (environment variables override defaults)
+# SECURITY: In production, JWT_SECRET_KEY MUST be set via environment variable
+JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "dev-secret-key-change-in-production")
 JWT_ALGORITHM = "HS256"
-JWT_EXPIRE_HOURS = 168  # 7 days
+JWT_EXPIRE_HOURS = int(os.environ.get("JWT_EXPIRE_HOURS", "168"))  # Default: 7 days
 ACCESS_TOKEN_COOKIE_NAME = "access_token"
 
 # Password hashing configuration
