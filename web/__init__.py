@@ -1,1 +1,0 @@
-"""Web interface for the Dialectus AI Debate System."""

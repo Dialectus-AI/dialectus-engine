@@ -116,16 +116,6 @@ class SystemConfig(BaseModel):
     )
 
     # System settings
-    save_transcripts: bool = Field(
-        default=True, description="Save debate transcripts to disk"
-    )
-    transcript_dir: str = Field(
-        default="transcripts", description="Directory to save transcripts"
-    )
-    database_path: str | None = Field(
-        default=None,
-        description="SQLite database file path (falls back to DATABASE_PATH env var, then 'debates.db')"
-    )
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = Field(default="INFO")
 
     # Topic generation settings
@@ -145,60 +135,6 @@ class SystemConfig(BaseModel):
         return v
 
 
-class EmailConfig(BaseModel):
-    """Email service configuration."""
-
-    enabled: bool = Field(
-        default=False,
-        description="Enable email sending functionality"
-    )
-    smtp_server: str = Field(
-        default="smtp.gmail.com",
-        description="SMTP server hostname"
-    )
-    smtp_port: int = Field(
-        default=587,
-        description="SMTP server port (usually 587 for TLS or 465 for SSL)"
-    )
-    smtp_user: str = Field(
-        default="",
-        description="SMTP username/email for authentication"
-    )
-    smtp_password: str | None = Field(
-        default=None,
-        description="SMTP password (prefer SMTP_PASSWORD env var for security)"
-    )
-    from_email: str = Field(
-        default="noreply@example.com",
-        description="From email address"
-    )
-    from_name: str = Field(
-        default="Dialectus AI",
-        description="From name displayed in emails"
-    )
-    use_tls: bool = Field(
-        default=True,
-        description="Use TLS for SMTP connection"
-    )
-    frontend_url: str = Field(
-        default="http://localhost:5173",
-        description="Frontend base URL for email links (e.g., https://yourdomain.com)"
-    )
-
-
-class AuthConfig(BaseModel):
-    """Authentication configuration."""
-
-    development_mode: bool = Field(
-        default=True,
-        description="Skip email verification in development mode (localhost)"
-    )
-    email: EmailConfig = Field(
-        default_factory=EmailConfig,
-        description="Email service configuration"
-    )
-
-
 class AppConfig(BaseModel):
     """Complete application configuration."""
 
@@ -206,7 +142,6 @@ class AppConfig(BaseModel):
     models: dict[str, ModelConfig]
     judging: JudgingConfig
     system: SystemConfig
-    auth: AuthConfig = Field(default_factory=AuthConfig, description="Authentication settings")
 
     @classmethod
     def load_from_file(cls, config_path: Path) -> "AppConfig":
@@ -316,13 +251,8 @@ def get_template_config() -> AppConfig:
                 max_retries=3,
                 timeout=60,
             ),
-            save_transcripts=True,
-            transcript_dir="transcripts",
             log_level="INFO",
             debate_topic_source="openrouter",
             debate_topic_model="anthropic/claude-3-haiku",
-        ),
-        auth=AuthConfig(
-            development_mode=True,
         ),
     )

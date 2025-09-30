@@ -11,7 +11,6 @@ from models.manager import ModelManager
 from formats import format_registry, FormatPhase
 from .types import DebatePhase, Position
 from .models import DebateContext, DebateMessage
-from .transcript import TranscriptManager
 
 logger = logging.getLogger(__name__)
 
@@ -25,13 +24,6 @@ class DebateEngine:
         self.context: DebateContext | None = None
         self._system_prompts: dict[str, str] = {}
         self.format = format_registry.get_format(config.debate.format)
-
-        # Initialize transcript manager if enabled
-        self.transcript_manager: TranscriptManager | None = None
-        if config.system.save_transcripts:
-            # Use root directory for debates.db
-            db_path = "debates.db"
-            self.transcript_manager = TranscriptManager(str(db_path))
 
     async def initialize_debate(self, topic: str | None = None) -> DebateContext:
         """Initialize a new debate with the given topic."""
@@ -193,6 +185,73 @@ Remember: You are embodying the {role_name} position throughout this debate. Spe
             message = await self._get_format_speaker_response(speaker_id, format_phase)
             round_messages.append(message)
             self.context.messages.append(message)
+
+            logger.info(
+                f"Round {self.context.current_round}, {format_phase.name}: {speaker_id}"
+            )
+
+        return round_messages
+
+    async def _conduct_format_round_stream(
+        self,
+        format_phase: FormatPhase,
+        message_callback: Callable[[str, dict[str, Any]], Awaitable[None]] | None = None,
+        chunk_callback: Callable[[str, bool], Awaitable[None]] | None = None,
+    ) -> list[DebateMessage]:
+        """Conduct a round with streaming callbacks."""
+        if not self.context:
+            raise RuntimeError("No active debate context")
+
+        self.context.current_phase = format_phase.phase
+        round_messages = []
+
+        # Use format-defined speaking order
+        for speaker_id in format_phase.speaking_order:
+            import uuid
+            message_id = str(uuid.uuid4())
+
+            # Determine position
+            model_ids = list(self.context.participants.keys())
+            position_assignments = self.format.get_position_assignments(model_ids)
+            speaker_position = position_assignments.get(speaker_id, Position.NEUTRAL)
+
+            # Call message_start callback
+            if message_callback:
+                await message_callback("message_start", {
+                    "message_id": message_id,
+                    "speaker_id": speaker_id,
+                    "position": speaker_position.value,
+                    "phase": format_phase.phase.value,
+                    "round_number": self.context.current_round,
+                })
+
+            # Create streaming wrapper that calls chunk_callback
+            async def chunk_wrapper(chunk: str, is_complete: bool):
+                if chunk_callback:
+                    await chunk_callback(chunk, is_complete)
+
+            # Get streaming response
+            message = await self._get_format_speaker_response_stream(
+                speaker_id, format_phase, chunk_wrapper, message_id
+            )
+            round_messages.append(message)
+            self.context.messages.append(message)
+
+            # Call message_complete callback
+            if message_callback:
+                await message_callback("message_complete", {
+                    "message_id": message_id,
+                    "speaker_id": message.speaker_id,
+                    "position": message.position.value,
+                    "phase": message.phase.value,
+                    "round_number": message.round_number,
+                    "content": message.content,
+                    "timestamp": message.timestamp.isoformat(),
+                    "word_count": len(message.content.split()),
+                    "metadata": message.metadata,
+                    "cost": message.cost,
+                    "generation_id": message.generation_id,
+                })
 
             logger.info(
                 f"Round {self.context.current_round}, {format_phase.name}: {speaker_id}"
@@ -569,8 +628,28 @@ Remember: You are embodying the {role_name} position throughout this debate. Spe
         # Rough estimate: 1 token ≈ 0.75 words
         return int(self.config.debate.word_limit * 1.33)
 
-    async def run_full_debate(self) -> DebateContext:
-        """Run a complete debate from start to finish."""
+    async def run_full_debate(
+        self,
+        phase_callback: Callable[[str, dict[str, Any]], Awaitable[None]] | None = None,
+        message_callback: Callable[[str, dict[str, Any]], Awaitable[None]] | None = None,
+        chunk_callback: Callable[[str, bool], Awaitable[None]] | None = None,
+    ) -> DebateContext:
+        """Run a complete debate from start to finish.
+
+        Args:
+            phase_callback: Called when phases start/complete with event type and data
+            message_callback: Called when messages start/complete with event type and data
+            chunk_callback: Called for streaming chunks during message generation
+
+        Callback event types:
+            phase_callback:
+                - "phase_started": {"phase": str, "instruction": str, "current_phase": int, "total_phases": int}
+            message_callback:
+                - "message_start": {"message_id": str, "speaker_id": str, "position": str, "phase": str, "round_number": int}
+                - "message_complete": {"message_id": str, "speaker_id": str, "position": str, "content": str, ...}
+            chunk_callback:
+                - chunk: str, is_complete: bool (same as streaming API)
+        """
         if not self.context:
             raise RuntimeError("Debate not initialized")
 
@@ -582,6 +661,7 @@ Remember: You are embodying the {role_name} position throughout this debate. Spe
         # Get format-specific phases
         model_ids = list(self.context.participants.keys())
         format_phases = self.format.get_phases(model_ids)
+        total_phases = len(format_phases)
 
         # Group format phases by their DebatePhase enum to determine round numbers
         phase_to_round = {}
@@ -599,10 +679,28 @@ Remember: You are embodying the {role_name} position throughout this debate. Spe
                 phase_to_round[format_phase.phase] = phase_to_round[format_phase.phase]
 
         # Execute each format phase with correct round numbers
-        for format_phase in format_phases:
+        for phase_index, format_phase in enumerate(format_phases):
             self.context.current_round = phase_to_round[format_phase.phase]
 
-            await self.conduct_format_round(format_phase)
+            # Invoke phase callback if provided
+            if phase_callback:
+                await phase_callback("phase_started", {
+                    "phase": format_phase.name,
+                    "instruction": format_phase.instruction,
+                    "current_phase": self.context.current_round,
+                    "total_phases": total_phases,
+                    "progress_percentage": round((phase_index / total_phases) * 100),
+                })
+
+            # If streaming callbacks provided, use streaming version
+            if message_callback or chunk_callback:
+                await self._conduct_format_round_stream(
+                    format_phase,
+                    message_callback=message_callback,
+                    chunk_callback=chunk_callback
+                )
+            else:
+                await self.conduct_format_round(format_phase)
 
             # Brief pause between phases
             await asyncio.sleep(0.5)
