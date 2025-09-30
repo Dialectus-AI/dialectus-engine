@@ -5,7 +5,10 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from pathlib import Path
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from config.settings import AppConfig
 
 logger = logging.getLogger(__name__)
 
@@ -171,59 +174,54 @@ class EmailService:
 _email_service: Optional[EmailService] = None
 
 
-def initialize_email_service(config) -> None:
-    """Initialize the global email service from configuration."""
+def initialize_email_service(config: 'AppConfig') -> None:
+    """Initialize the global email service from configuration.
+
+    Args:
+        config: Application configuration with strongly-typed auth.email settings
+    """
+    import os
     global _email_service
 
-    # Get email config
-    auth_config = getattr(config, 'auth', None)
-    if not auth_config:
-        logger.warning("No auth configuration found, email service disabled")
-        _email_service = None
-        return
-
-    email_config = getattr(auth_config, 'email', None)
-    if not email_config:
-        logger.warning("No email configuration found, email service disabled")
-        _email_service = None
-        return
+    email_config = config.auth.email
 
     # Check if email is enabled
-    enabled = getattr(email_config, 'enabled', False)
-    if not enabled:
+    if not email_config.enabled:
         logger.info("Email service explicitly disabled in configuration")
         _email_service = None
         return
 
-    # Extract SMTP settings
-    smtp_server = getattr(email_config, 'smtp_server', '')
-    smtp_port = getattr(email_config, 'smtp_port', 587)
-    smtp_user = getattr(email_config, 'smtp_user', '')
-    smtp_password = getattr(email_config, 'smtp_password', '')
-    from_email = getattr(email_config, 'from_email', '')
-    from_name = getattr(email_config, 'from_name', 'Dialectus AI')
-    frontend_url = getattr(email_config, 'frontend_url', 'http://localhost:5173')
-    use_tls = getattr(email_config, 'use_tls', True)
+    # Extract SMTP settings (env vars override config)
+    smtp_password = os.environ.get('SMTP_PASSWORD') or email_config.smtp_password
 
     # Validate required fields
-    if not all([smtp_server, smtp_user, smtp_password, from_email, frontend_url]):
+    if not all([
+        email_config.smtp_server,
+        email_config.smtp_user,
+        smtp_password,
+        email_config.from_email,
+        email_config.frontend_url
+    ]):
         logger.warning("Incomplete email configuration, email service disabled")
         _email_service = None
         return
 
     _email_service = EmailService(
-        smtp_server=smtp_server,
-        smtp_port=smtp_port,
-        smtp_user=smtp_user,
+        smtp_server=email_config.smtp_server,
+        smtp_port=email_config.smtp_port,
+        smtp_user=email_config.smtp_user,
         smtp_password=smtp_password,
-        from_email=from_email,
-        from_name=from_name,
-        frontend_url=frontend_url,
-        enabled=enabled,
-        use_tls=use_tls
+        from_email=email_config.from_email,
+        from_name=email_config.from_name,
+        frontend_url=email_config.frontend_url,
+        enabled=email_config.enabled,
+        use_tls=email_config.use_tls
     )
 
-    logger.info(f"Email service initialized: {smtp_server}:{smtp_port} (frontend: {frontend_url})")
+    logger.info(
+        f"Email service initialized: {email_config.smtp_server}:{email_config.smtp_port} "
+        f"(frontend: {email_config.frontend_url})"
+    )
 
 
 def get_email_service() -> Optional[EmailService]:
