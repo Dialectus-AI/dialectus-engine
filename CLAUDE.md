@@ -154,13 +154,6 @@ dialectus-engine/
 
 **Cost Tracking**: OpenRouter generations include `generation_id` for async cost queries. Background tasks update the database with actual costs after API latency.
 
-## Multi-Repository Context
-
-When working across repositories, you can add them to the Claude Code session:
-```bash
-claude-code --add-dir ../dialectus-web --add-dir ../dialectus-cli dialectus-engine
-```
-
 ### Frontend Integration (dialectus-web)
 The TypeScript SPA consumes this backend via:
 - **REST API** at `/v1/*` for models, debates, auth, transcripts
@@ -172,56 +165,6 @@ Node.js CLI for headless debate execution:
 - Uses same REST API endpoints
 - No WebSocket - polls for debate status
 - Supports batch/scripted debates
-
-## API Endpoints
-
-### Stable Endpoints (shared across versions)
-- `GET /v1/models` - Available AI models across all providers with metadata
-- `GET /v1/formats` - Debate format definitions
-- `GET /v1/providers` - Provider status (Ollama availability, OpenRouter key status)
-- `GET /v1/transcripts` - List saved debate transcripts
-- `GET /v1/transcripts/{id}` - Full debate transcript with messages and scores
-- `GET /v1/system/health` - Health check
-
-### Version 1 Endpoints
-- `POST /v1/auth/register` - Create new user account
-- `POST /v1/auth/login` - Authenticate and create session
-- `POST /v1/auth/logout` - End session
-- `GET /v1/auth/verify` - Check session validity
-- `POST /v1/debates` - Create and start new debate
-- `GET /v1/debates/{id}` - Get debate metadata and status
-- `DELETE /v1/debates/{id}` - Delete debate transcript
-- `WebSocket /v1/ws/debate/{id}` - Real-time debate streaming
-
-## Authentication & Authorization
-
-**HTTP-only cookies** for session management. FastAPI middleware validates sessions on protected routes.
-
-Auth tables (`users`, `sessions`) managed via `debate_engine/database/schema/tables/auth.sql`.
-
-Password hashing uses `bcrypt` with proper salt rounds.
-
-**Important**: All authentication security is enforced server-side. Frontend auth is UX only.
-
-## Database Architecture
-
-**SQLite database** (`debates.db`) with normalized schema:
-
-### Core Tables
-- `debates` - Metadata (topic, format, participants, timing, user_id)
-- `messages` - Individual debate turns (speaker, content, cost, generation_id)
-- `judge_decisions` - Individual judge evaluations with criterion scores
-- `criterion_scores` - Per-participant scores for each judging criterion
-- `ensemble_summary` - Aggregated results from multiple judges
-- `users` - User accounts with hashed passwords
-- `sessions` - Active session tokens with expiration
-
-### Schema Management
-SQL files in `debate_engine/database/schema/tables/*.sql` define the schema.
-
-`SchemaManager` loads and executes these on startup to create tables idempotently.
-
-Indexes defined in SQL files for query performance (by user_id, debate_id, created_at).
 
 ### Cost Tracking
 OpenRouter API provides `generation_id` after streaming completes. Background tasks query the `/generation` endpoint to fetch actual costs and update the database.
