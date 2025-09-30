@@ -144,6 +144,7 @@
   },
   "settings": {
     "allow_preview_models": false,
+    "exclude_free_tier_models": false,
     "max_cost_per_1k_tokens": 0.02,
     "min_context_length": 4096,
     "max_models_per_tier": 8
