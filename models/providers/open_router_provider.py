@@ -2,8 +2,7 @@ import os
 import asyncio
 import time
 import json
-from abc import ABC, abstractmethod
-from typing import Dict, List, TYPE_CHECKING, Optional, ClassVar, Callable, Awaitable
+from typing import TYPE_CHECKING, ClassVar, Callable, Awaitable
 import logging
 from openai import OpenAI
 import httpx
@@ -13,7 +12,7 @@ from .openrouter_generation_types import OpenRouterChatCompletionResponse, OpenR
 
 if TYPE_CHECKING:
     from config.settings import SystemConfig, ModelConfig
-    from models.openrouter_types import OpenRouterEnhancedModelInfo
+    from models.openrouter.openrouter_enhanced_model_info import OpenRouterEnhancedModelInfo
 
 logger = logging.getLogger(__name__)
 
@@ -96,17 +95,15 @@ class OpenRouterProvider(BaseModelProvider):
             return []
 
         try:
-            from models.openrouter_types import (
-                OpenRouterModelsResponse,
-                OpenRouterModelFilter,
-            )
+            from models.openrouter.openrouter_models_response import OpenRouterModelsResponse
+            from models.openrouter.openrouter_model_filter import OpenRouterModelFilter
             from models.cache_manager import cache_manager
 
             # Check cache first (6 hour default TTL)
             cached_models = cache_manager.get("openrouter", "models")
             if cached_models is not None:
                 # Convert cached dictionaries back to model objects
-                from models.openrouter_types import OpenRouterEnhancedModelInfo
+                from models.openrouter.openrouter_enhanced_model_info import OpenRouterEnhancedModelInfo
 
                 enhanced_models = []
                 for model_dict in cached_models:
@@ -519,10 +516,6 @@ class OpenRouterProvider(BaseModelProvider):
                 response.raise_for_status()
 
                 cost_data: OpenRouterGenerationApiResponse = response.json()
-
-                if "data" not in cost_data:
-                    raise RuntimeError(f"Invalid cost response format: {cost_data}")
-
                 total_cost = cost_data["data"]["total_cost"]
 
                 logger.debug(f"Retrieved cost for generation {generation_id}: ${total_cost}")
