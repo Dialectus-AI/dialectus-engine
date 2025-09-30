@@ -50,6 +50,7 @@ All configuration can be overridden with environment variables. This is the **re
 |----------|-------------|---------|
 | `JWT_EXPIRE_HOURS` | JWT token expiration | `168` (7 days) |
 | `OLLAMA_URL` | Ollama server URL | `http://localhost:11434` |
+| `OPENROUTER_EXCLUDE_FREE_TIER_MODELS` | Exclude `:free` models (recommended for production) | `false` |
 
 ---
 
