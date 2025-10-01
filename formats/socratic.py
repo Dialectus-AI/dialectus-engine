@@ -1,6 +1,7 @@
 """Socratic dialogue format implementation."""
 
 from .base import DebateFormat, FormatPhase, Position
+from .topic_themes import TopicTheme, TopicTone
 from debate_engine.types import DebatePhase
 
 
@@ -117,15 +118,30 @@ class SocraticFormat(DebateFormat):
         """Socratic works best with exactly 2 participants."""
         return 2
 
-    def get_topic_generation_messages(self) -> list[dict[str, str]]:
-        """Get Socratic specific messages for AI topic generation."""
+    def get_topic_generation_messages(
+        self,
+        theme: TopicTheme | None = None,
+        tone: TopicTone | None = None,
+    ) -> list[dict[str, str]]:
+        """Get Socratic specific messages for AI topic generation.
+
+        Args:
+            theme: Optional high-level theme to guide topic generation
+            tone: Optional specific tone/sub-theme for more granular control
+
+        Returns:
+            List of message dictionaries for the AI model
+        """
+        # Customize system prompt for Socratic format
+        socratic_system = "You are an expert at generating Socratic dialogue topics. Socratic dialogues explore fundamental questions about knowledge, ethics, truth, and human nature through inquiry and questioning."
+
+        # Build theme/tone requirements using base class helper
+        theme_tone_requirements = self._build_theme_tone_requirements(theme, tone)
+
+        # Build Socratic-specific user prompt
+        socratic_user = f"Generate a single topic suitable for Socratic dialogue that explores fundamental philosophical questions. The topic should invite deep inquiry about concepts like truth, justice, knowledge, virtue, or human nature.{theme_tone_requirements} Make it thought-provoking for philosophical exploration. Respond with just the topic statement, no additional text or explanation."
+
         return [
-            {
-                "role": "system",
-                "content": "You are an expert at generating Socratic dialogue topics. Socratic dialogues explore fundamental questions about knowledge, ethics, truth, and human nature through inquiry and questioning.",
-            },
-            {
-                "role": "user",
-                "content": "Generate a single topic suitable for Socratic dialogue that explores fundamental philosophical questions. The topic should invite deep inquiry about concepts like truth, justice, knowledge, virtue, or human nature. Make it thought-provoking for philosophical exploration. Respond with just the topic statement, no additional text.",
-            },
+            {"role": "system", "content": socratic_system},
+            {"role": "user", "content": socratic_user},
         ]

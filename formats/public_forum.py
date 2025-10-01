@@ -1,6 +1,7 @@
 """Public Forum Debate format implementation."""
 
 from .base import DebateFormat, FormatPhase, Position
+from .topic_themes import TopicTheme, TopicTone
 from debate_engine.types import DebatePhase
 
 
@@ -120,15 +121,30 @@ class PublicForumFormat(DebateFormat):
         """Public Forum format supports up to 4 participants (2 per side)."""
         return 4
 
-    def get_topic_generation_messages(self) -> list[dict[str, str]]:
-        """Get Public Forum specific messages for AI topic generation."""
+    def get_topic_generation_messages(
+        self,
+        theme: TopicTheme | None = None,
+        tone: TopicTone | None = None,
+    ) -> list[dict[str, str]]:
+        """Get Public Forum specific messages for AI topic generation.
+
+        Args:
+            theme: Optional high-level theme to guide topic generation
+            tone: Optional specific tone/sub-theme for more granular control
+
+        Returns:
+            List of message dictionaries for the AI model
+        """
+        # Customize system prompt for Public Forum format
+        pf_system = "You are an expert at generating Public Forum debate topics. Public Forum debates focus on current events, policy issues, and real-world problems that affect society. Topics should be accessible to general audiences, contemporary, and have clear practical implications."
+
+        # Build theme/tone requirements using base class helper
+        theme_tone_requirements = self._build_theme_tone_requirements(theme, tone)
+
+        # Build Public Forum-specific user prompt
+        pf_user = f"Generate a single Public Forum debate topic suitable for high school or college students discussing current events and policy issues. The topic should be phrased as a clear statement that ordinary citizens could understand and have opinions about.{theme_tone_requirements} Focus on real-world policy questions, not abstract philosophical concepts or highly technical subjects. Make it current and relevant to today's society. Respond with just the topic statement, no additional text or explanation."
+
         return [
-            {
-                "role": "system",
-                "content": "You are an expert at generating Public Forum debate topics. Public Forum debates focus on current events, policy issues, and real-world problems that affect society. Topics should be accessible to general audiences, contemporary, and have clear practical implications. Generate topics about current events, social issues, policy debates, economics, education, healthcare, environment, and technology impacts on society.",
-            },
-            {
-                "role": "user",
-                "content": "Generate a single Public Forum debate topic suitable for high school or college students discussing current events and policy issues. The topic should be phrased as a clear statement that ordinary citizens could understand and have opinions about. Focus on real-world policy questions, not abstract philosophical concepts or highly technical subjects. Make it current and relevant to today's society. Respond with just the topic statement, no additional text.",
-            },
+            {"role": "system", "content": pf_system},
+            {"role": "user", "content": pf_user},
         ]

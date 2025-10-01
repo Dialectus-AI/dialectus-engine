@@ -1,6 +1,7 @@
 """Oxford-style debate format implementation."""
 
 from .base import DebateFormat, FormatPhase, Position
+from .topic_themes import TopicTheme, TopicTone
 from debate_engine.types import DebatePhase
 
 
@@ -108,15 +109,30 @@ class OxfordFormat(DebateFormat):
         """Oxford format supports up to 4 participants (2 per side)."""
         return 4
 
-    def get_topic_generation_messages(self) -> list[dict[str, str]]:
-        """Get Oxford specific messages for AI topic generation."""
+    def get_topic_generation_messages(
+        self,
+        theme: TopicTheme | None = None,
+        tone: TopicTone | None = None,
+    ) -> list[dict[str, str]]:
+        """Get Oxford specific messages for AI topic generation.
+
+        Args:
+            theme: Optional high-level theme to guide topic generation
+            tone: Optional specific tone/sub-theme for more granular control
+
+        Returns:
+            List of message dictionaries for the AI model
+        """
+        # Customize system prompt for Oxford format
+        oxford_system = "You are an expert at generating Oxford Union-style debate topics. Oxford debates are formal, academic discussions that require sophisticated argumentation and evidence-based reasoning. Topics should be intellectually rigorous and suitable for scholarly debate."
+
+        # Build theme/tone requirements using base class helper
+        theme_tone_requirements = self._build_theme_tone_requirements(theme, tone)
+
+        # Build Oxford-specific user prompt
+        oxford_user = f"Generate a single Oxford Union-style debate topic suitable for formal academic debate. The topic should be phrased as a clear motion that can be argued for or against with scholarly rigor.{theme_tone_requirements} Make it intellectually challenging and suitable for academic discourse. Respond with just the topic statement, no additional text or explanation."
+
         return [
-            {
-                "role": "system",
-                "content": "You are an expert at generating Oxford Union-style debate topics. Oxford debates are formal, academic discussions that require sophisticated argumentation and evidence-based reasoning. Topics should be intellectually rigorous and suitable for scholarly debate.",
-            },
-            {
-                "role": "user",
-                "content": "Generate a single Oxford Union-style debate topic suitable for formal academic debate. The topic should be phrased as a clear motion that can be argued for or against with scholarly rigor. Make it intellectually challenging and suitable for academic discourse. Respond with just the topic statement, no additional text.",
-            },
+            {"role": "system", "content": oxford_system},
+            {"role": "user", "content": oxford_user},
         ]

@@ -1,6 +1,7 @@
 """Parliamentary debate format implementation."""
 
 from .base import DebateFormat, FormatPhase, Position
+from .topic_themes import TopicTheme, TopicTone
 from debate_engine.types import DebatePhase
 
 
@@ -95,15 +96,30 @@ class ParliamentaryFormat(DebateFormat):
         """Parliamentary can support up to 4 participants (2 per side)."""
         return 4
 
-    def get_topic_generation_messages(self) -> list[dict[str, str]]:
-        """Get Parliamentary specific messages for AI topic generation."""
+    def get_topic_generation_messages(
+        self,
+        theme: TopicTheme | None = None,
+        tone: TopicTone | None = None,
+    ) -> list[dict[str, str]]:
+        """Get Parliamentary specific messages for AI topic generation.
+
+        Args:
+            theme: Optional high-level theme to guide topic generation
+            tone: Optional specific tone/sub-theme for more granular control
+
+        Returns:
+            List of message dictionaries for the AI model
+        """
+        # Customize system prompt for Parliamentary format
+        parl_system = "You are an expert at generating Parliamentary debate topics. Parliamentary debates focus on governance, policy implementation, and matters of public administration. Topics should be suitable for formal legislative discussion and policy debate."
+
+        # Build theme/tone requirements using base class helper
+        theme_tone_requirements = self._build_theme_tone_requirements(theme, tone)
+
+        # Build Parliamentary-specific user prompt
+        parl_user = f"Generate a single Parliamentary debate topic suitable for formal policy discussion. The topic should be phrased as a motion that could be debated in a legislature.{theme_tone_requirements} Focus on governance, policy implementation, and public administration matters. Respond with just the topic statement, no additional text or explanation."
+
         return [
-            {
-                "role": "system",
-                "content": "You are an expert at generating Parliamentary debate topics. Parliamentary debates focus on governance, policy implementation, and matters of public administration. Topics should be suitable for formal legislative discussion and policy debate.",
-            },
-            {
-                "role": "user",
-                "content": "Generate a single Parliamentary debate topic suitable for formal policy discussion. The topic should be phrased as a motion that could be debated in a legislature. Focus on governance, policy implementation, and public administration matters. Respond with just the topic statement, no additional text.",
-            },
+            {"role": "system", "content": parl_system},
+            {"role": "user", "content": parl_user},
         ]

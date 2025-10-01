@@ -6,13 +6,29 @@ from .parliamentary import ParliamentaryFormat
 from .socratic import SocraticFormat
 from .public_forum import PublicForumFormat
 from .registry import format_registry
+from .topic_themes import (
+    THEME_DESCRIPTIONS,
+    THEME_TONES,
+    TONE_DESCRIPTIONS,
+    TopicTheme,
+    TopicTone,
+    get_theme_display_name,
+    get_tone_display_name,
+)
 
 __all__ = [
-    'DebateFormat',
-    'FormatPhase', 
-    'OxfordFormat',
-    'ParliamentaryFormat',
-    'SocraticFormat',
-    'PublicForumFormat',
-    'format_registry'
+    "DebateFormat",
+    "FormatPhase",
+    "OxfordFormat",
+    "ParliamentaryFormat",
+    "SocraticFormat",
+    "PublicForumFormat",
+    "format_registry",
+    "TopicTheme",
+    "TopicTone",
+    "THEME_DESCRIPTIONS",
+    "TONE_DESCRIPTIONS",
+    "THEME_TONES",
+    "get_theme_display_name",
+    "get_tone_display_name",
 ]
