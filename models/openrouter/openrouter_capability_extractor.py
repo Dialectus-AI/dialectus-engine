@@ -1,6 +1,6 @@
 
 from models.openrouter.openrouter_model import OpenRouterModel
-from models.openrouter.openrouter_model_filter import ModelWeightClass
+from models.base_types import ModelWeightClass
 
 
 class OpenRouterCapabilityExtractor:
