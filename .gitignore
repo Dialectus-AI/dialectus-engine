@@ -72,3 +72,6 @@ cache/
 transcripts/
 *.db
 *.sqlite
+
+# Claude
+.claude/
