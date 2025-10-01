@@ -179,14 +179,7 @@ class OpenRouterProvider(BaseModelProvider):
 
         except Exception as e:
             logger.error(f"Failed to get enhanced OpenRouter models: {e}")
-            # Fallback to basic model list if enhanced filtering fails
-            try:
-                _ = self._client.models.list()
-                logger.warning("Using fallback basic model list from OpenRouter")
-                return []
-            except Exception as fallback_error:
-                logger.error(f"Fallback also failed: {fallback_error}")
-                return []
+            raise  # Fail fast - don't hide errors from the frontend
 
     async def generate_response(
         self, model_config: "ModelConfig", messages: list[dict[str, str]], **overrides
