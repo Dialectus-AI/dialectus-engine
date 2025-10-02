@@ -1,18 +1,22 @@
 """Response generation and processing for debate participants."""
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import re
 import time
-from typing import Callable, Awaitable
+from typing import Callable, Awaitable, TYPE_CHECKING
 
 from config.settings import AppConfig
 from models.manager import ModelManager
-from formats import DebateFormat, FormatPhase
 from .types import DebatePhase, Position
 from .models import DebateContext, DebateMessage
 from .context_builder import ContextBuilder
 from .utils import calculate_max_tokens, query_and_update_cost
+
+if TYPE_CHECKING:
+    from formats import DebateFormat, FormatPhase
 
 logger = logging.getLogger(__name__)
 

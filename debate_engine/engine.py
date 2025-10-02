@@ -7,7 +7,6 @@ from typing import Any, Callable, Awaitable
 
 from config.settings import AppConfig
 from models.manager import ModelManager
-from formats import format_registry
 from .types import DebatePhase
 from .models import DebateContext
 from .prompt_builder import PromptBuilder
@@ -29,6 +28,8 @@ class DebateEngine:
             config: Application configuration
             model_manager: ModelManager instance
         """
+        from formats import format_registry
+
         self.config = config
         self.model_manager = model_manager
         self.context: DebateContext | None = None

@@ -1,10 +1,16 @@
 """Conversation context building for debate participants."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from config.settings import AppConfig
-from formats import DebateFormat, FormatPhase
 from .types import DebatePhase
 from .models import DebateContext
 from .prompt_builder import PromptBuilder
+
+if TYPE_CHECKING:
+    from formats import DebateFormat, FormatPhase
 
 class ContextBuilder:
     """Builds conversation context for model prompts during debates."""

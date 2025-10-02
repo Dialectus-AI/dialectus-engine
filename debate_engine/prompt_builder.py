@@ -1,11 +1,16 @@
 """Prompt building and generation for debate participants."""
 
+from __future__ import annotations
+
 import logging
+from typing import TYPE_CHECKING
 
 from config.settings import AppConfig
-from formats import DebateFormat
 from .types import Position, DebatePhase
 from .models import DebateContext
+
+if TYPE_CHECKING:
+    from formats import DebateFormat
 
 logger = logging.getLogger(__name__)
 

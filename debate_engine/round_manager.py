@@ -1,13 +1,17 @@
 """Round execution and management for debates."""
 
+from __future__ import annotations
+
 import logging
 import uuid
-from typing import Callable, Awaitable, Any
+from typing import Callable, Awaitable, Any, TYPE_CHECKING
 
-from formats import DebateFormat, FormatPhase
 from .types import DebatePhase, Position
 from .models import DebateContext, DebateMessage
 from .response_handler import ResponseHandler
+
+if TYPE_CHECKING:
+    from formats import DebateFormat, FormatPhase
 
 logger = logging.getLogger(__name__)
 
