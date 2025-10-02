@@ -1,7 +1,7 @@
 """Configuration settings and data models."""
 
 from typing import Literal
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 import yaml
 from pathlib import Path
 
@@ -20,7 +20,8 @@ class ModelConfig(BaseModel):
     max_tokens: int = Field(default=300, description="Maximum tokens per response")
     temperature: float = Field(default=0.7, description="Model temperature")
 
-    @validator("provider")
+    @field_validator("provider")
+    @classmethod
     def validate_provider(cls, v):
         valid_providers = {"ollama", "openrouter"}
         if v not in valid_providers:
@@ -127,7 +128,8 @@ class SystemConfig(BaseModel):
         description="Model name for topic generation",
     )
 
-    @validator("debate_topic_source")
+    @field_validator("debate_topic_source")
+    @classmethod
     def validate_topic_source(cls, v):
         valid_sources = {"ollama", "openrouter"}
         if v not in valid_sources:
