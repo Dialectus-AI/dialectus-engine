@@ -4,6 +4,7 @@ import logging
 import random
 from typing import Any
 
+from judges.base import BaseJudge, JudgeDecision
 from .types import DebatePhase
 from .models import DebateContext
 
@@ -16,7 +17,7 @@ class JudgeCoordinator:
     @staticmethod
     async def judge_debate_with_judges(
         context: DebateContext,
-        judges: list,
+        judges: list[BaseJudge],
     ) -> Any | None:
         """Judge the completed debate using a list of AI judges.
 
@@ -49,15 +50,15 @@ class JudgeCoordinator:
                 f"Judging debate with {len(judges)} judges for ensemble evaluation"
             )
 
-            decisions = []
-            failed_judges = []
+            decisions: list[JudgeDecision] = []
+            failed_judges: list[str] = []
 
             for i, judge in enumerate(judges):
                 try:
                     # Add slight randomness to avoid identical evaluations
                     random_seed = random.random()
                     logger.info(
-                        f"Starting evaluation for judge {i+1}: {judge.judge_model_name} "
+                        f"Starting evaluation for judge {i+1}: {judge.name} "
                         f"(seed: {random_seed:.4f})"
                     )
 

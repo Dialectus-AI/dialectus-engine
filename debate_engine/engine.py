@@ -7,6 +7,7 @@ from typing import Any, Callable, Awaitable
 
 from config.settings import AppConfig
 from models.manager import ModelManager
+from judges.base import BaseJudge
 from .types import DebatePhase
 from .models import DebateContext
 from .prompt_builder import PromptBuilder
@@ -117,9 +118,9 @@ class DebateEngine:
         total_phases = len(format_phases)
 
         # Group format phases by their DebatePhase enum to determine round numbers
-        phase_to_round = {}
+        phase_to_round: dict[DebatePhase, int] = {}
         current_round = 1
-        last_phase = None
+        last_phase: DebatePhase | None = None
 
         for format_phase in format_phases:
             # If we encounter a new DebatePhase enum, increment the round
@@ -170,7 +171,7 @@ class DebateEngine:
 
         return self.context
 
-    async def judge_debate_with_judges(self, judges: list) -> Any | None:
+    async def judge_debate_with_judges(self, judges: list[BaseJudge]) -> Any | None:
         """Judge the completed debate using a list of AI judges.
 
         Args:

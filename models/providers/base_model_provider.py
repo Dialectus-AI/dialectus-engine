@@ -1,15 +1,20 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Callable, Awaitable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
 from openai import OpenAI
 
 if TYPE_CHECKING:
-    from config.settings import SystemConfig, ModelConfig
+    from config.settings import ModelConfig, SystemConfig
 
 
 @dataclass
 class GenerationMetadata:
     """Strongly-typed metadata returned from model generation for cost tracking."""
+
     content: str
     generation_id: str | None = None  # OpenRouter generation ID for cost queries
     cost: float | None = None  # Cost in USD if available immediately
@@ -32,24 +37,23 @@ class BaseModelProvider(ABC):
     @abstractmethod
     def provider_name(self) -> str:
         """Return the name of this provider."""
-        pass
 
     @abstractmethod
     async def get_available_models(self) -> list[str]:
         """Get list of available models from this provider."""
-        pass
 
     @abstractmethod
     async def generate_response(
-        self, model_config: "ModelConfig", messages: list[dict[str, str]], **overrides
+        self,
+        model_config: "ModelConfig",
+        messages: list[dict[str, str]],
+        **overrides: object,
     ) -> str:
         """Generate a response using this provider."""
-        pass
 
     @abstractmethod
     def validate_model_config(self, model_config: "ModelConfig") -> bool:
         """Validate that a model configuration is compatible with this provider."""
-        pass
 
     def supports_streaming(self) -> bool:
         """Check if this provider supports streaming responses."""
@@ -60,38 +64,22 @@ class BaseModelProvider(ABC):
         model_config: "ModelConfig",
         messages: list[dict[str, str]],
         chunk_callback: Callable[[str, bool], Awaitable[None]],
-        **overrides
+        **overrides: object,
     ) -> str:
-        """
-        Generate a streaming response using this provider.
-
-        Args:
-            model_config: Configuration for the model to use
-            messages: List of messages for the conversation
-            chunk_callback: Async callback function that receives (chunk_text, is_complete)
-            **overrides: Additional parameters to override model config
-
-        Returns:
-            The complete response text
-
-        Note:
-            Default implementation falls back to non-streaming generate_response().
-            Providers should override this method to implement true streaming.
-        """
-        # Default fallback: call non-streaming method and return all at once
-        complete_response = await self.generate_response(model_config, messages, **overrides)
+        """Generate a streaming response using this provider."""
+        complete_response = await self.generate_response(
+            model_config, messages, **overrides
+        )
         await chunk_callback(complete_response, True)
         return complete_response
 
     async def generate_response_with_metadata(
-        self, model_config: "ModelConfig", messages: list[dict[str, str]], **overrides
+        self,
+        model_config: "ModelConfig",
+        messages: list[dict[str, str]],
+        **overrides: object,
     ) -> GenerationMetadata:
-        """
-        Generate a response with full metadata for cost tracking.
-
-        Default implementation calls generate_response() and returns basic metadata.
-        Providers should override this for full metadata support.
-        """
+        """Generate a response with full metadata for cost tracking."""
         content = await self.generate_response(model_config, messages, **overrides)
         return GenerationMetadata(content=content)
 
@@ -100,22 +88,14 @@ class BaseModelProvider(ABC):
         model_config: "ModelConfig",
         messages: list[dict[str, str]],
         chunk_callback: Callable[[str, bool], Awaitable[None]],
-        **overrides
+        **overrides: object,
     ) -> GenerationMetadata:
-        """
-        Generate a streaming response with full metadata for cost tracking.
-
-        Default implementation calls generate_response_stream() and returns basic metadata.
-        Providers should override this for full metadata support.
-        """
-        content = await self.generate_response_stream(model_config, messages, chunk_callback, **overrides)
+        """Generate a streaming response with full metadata for cost tracking."""
+        content = await self.generate_response_stream(
+            model_config, messages, chunk_callback, **overrides
+        )
         return GenerationMetadata(content=content)
 
     async def query_generation_cost(self, generation_id: str) -> float | None:
-        """
-        Query the cost for a specific generation ID.
-
-        Returns cost in USD or None if not supported by this provider.
-        Only OpenRouter provider implements this - others return None.
-        """
+        """Query the cost for a specific generation ID."""
         return None

@@ -48,7 +48,7 @@ class ContextBuilder:
         Returns:
             List of message dictionaries for the model API
         """
-        messages = []
+        messages: list[dict[str, str]] = []
 
         # Add system prompt
         if speaker_id in self.prompt_builder.system_prompts:
@@ -108,7 +108,7 @@ class ContextBuilder:
         Returns:
             List of message dictionaries for the model API
         """
-        messages = []
+        messages: list[dict[str, str]] = []
 
         # Add system prompt
         if speaker_id in self.prompt_builder.system_prompts:

@@ -3,8 +3,13 @@ Base types for model providers.
 Shared types and enums that work across all providers (Ollama, OpenRouter, future direct APIs).
 """
 
-from pydantic import BaseModel
+from collections.abc import Mapping
 from enum import Enum
+
+from pydantic import BaseModel, Field
+
+
+SourceInfo = Mapping[str, object]
 
 
 class ModelWeightClass(Enum):
@@ -56,29 +61,25 @@ class BaseEnhancedModelInfo(BaseModel):
     is_preview: bool
     is_text_only: bool
     estimated_params: str | None = None  # e.g., "7B", "70B", "Unknown"
-    source_info: dict = {}  # Provider-specific metadata
+    source_info: SourceInfo = Field(default_factory=dict)  # Provider-specific metadata
 
     @property
     def display_name(self) -> str:
         """User-friendly display name without visual indicators (handled by frontend)."""
 
-        # Cost info as text (no globe emojis)
         if self.pricing.is_free:
             cost_info = "FREE"
         else:
             cost_info = f"${self.pricing.avg_cost_per_1k:.4f}/1K"
 
-        # Model name and params
         params_info = f" ({self.estimated_params})" if self.estimated_params else ""
         model_info = f"{self.name}{params_info}"
+        preview_flag = " [PREVIEW]" if self.is_preview else ""
 
-        # Flags
-        preview_flag = " ⚠️PREVIEW" if self.is_preview else ""
-
-        return f"{cost_info} • {model_info}{preview_flag}"
+        return f"{cost_info} | {model_info}{preview_flag}"
 
     @property
-    def sort_key(self) -> tuple:
+    def sort_key(self) -> tuple[int, int, float, float]:
         """Sorting key: provider (ollama first), tier, value_score desc, cost asc."""
         provider_order = {"ollama": 0, "openrouter": 1}  # Local models first
         tier_order = {

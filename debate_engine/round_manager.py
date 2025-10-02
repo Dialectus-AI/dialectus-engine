@@ -44,7 +44,7 @@ class RoundManager:
             List of messages from this round
         """
         context.current_phase = phase
-        round_messages = []
+        round_messages: list[DebateMessage] = []
 
         # Determine speaking order based on phase
         speakers = await self._get_speaking_order(phase, context)
@@ -77,7 +77,7 @@ class RoundManager:
             List of messages from this round
         """
         context.current_phase = format_phase.phase
-        round_messages = []
+        round_messages: list[DebateMessage] = []
 
         # Use format-defined speaking order
         for speaker_id in format_phase.speaking_order:
@@ -112,7 +112,7 @@ class RoundManager:
             List of messages from this round
         """
         context.current_phase = format_phase.phase
-        round_messages = []
+        round_messages: list[DebateMessage] = []
 
         # Use format-defined speaking order
         for speaker_id in format_phase.speaking_order:

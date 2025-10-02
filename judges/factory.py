@@ -30,7 +30,7 @@ def create_judges(
         raise ValueError("Judge provider must be specified")
 
     logger.info(f"Creating {len(judge_models)} AI judges with models: {judge_models}")
-    judges = []
+    judges: list[AIJudge] = []
 
     for i, model_name in enumerate(judge_models):
         judge = AIJudge(

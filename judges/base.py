@@ -94,7 +94,7 @@ class BaseJudge(ABC):
             participant_counts[participant_id] += 1
 
         # Calculate average scores for each participant
-        participant_averages = {}
+        participant_averages: dict[str, float] = {}
         for participant_id in participant_totals:
             if participant_counts[participant_id] > 0:
                 participant_averages[participant_id] = (
@@ -117,7 +117,7 @@ class BaseJudge(ABC):
         if not criterion_scores:
             return "unknown"
 
-        participant_averages = {}
+        participant_averages: dict[str, float] = {}
         participant_totals: dict[str, float] = {}
         participant_counts: dict[str, int] = {}
 

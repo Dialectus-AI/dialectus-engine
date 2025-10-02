@@ -78,7 +78,7 @@ class AIJudge(BaseJudge):
 
     def _format_transcript(self, context: DebateContext) -> str:
         """Format debate transcript for judge evaluation."""
-        lines = []
+        lines: list[str] = []
         lines.append(f"DEBATE TOPIC: {context.topic}")
         lines.append(f"FORMAT: {context.metadata.get('format', 'Unknown')}")
         lines.append("")
@@ -123,7 +123,7 @@ class AIJudge(BaseJudge):
                 f"Failed to get format-specific labels: {e}, falling back to generic labels"
             )
             # Fallback to generic labels
-            fallback_labels = {}
+            fallback_labels: dict[str, str] = {}
             for i, participant in enumerate(participants):
                 fallback_labels[participant] = (
                     f"Participant {chr(65 + i)}"  # A, B, C, etc.
@@ -152,8 +152,6 @@ class AIJudge(BaseJudge):
         self, transcript: str, context: DebateContext
     ) -> str:
         """Generate AI evaluation of the debate."""
-        import time
-
         participants = list(context.participants.keys())
         criteria_list = [c.value for c in self.criteria]
 
@@ -233,7 +231,7 @@ class AIJudge(BaseJudge):
         )
 
         # Create complete example showing all participants and criteria
-        example_scores = []
+        example_scores: list[str] = []
         for criterion in criteria:
             for side_label in side_labels:
                 example_scores.append(
@@ -351,7 +349,7 @@ Provide your evaluation as valid JSON only, no additional text:"""
             )
 
             # Parse criterion scores
-            criterion_scores = []
+            criterion_scores: list[CriterionScore] = []
             for score_data in evaluation_data.get("criterion_scores", []):
                 participant_side_label = score_data["participant"]
                 participant_id = self._map_side_label_to_participant_id(
@@ -494,7 +492,7 @@ Provide your evaluation as valid JSON only, no additional text:"""
         return repair_json
 
     def _validate_complete_scoring(
-        self, criterion_scores: list, participants: list[str], context: DebateContext
+        self, criterion_scores: list[CriterionScore], participants: list[str], context: DebateContext
     ) -> None:
         """Validate that judge provided complete scoring for all participants and criteria."""
         expected_combinations = len(participants) * len(self.criteria)
@@ -509,7 +507,6 @@ Provide your evaluation as valid JSON only, no additional text:"""
 
         # Validate each participant has scores for all criteria
         participant_labels = self._get_participant_labels(participants, context)
-        side_labels = set(participant_labels.values())
 
         for participant_id in participants:
             side_label = participant_labels[participant_id]
@@ -524,7 +521,7 @@ Provide your evaluation as valid JSON only, no additional text:"""
                 missing_criteria = expected_criteria - participant_criteria
                 extra_criteria = participant_criteria - expected_criteria
 
-                error_parts = []
+                error_parts: list[str] = []
                 if missing_criteria:
                     error_parts.append(f"missing: {missing_criteria}")
                 if extra_criteria:

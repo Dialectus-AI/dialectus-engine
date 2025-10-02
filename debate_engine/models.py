@@ -18,7 +18,7 @@ class DebateMessage:
     round_number: int
     content: str
     timestamp: datetime = field(default_factory=datetime.now)
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=lambda: {})
     message_id: str | None = None
     cost: float | None = None
     generation_id: str | None = None
@@ -31,8 +31,8 @@ class DebateContext:
 
     topic: str
     participants: dict[str, ModelConfig]
-    messages: list[DebateMessage] = field(default_factory=list)
+    messages: list[DebateMessage] = field(default_factory=lambda: [])
     current_phase: DebatePhase = DebatePhase.SETUP
     current_round: int = 1
-    scores: dict[str, float] = field(default_factory=dict)
-    metadata: dict[str, Any] = field(default_factory=dict)
+    scores: dict[str, float] = field(default_factory=lambda: {})
+    metadata: dict[str, Any] = field(default_factory=lambda: {})

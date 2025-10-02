@@ -4,6 +4,7 @@ import asyncio
 import logging
 from datetime import datetime
 
+from models.manager import ModelManager
 from .models import DebateMessage
 
 logger = logging.getLogger(__name__)
@@ -24,7 +25,7 @@ def calculate_max_tokens(word_limit: int) -> int:
 async def query_and_update_cost(
     message: DebateMessage,
     speaker_id: str,
-    model_manager,
+    model_manager: ModelManager,
 ) -> None:
     """Background task to query and update cost for a message with generation_id.
 

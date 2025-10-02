@@ -22,7 +22,7 @@ class ModelConfig(BaseModel):
 
     @field_validator("provider")
     @classmethod
-    def validate_provider(cls, v):
+    def validate_provider(cls, v: str):
         valid_providers = {"ollama", "openrouter"}
         if v not in valid_providers:
             raise ValueError(f"Provider must be one of: {valid_providers}")
@@ -130,7 +130,7 @@ class SystemConfig(BaseModel):
 
     @field_validator("debate_topic_source")
     @classmethod
-    def validate_topic_source(cls, v):
+    def validate_topic_source(cls, v: str):
         valid_sources = {"ollama", "openrouter"}
         if v not in valid_sources:
             raise ValueError(f"debate_topic_source must be one of: {valid_sources}")

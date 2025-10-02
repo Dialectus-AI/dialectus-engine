@@ -3,7 +3,7 @@
 import logging
 from typing import Any, TypedDict
 
-from .base import JudgeDecision
+from .base import JudgeDecision, CriterionScore
 from debate_engine.models import DebateContext
 
 logger = logging.getLogger(__name__)
@@ -72,7 +72,7 @@ def calculate_ensemble_result(
             )
 
     # Count votes for each participant
-    winner_votes = {}
+    winner_votes: dict[str, int] = {}
     for decision in decisions:
         winner_votes[decision.winner_id] = winner_votes.get(decision.winner_id, 0) + 1
 
@@ -82,7 +82,7 @@ def calculate_ensemble_result(
     participant_score_counts = {p: 0 for p in participants}
 
     # Calculate total scores per participant across all judges
-    all_scores = []
+    all_scores: list[CriterionScore] = []
     for decision in decisions:
         all_scores.extend(decision.criterion_scores)
 
@@ -91,7 +91,7 @@ def calculate_ensemble_result(
         participant_score_counts[score.participant_id] += 1
 
     # Calculate average scores
-    participant_avg_scores = {}
+    participant_avg_scores: dict[str, float] = {}
     for participant in participants:
         if participant_score_counts[participant] > 0:
             participant_avg_scores[participant] = (
