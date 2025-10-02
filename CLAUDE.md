@@ -30,13 +30,18 @@ This is one of four repositories in the Dialectus ecosystem:
 
 ## Environment Note
 
-**Development Platform**: Windows 11 with PowerShell
+**Development Platform**: Windows 11
 
-When using the Bash() tool, remember:
-- Use PowerShell syntax, not Unix bash syntax
-- Redirects: Use `2>$null` not `2>/dev/null` (but even that often fails - just omit error redirect)
-- Path separators: Backslashes `\` or forward slashes `/` both work
-- Commands: Many Unix commands work via Git Bash layer, but not all
+**Bash() Tool Behavior**:
+- Runs **Git Bash** (Unix shell), NOT PowerShell or CMD
+- Use Unix syntax: `ls`, `cat`, `rm`, `grep`, `find`, etc.
+- Redirects: Use `2>/dev/null` (Unix), NOT `2>$null` (PowerShell) or `2>nul` (CMD)
+- Path separators: Forward slashes `/` preferred, backslashes `\` may work but can cause issues
+- PowerShell commands won't work - invoke explicitly: `powershell.exe -Command "Get-ChildItem"`
+
+**For PowerShell Scripts**:
+- User runs `.ps1` scripts directly (like `run-dev.ps1`)
+- These use PowerShell syntax with `2>$null`, `Get-ChildItem`, etc.
 
 **Emoji Charset Issues**: When writing test scripts or output that may be run in PowerShell:
 - **DO NOT** use emoji characters (✓, ✗, etc.) - they cause charset failures
