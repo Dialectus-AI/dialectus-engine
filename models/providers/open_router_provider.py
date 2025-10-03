@@ -11,10 +11,10 @@ import httpx
 
 from .base_model_provider import BaseModelProvider, GenerationMetadata
 from .openrouter_generation_types import OpenRouterChatCompletionResponse, OpenRouterGenerationApiResponse
+from models.base_types import BaseEnhancedModelInfo
 
 if TYPE_CHECKING:
     from config.settings import SystemConfig, ModelConfig
-    from models.base_types import BaseEnhancedModelInfo
     from models.openrouter.openrouter_enhanced_model_info import OpenRouterEnhancedModelInfo
 
 logger = logging.getLogger(__name__)
