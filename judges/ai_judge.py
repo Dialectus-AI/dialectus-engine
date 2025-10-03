@@ -10,7 +10,6 @@ from datetime import datetime
 from models.manager import ModelManager
 from config.settings import SystemConfig
 from debate_engine.models import DebateContext
-from formats import format_registry
 from .base import BaseJudge, JudgeDecision, CriterionScore, JudgmentCriterion
 
 logger = logging.getLogger(__name__)
@@ -108,6 +107,9 @@ class AIJudge(BaseJudge):
     ) -> dict[str, str]:
         """Get format-specific labels for participants."""
         try:
+            # Lazy import to avoid circular dependency
+            from formats import format_registry
+
             # Get format name from context metadata
             format_name = context.metadata.get("format", "oxford")  # Default to oxford
 
