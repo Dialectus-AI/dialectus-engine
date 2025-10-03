@@ -34,10 +34,12 @@ class OpenRouterModelFilter:
 
         # Exclude models that output non-text (images, audio, video)
         # These are fundamentally different from multimodal models that can INPUT multiple types
-        non_text_outputs = [
-            m for m in model.architecture.output_modalities if m != "text"
+        non_text_outputs: list[str] = [
+            modality
+            for modality in model.architecture.output_modalities
+            if modality != "text"
         ]
-        if len(non_text_outputs) > 0:
+        if non_text_outputs:
             return False
 
         # Allow multimodal INPUT models - they're often better at reasoning and text generation
@@ -105,7 +107,9 @@ class OpenRouterModelFilter:
             if re.search(pattern, model_id_lower) or re.search(
                 pattern, model_name_lower
             ):
-                logger.debug(f"Excluding model {model.id} due to pattern: {pattern}")
+                logger.debug(
+                    "Excluding model %s due to pattern: %s", model.id, pattern
+                )
                 return True
 
         return False
@@ -218,22 +222,50 @@ class OpenRouterModelFilter:
         # Initialize filter config and get settings
         config = filter_config or OpenRouterFilterConfig()
 
-        # Use config defaults if parameters not specified
-        if include_preview is None:
-            include_preview = bool(config.get_setting("allow_preview_models", False) or False)
-        if max_cost_per_1k is None:
-            max_cost_per_1k = float(config.get_setting("max_cost_per_1k_tokens", 0.02) or 0.02)
-        if min_context_length is None:
-            min_context_length = int(config.get_setting("min_context_length", 4096) or 4096)
-        if max_models_per_tier is None:
-            max_models_per_tier = int(config.get_setting("max_models_per_tier", 5) or 5)
+        # Copy into locals so we can tighten types after reading loose config values.
+        include_preview_flag = include_preview
+        cost_limit = max_cost_per_1k
+        min_context_required = min_context_length
+        per_tier_limit = max_models_per_tier
 
-        # Get free tier exclusion setting
-        exclude_free_tier = bool(config.get_setting("exclude_free_tier_models", False) or False)
+        if include_preview_flag is None:
+            preview_setting = config.get_setting("allow_preview_models", False)
+            include_preview_flag = (
+                preview_setting if isinstance(preview_setting, bool) else False
+            )
+
+        if cost_limit is None:
+            cost_setting = config.get_setting("max_cost_per_1k_tokens", 0.02)
+            cost_limit = (
+                float(cost_setting)
+                if isinstance(cost_setting, (int, float))
+                else 0.02
+            )
+
+        if min_context_required is None:
+            context_setting = config.get_setting("min_context_length", 4096)
+            min_context_required = (
+                int(context_setting)
+                if isinstance(context_setting, int)
+                else 4096
+            )
+
+        if per_tier_limit is None:
+            max_models_setting = config.get_setting("max_models_per_tier", 5)
+            per_tier_limit = (
+                int(max_models_setting)
+                if isinstance(max_models_setting, int)
+                else 5
+            )
+
+        free_tier_setting = config.get_setting("exclude_free_tier_models", False)
+        exclude_free_tier = (
+            free_tier_setting if isinstance(free_tier_setting, bool) else False
+        )
 
         # Create filter instance
         model_filter = cls(config)
-        enhanced_models = []
+        enhanced_models: list[OpenRouterEnhancedModelInfo] = []
 
         for model in models:
             # Skip excluded models (including meta models)
@@ -246,27 +278,26 @@ class OpenRouterModelFilter:
 
             # Skip preview models if not requested
             is_preview = model_filter.is_preview_model(model)
-            if is_preview and not include_preview:
+            if is_preview and not include_preview_flag:
                 continue
 
             # Skip :free tier models if configured to exclude them (production setting)
             if exclude_free_tier and model.id.endswith(":free"):
-                logger.debug(f"Excluding free-tier model {model.id} (exclude_free_tier_models=true)")
+                logger.debug(
+                    "Excluding free-tier model %s (exclude_free_tier_models=true)",
+                    model.id,
+                )
                 continue
 
             # Skip models that are too expensive
             if (
-                max_cost_per_1k is not None
-                and model.pricing.avg_cost_per_1k > max_cost_per_1k
-                and not model.pricing.is_free
+                not model.pricing.is_free
+                and model.pricing.avg_cost_per_1k > cost_limit
             ):
                 continue
 
             # Skip models with insufficient context
-            if (
-                min_context_length is not None
-                and model.context_length < min_context_length
-            ):
+            if model.context_length < min_context_required:
                 continue
 
             # Classify and score the model
@@ -294,9 +325,9 @@ class OpenRouterModelFilter:
                 pricing=generic_pricing,
                 value_score=value_score,
                 is_preview=is_preview,
-                is_text_only=(
-                    len([m for m in model.architecture.input_modalities if m != "text"])
-                    == 0
+                is_text_only=all(
+                    modality == "text"
+                    for modality in model.architecture.input_modalities
                 ),
                 estimated_params=estimated_params,
                 source_info={"openrouter_raw": model.model_dump()},
@@ -308,19 +339,22 @@ class OpenRouterModelFilter:
         enhanced_models.sort(key=lambda m: m.sort_key)
 
         # Limit models per tier to avoid overwhelming users
-        if max_models_per_tier is not None and max_models_per_tier > 0:
-            tier_counts = {}
-            filtered_models = []
+        # `per_tier_limit` is always an int at this point; guard keeps pyright happy and avoids negative limits.
+        if per_tier_limit > 0:
+            tier_counts: dict[ModelTier, int] = {}
+            filtered_models: list[OpenRouterEnhancedModelInfo] = []
 
             for model in enhanced_models:
                 tier_count = tier_counts.get(model.tier, 0)
-                if tier_count < max_models_per_tier:
+                if tier_count < per_tier_limit:
                     filtered_models.append(model)
                     tier_counts[model.tier] = tier_count + 1
 
             enhanced_models = filtered_models
 
         logger.info(
-            f"Filtered {len(models)} OpenRouter models down to {len(enhanced_models)} suitable for debate"
+            "Filtered %s OpenRouter models down to %s suitable for debate",
+            len(models),
+            len(enhanced_models),
         )
         return enhanced_models

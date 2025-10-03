@@ -69,17 +69,17 @@ class ParliamentaryFormat(DebateFormat):
 
     def get_position_assignments(self, participants: list[str]) -> dict[str, Position]:
         """First participant is Government (PRO), second is Opposition (CON)."""
-        assignments = {}
-        for i, participant in enumerate(participants[:2]):
-            assignments[participant] = Position.PRO if i == 0 else Position.CON
-        return assignments
+        return {
+            participant: Position.PRO if i == 0 else Position.CON
+            for i, participant in enumerate(participants[:2])
+        }
 
     def get_side_labels(self, participants: list[str]) -> dict[str, str]:
         """Return Parliamentary labels: Government and Opposition."""
-        labels = {}
-        for i, participant in enumerate(participants[:2]):
-            labels[participant] = "Government" if i == 0 else "Opposition"
-        return labels
+        return {
+            participant: "Government" if i == 0 else "Opposition"
+            for i, participant in enumerate(participants[:2])
+        }
 
     def get_format_instructions(self) -> str:
         """Parliamentary format-specific instructions."""

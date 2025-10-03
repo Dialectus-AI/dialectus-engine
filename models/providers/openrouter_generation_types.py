@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Typed structures for OpenRouter generation API responses."""
 
 from typing import TypedDict
@@ -52,5 +54,5 @@ class OpenRouterChatCompletionResponse(TypedDict):
     object: str
     created: int
     model: str
-    choices: list[dict]  # We'll keep this generic since we only need content
+    choices: list[dict[str, object]]  # We'll keep this generic since we only need content
     usage: OpenRouterChatCompletionUsage | None

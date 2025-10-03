@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import os
 import asyncio
 import time
 import json
-from typing import TYPE_CHECKING, ClassVar, Callable, Awaitable
+from typing import TYPE_CHECKING, ClassVar, Awaitable, Callable, cast
 import logging
 from openai import OpenAI
 import httpx
@@ -40,7 +42,7 @@ class OpenRouterProvider(BaseModelProvider):
             self._client = None
         else:
             # Prepare headers for OpenRouter
-            headers = {}
+            headers: dict[str, str] = {}
             if system_config.openrouter.site_url:
                 headers["HTTP-Referer"] = system_config.openrouter.site_url
             if system_config.openrouter.app_name:
@@ -101,43 +103,52 @@ class OpenRouterProvider(BaseModelProvider):
 
             # Check cache first (6 hour default TTL)
             cached_models = cache_manager.get("openrouter", "models")
-            if cached_models is not None:
-                # Convert cached dictionaries back to model objects
+            enhanced_models: list["OpenRouterEnhancedModelInfo"] = []
+            if isinstance(cached_models, list):
                 from models.openrouter.openrouter_enhanced_model_info import OpenRouterEnhancedModelInfo
 
-                enhanced_models = []
-                for model_dict in cached_models:
+                cached_list = cast(list[object], cached_models)
+                for model_candidate in cached_list:
+                    if not isinstance(model_candidate, dict):
+                        continue
+                    model_dict = cast(dict[str, object], model_candidate)
                     try:
-                        # Use model_validate for proper type conversion from cache
                         enhanced_model = OpenRouterEnhancedModelInfo.model_validate(
                             model_dict
                         )
                         enhanced_models.append(enhanced_model)
-                    except Exception as e:
+                    except Exception as exc:
+                        model_id = str(model_dict.get("id", "unknown"))
                         logger.warning(
-                            f"Failed to reconstruct cached OpenRouter model {model_dict.get('id', 'unknown')}: {e}"
+                            "Failed to reconstruct cached OpenRouter model %s: %s",
+                            model_id,
+                            exc,
                         )
-                        # Continue with other models rather than failing entirely
                         continue
 
                 if enhanced_models:
                     logger.info(
-                        f"Using cached OpenRouter models ({len(enhanced_models)} models)"
+                        "Using cached OpenRouter models (%s models)",
+                        len(enhanced_models),
                     )
                     return enhanced_models
-                else:
-                    logger.warning(
-                        "All cached models failed to reconstruct, fetching fresh data..."
-                    )
-                    # Clear corrupted cache and fall through to fresh API call
-                    cache_manager.invalidate("openrouter", "models")
+
+                logger.warning(
+                    "All cached models failed to reconstruct, fetching fresh data..."
+                )
+                cache_manager.invalidate("openrouter", "models")
+            elif cached_models is not None:
+                logger.warning(
+                    "OpenRouter model cache contains unexpected type: %s",
+                    type(cached_models).__name__,
+                )
 
             # Cache miss - fetch fresh data from OpenRouter API
             logger.info("Fetching fresh OpenRouter models from API...")
 
             api_key = self._get_api_key()
 
-            headers = {
+            headers: dict[str, str] = {
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
             }
@@ -182,26 +193,25 @@ class OpenRouterProvider(BaseModelProvider):
             raise  # Fail fast - don't hide errors from the frontend
 
     async def generate_response(
-        self, model_config: "ModelConfig", messages: list[dict[str, str]], **overrides
+        self, model_config: "ModelConfig", messages: list[dict[str, str]], **overrides: object
     ) -> str:
         """Generate a response using OpenRouter."""
         if not self._client:
             raise RuntimeError("OpenRouter client not initialized - check API key")
 
-        # Prepare generation parameters
-        params = {
-            "model": model_config.name,
-            "messages": messages,
-            "max_tokens": overrides.get("max_tokens", model_config.max_tokens),
-            "temperature": overrides.get("temperature", model_config.temperature),
-        }
+        max_tokens = model_config.max_tokens
+        max_tokens_override = overrides.get("max_tokens")
+        if isinstance(max_tokens_override, int):
+            max_tokens = max_tokens_override
+
+        temperature = model_config.temperature
+        temperature_override = overrides.get("temperature")
+        if isinstance(temperature_override, (int, float)):
+            temperature = float(temperature_override)
 
         try:
-            # For OpenRouter, we need to make direct HTTP requests to support reasoning parameter
-            import httpx
-
             api_key = self._get_api_key()
-            headers = {
+            headers: dict[str, str] = {
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
             }
@@ -211,16 +221,14 @@ class OpenRouterProvider(BaseModelProvider):
             if self.system_config.openrouter.app_name:
                 headers["X-Title"] = self.system_config.openrouter.app_name
 
-            # Build the payload with reasoning parameter at top level
-            payload = {
-                "model": params["model"],
-                "messages": params["messages"],
-                "max_tokens": params["max_tokens"],
-                "temperature": params["temperature"],
+            payload: dict[str, object] = {
+                "model": model_config.name,
+                "messages": messages,
+                "max_tokens": max_tokens,
+                "temperature": temperature,
                 "reasoning": {"exclude": True},
             }
 
-            # Apply rate limiting before API request
             await self._rate_limit_request()
 
             async with httpx.AsyncClient() as client:
@@ -231,25 +239,37 @@ class OpenRouterProvider(BaseModelProvider):
                     timeout=self.system_config.openrouter.timeout,
                 )
                 http_response.raise_for_status()
-                response_data = http_response.json()
+                response_json = http_response.json()
 
-                content = response_data["choices"][0]["message"]["content"] or ""
+            response_data = cast(OpenRouterChatCompletionResponse, response_json)
+            content = ""
+            choices_raw = response_data["choices"]
+            if choices_raw:
+                first_choice = choices_raw[0]
+                message_data = first_choice.get("message")
+                if isinstance(message_data, dict):
+                    message_dict = cast(dict[str, object], message_data)
+                    content_value = message_dict.get("content")
+                    if isinstance(content_value, str):
+                        content = content_value
 
-            # Enhanced logging for debugging empty responses
             if not content.strip():
                 logger.warning(
-                    f"OpenRouter model {model_config.name} returned empty content. "
-                    f"Raw response: {repr(content)}, Response data: {response_data}"
+                    "OpenRouter model %s returned empty content. Response data: %s",
+                    model_config.name,
+                    response_data,
                 )
             else:
                 logger.debug(
-                    f"Generated {len(content)} chars from OpenRouter model {model_config.name}"
+                    "Generated %s chars from OpenRouter model %s",
+                    len(content),
+                    model_config.name,
                 )
 
             return content.strip()
 
-        except Exception as e:
-            logger.error(f"OpenRouter generation failed for {model_config.name}: {e}")
+        except Exception as exc:
+            logger.error("OpenRouter generation failed for %s: %s", model_config.name, exc)
             raise
 
     def validate_model_config(self, model_config: "ModelConfig") -> bool:
@@ -265,24 +285,25 @@ class OpenRouterProvider(BaseModelProvider):
         model_config: "ModelConfig",
         messages: list[dict[str, str]],
         chunk_callback: Callable[[str, bool], Awaitable[None]],
-        **overrides
+        **overrides: object,
     ) -> str:
         """Generate a streaming response using OpenRouter with SSE."""
         if not self._client:
             raise RuntimeError("OpenRouter client not initialized - check API key")
 
-        # Prepare generation parameters
-        params = {
-            "model": model_config.name,
-            "messages": messages,
-            "max_tokens": overrides.get("max_tokens", model_config.max_tokens),
-            "temperature": overrides.get("temperature", model_config.temperature),
-            "stream": True,  # Enable streaming
-        }
+        max_tokens = model_config.max_tokens
+        max_tokens_override = overrides.get("max_tokens")
+        if isinstance(max_tokens_override, int):
+            max_tokens = max_tokens_override
+
+        temperature = model_config.temperature
+        temperature_override = overrides.get("temperature")
+        if isinstance(temperature_override, (int, float)):
+            temperature = float(temperature_override)
 
         try:
             api_key = self._get_api_key()
-            headers = {
+            headers: dict[str, str] = {
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
             }
@@ -292,20 +313,19 @@ class OpenRouterProvider(BaseModelProvider):
             if self.system_config.openrouter.app_name:
                 headers["X-Title"] = self.system_config.openrouter.app_name
 
-            # Build the payload with reasoning parameter and streaming
-            payload = {
-                "model": params["model"],
-                "messages": params["messages"],
-                "max_tokens": params["max_tokens"],
-                "temperature": params["temperature"],
+            payload: dict[str, object] = {
+                "model": model_config.name,
+                "messages": messages,
+                "max_tokens": max_tokens,
+                "temperature": temperature,
                 "stream": True,
                 "reasoning": {"exclude": True},
             }
 
-            # Apply rate limiting before API request
             await self._rate_limit_request()
 
             complete_content = ""
+            stream_finished = False
 
             async with httpx.AsyncClient() as client:
                 async with client.stream(
@@ -317,95 +337,120 @@ class OpenRouterProvider(BaseModelProvider):
                 ) as response:
                     response.raise_for_status()
 
-                    # Process SSE stream
                     buffer = ""
                     async for chunk in response.aiter_text():
                         buffer += chunk
 
-                        # Process complete lines from buffer
                         while True:
-                            line_end = buffer.find('\n')
+                            line_end = buffer.find("\n")
                             if line_end == -1:
                                 break
 
                             line = buffer[:line_end].strip()
-                            buffer = buffer[line_end + 1:]
+                            buffer = buffer[line_end + 1 :]
 
-                            # Skip empty lines and comments
-                            if not line or line.startswith(':'):
+                            if not line or line.startswith(":"):
                                 continue
 
-                            # Process SSE data lines
-                            if line.startswith('data: '):
-                                data = line[6:]  # Remove 'data: ' prefix
+                            if not line.startswith("data: "):
+                                continue
 
-                                # Check for end of stream
-                                if data == '[DONE]':
-                                    break
+                            data = line[6:]
+                            if data == "[DONE]":
+                                await chunk_callback("", True)
+                                stream_finished = True
+                                break
 
-                                try:
-                                    # Parse the JSON chunk
-                                    parsed = json.loads(data)
+                            try:
+                                parsed_obj = json.loads(data)
+                            except json.JSONDecodeError:
+                                logger.debug(
+                                    "Skipping invalid JSON in stream: %s...",
+                                    data[:100],
+                                )
+                                continue
+                            except Exception as exc:
+                                logger.error(
+                                    "Error processing stream chunk: %s",
+                                    exc,
+                                )
+                                continue
 
-                                    # Check for errors in the stream
-                                    if 'error' in parsed:
-                                        error_msg = parsed['error'].get('message', 'Unknown streaming error')
-                                        logger.error(f"OpenRouter streaming error: {error_msg}")
-                                        raise RuntimeError(f"Streaming error: {error_msg}")
+                            if not isinstance(parsed_obj, dict):
+                                continue
 
-                                    # Extract content from the delta
-                                    choices = parsed.get('choices', [])
-                                    if choices and 'delta' in choices[0]:
-                                        delta = choices[0]['delta']
-                                        content_chunk = delta.get('content', '')
+                            parsed_dict = cast(dict[str, object], parsed_obj)
 
-                                        if content_chunk:
-                                            complete_content += content_chunk
+                            error_obj = parsed_dict.get("error")
+                            if isinstance(error_obj, dict):
+                                error_dict = cast(dict[str, object], error_obj)
+                                message_value = error_dict.get("message")
+                                error_msg = message_value if isinstance(message_value, str) else "Unknown streaming error"
+                                logger.error("OpenRouter streaming error: %s", error_msg)
+                                raise RuntimeError(f"Streaming error: {error_msg}")
 
-                                            # Call the chunk callback with the new content
-                                            await chunk_callback(content_chunk, False)
+                            choices_value = parsed_dict.get("choices")
+                            if not isinstance(choices_value, list) or not choices_value:
+                                continue
 
-                                        # Check if this is the final chunk
-                                        finish_reason = choices[0].get('finish_reason')
-                                        if finish_reason:
-                                            # Final callback to indicate completion
-                                            await chunk_callback("", True)
-                                            break
+                            choice_candidates = cast(list[object], choices_value)
+                            typed_choices: list[dict[str, object]] = []
+                            for choice_candidate in choice_candidates:
+                                if isinstance(choice_candidate, dict):
+                                    typed_choices.append(cast(dict[str, object], choice_candidate))
 
-                                except json.JSONDecodeError as e:
-                                    # Skip invalid JSON - this can happen with SSE comments
-                                    logger.debug(f"Skipping invalid JSON in stream: {data[:100]}...")
-                                    continue
-                                except Exception as e:
-                                    logger.error(f"Error processing stream chunk: {e}")
-                                    # Continue processing other chunks rather than failing entirely
-                                    continue
+                            if not typed_choices:
+                                continue
 
-            logger.debug(f"OpenRouter streaming completed: {len(complete_content)} chars from {model_config.name}")
+                            first_choice = typed_choices[0]
+
+                            delta_obj = first_choice.get("delta")
+                            if isinstance(delta_obj, dict):
+                                delta_dict = cast(dict[str, object], delta_obj)
+                                content_value = delta_dict.get("content")
+                                if isinstance(content_value, str) and content_value:
+                                    complete_content += content_value
+                                    await chunk_callback(content_value, False)
+
+                            finish_value = first_choice.get("finish_reason")
+                            if isinstance(finish_value, str) and finish_value:
+                                await chunk_callback("", True)
+                                stream_finished = True
+                                break
+                        if stream_finished:
+                            break
+
+            logger.debug(
+                "OpenRouter streaming completed: %s chars from %s",
+                len(complete_content),
+                model_config.name,
+            )
             return complete_content.strip()
 
-        except Exception as e:
-            logger.error(f"OpenRouter streaming failed for {model_config.name}: {e}")
+        except Exception as exc:
+            logger.error("OpenRouter streaming failed for %s: %s", model_config.name, exc)
             raise
 
     async def generate_response_with_metadata(
-        self, model_config: "ModelConfig", messages: list[dict[str, str]], **overrides
+        self, model_config: "ModelConfig", messages: list[dict[str, str]], **overrides: object
     ) -> GenerationMetadata:
         """Generate response with full metadata including generation ID for cost tracking."""
         if not self._client:
             raise RuntimeError("OpenRouter client not initialized - check API key")
 
-        # Prepare generation parameters
-        params = {
-            "model": model_config.name,
-            "messages": messages,
-            "max_tokens": overrides.get("max_tokens", model_config.max_tokens),
-            "temperature": overrides.get("temperature", model_config.temperature),
-        }
+        max_tokens = model_config.max_tokens
+        max_tokens_override = overrides.get("max_tokens")
+        if isinstance(max_tokens_override, int):
+            max_tokens = max_tokens_override
+
+        temperature = model_config.temperature
+        temperature_override = overrides.get("temperature")
+        if isinstance(temperature_override, (int, float)):
+            temperature = float(temperature_override)
 
         try:
             api_key = self._get_api_key()
-            headers = {
+            headers: dict[str, str] = {
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
             }
@@ -415,16 +460,14 @@ class OpenRouterProvider(BaseModelProvider):
             if self.system_config.openrouter.app_name:
                 headers["X-Title"] = self.system_config.openrouter.app_name
 
-            # Build the payload with reasoning parameter
-            payload = {
-                "model": params["model"],
-                "messages": params["messages"],
-                "max_tokens": params["max_tokens"],
-                "temperature": params["temperature"],
+            payload: dict[str, object] = {
+                "model": model_config.name,
+                "messages": messages,
+                "max_tokens": max_tokens,
+                "temperature": temperature,
                 "reasoning": {"exclude": True},
             }
 
-            # Apply rate limiting before API request
             await self._rate_limit_request()
 
             start_time = time.time()
@@ -437,25 +480,41 @@ class OpenRouterProvider(BaseModelProvider):
                     timeout=self.system_config.openrouter.timeout,
                 )
                 http_response.raise_for_status()
-                response_data: OpenRouterChatCompletionResponse = http_response.json()
+                response_json = http_response.json()
 
+            response_data = cast(OpenRouterChatCompletionResponse, response_json)
             generation_time_ms = int((time.time() - start_time) * 1000)
-            content = response_data["choices"][0]["message"]["content"] or ""
-            generation_id = response_data.get("id")  # This is the key field we need
 
-            # Fail fast if we don't get a generation ID from OpenRouter
+            content = ""
+            choices_raw = response_data["choices"]
+            if choices_raw:
+                first_choice = choices_raw[0]
+                message_data = first_choice.get("message")
+                if isinstance(message_data, dict):
+                    message_dict = cast(dict[str, object], message_data)
+                    content_value = message_dict.get("content")
+                    if isinstance(content_value, str):
+                        content = content_value
+
+            generation_id = response_data["id"]
             if not generation_id:
                 raise RuntimeError(f"OpenRouter response missing generation ID: {response_data}")
 
-            # Extract usage information if available
-            usage = response_data.get("usage")
-            prompt_tokens = usage.get("prompt_tokens") if usage else None
-            completion_tokens = usage.get("completion_tokens") if usage else None
-            total_tokens = usage.get("total_tokens") if usage else None
+            usage_data = response_data["usage"]
+            prompt_tokens: int | None = None
+            completion_tokens: int | None = None
+            total_tokens: int | None = None
+            if usage_data is not None:
+                prompt_tokens = usage_data["prompt_tokens"]
+                completion_tokens = usage_data["completion_tokens"]
+                total_tokens = usage_data["total_tokens"]
 
             logger.debug(
-                f"Generated {len(content)} chars from OpenRouter {model_config.name}, "
-                f"generation_id: {generation_id}, tokens: {total_tokens}"
+                "Generated %s chars from OpenRouter %s, generation_id: %s, tokens: %s",
+                len(content),
+                model_config.name,
+                generation_id,
+                total_tokens,
             )
 
             return GenerationMetadata(
@@ -466,11 +525,15 @@ class OpenRouterProvider(BaseModelProvider):
                 total_tokens=total_tokens,
                 generation_time_ms=generation_time_ms,
                 model=model_config.name,
-                provider="openrouter"
+                provider="openrouter",
             )
 
-        except Exception as e:
-            logger.error(f"OpenRouter metadata generation failed for {model_config.name}: {e}")
+        except Exception as exc:
+            logger.error(
+                "OpenRouter metadata generation failed for %s: %s",
+                model_config.name,
+                exc,
+            )
             raise
 
     async def query_generation_cost(self, generation_id: str) -> float:
@@ -486,7 +549,7 @@ class OpenRouterProvider(BaseModelProvider):
             if not api_key:
                 raise RuntimeError("OpenRouter API key missing - cannot query generation cost")
 
-            headers = {
+            headers: dict[str, str] = {
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
             }

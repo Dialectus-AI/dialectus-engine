@@ -80,14 +80,14 @@ class OxfordFormat(DebateFormat):
 
     def get_position_assignments(self, participants: list[str]) -> dict[str, Position]:
         """First participant is PRO, second is CON."""
-        assignments = {}
+        assignments: dict[str, Position] = {}
         for i, participant in enumerate(participants[:2]):
             assignments[participant] = Position.PRO if i == 0 else Position.CON
         return assignments
 
     def get_side_labels(self, participants: list[str]) -> dict[str, str]:
         """Return Oxford-style labels: Proposition and Opposition."""
-        labels = {}
+        labels: dict[str, str] = {}
         for i, participant in enumerate(participants[:2]):
             labels[participant] = "Proposition" if i == 0 else "Opposition"
         return labels

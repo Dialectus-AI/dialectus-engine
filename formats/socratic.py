@@ -75,7 +75,7 @@ class SocraticFormat(DebateFormat):
 
     def get_position_assignments(self, participants: list[str]) -> dict[str, Position]:
         """In Socratic dialogue, assign questioner and responder roles rather than pro/con."""
-        assignments = {}
+        assignments: dict[str, Position] = {}
         for i, participant in enumerate(participants[:2]):
             # Use PRO for questioner (teacher), CON for responder (student)
             assignments[participant] = Position.PRO if i == 0 else Position.CON
@@ -83,7 +83,7 @@ class SocraticFormat(DebateFormat):
 
     def get_side_labels(self, participants: list[str]) -> dict[str, str]:
         """Return Socratic labels: Questioner and Responder."""
-        labels = {}
+        labels: dict[str, str] = {}
         for i, participant in enumerate(participants[:2]):
             labels[participant] = "Questioner" if i == 0 else "Responder"
         return labels

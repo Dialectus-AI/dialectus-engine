@@ -1,6 +1,5 @@
 """Registry for debate formats."""
 
-from typing import Type
 from .base import DebateFormat
 from .oxford import OxfordFormat
 from .parliamentary import ParliamentaryFormat
@@ -12,7 +11,7 @@ class FormatRegistry:
     """Registry for managing available debate formats."""
 
     def __init__(self):
-        self._formats: dict[str, Type[DebateFormat]] = {}
+        self._formats: dict[str, type[DebateFormat]] = {}
         self._register_built_in_formats()
 
     def _register_built_in_formats(self):
@@ -22,7 +21,7 @@ class FormatRegistry:
         self.register(SocraticFormat)
         self.register(PublicForumFormat)
 
-    def register(self, format_class: Type[DebateFormat]) -> None:
+    def register(self, format_class: type[DebateFormat]) -> None:
         """Register a debate format class."""
         instance = format_class()
         self._formats[instance.name] = format_class
@@ -41,7 +40,7 @@ class FormatRegistry:
 
     def get_format_descriptions(self) -> dict[str, dict[str, str]]:
         """Get format names, display names, and descriptions."""
-        descriptions = {}
+        descriptions: dict[str, dict[str, str]] = {}
         for name, format_class in self._formats.items():
             instance = format_class()
             descriptions[name] = {

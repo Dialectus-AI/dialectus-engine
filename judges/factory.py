@@ -53,7 +53,7 @@ def create_judge_with_auto_config(
     system_config: SystemConfig,
     model_manager: ModelManager,
     judge_model: str = "openthinker:7b",
-    criteria: list | None = None,
+    criteria: list[str] | None = None,
 ) -> AIJudge:
     """Quick factory for creating AI judge with sensible defaults."""
     if criteria is None:

@@ -1,4 +1,6 @@
-from typing import TYPE_CHECKING, Callable, Awaitable
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Awaitable, Callable, cast
 import json
 from openai import OpenAI
 from .base_model_provider import BaseModelProvider
@@ -6,7 +8,7 @@ import logging
 import httpx
 
 if TYPE_CHECKING:
-    from openai.types.chat import ChatCompletion
+    from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
     from config.settings import SystemConfig, ModelConfig
     from models.base_types import ModelWeightClass, BaseEnhancedModelInfo
 
@@ -68,23 +70,24 @@ class OllamaProvider(BaseModelProvider):
             return []
 
     async def generate_response(
-        self, model_config: "ModelConfig", messages: list[dict[str, str]], **overrides
+        self, model_config: "ModelConfig", messages: list[dict[str, str]], **overrides: object
     ) -> str:
         """Generate a response using Ollama."""
         if not self._client:
             raise RuntimeError("Ollama client not initialized")
 
-        # Prepare generation parameters
-        params = {
-            "model": model_config.name,
-            "messages": messages,
-            "max_tokens": overrides.get("max_tokens", model_config.max_tokens),
-            "temperature": overrides.get("temperature", model_config.temperature),
-        }
+        max_tokens = model_config.max_tokens
+        max_tokens_override = overrides.get("max_tokens")
+        if isinstance(max_tokens_override, int):
+            max_tokens = max_tokens_override
 
-        # Add Ollama-specific parameters to extra_body
+        temperature = model_config.temperature
+        temperature_override = overrides.get("temperature")
+        if isinstance(temperature_override, (int, float)):
+            temperature = float(temperature_override)
+
         ollama_config = self.system_config.ollama
-        extra_body = {}
+        extra_body: dict[str, object] = {}
         if ollama_config.keep_alive is not None:
             extra_body["keep_alive"] = ollama_config.keep_alive
         if ollama_config.repeat_penalty is not None:
@@ -96,20 +99,44 @@ class OllamaProvider(BaseModelProvider):
         if ollama_config.main_gpu is not None:
             extra_body["main_gpu"] = ollama_config.main_gpu
 
-        if extra_body:
-            params["extra_body"] = extra_body
+        chat_messages = cast(list["ChatCompletionMessageParam"], messages)
 
         try:
-            response: "ChatCompletion" = self._client.chat.completions.create(**params)
-            content = response.choices[0].message.content or ""
+            response: "ChatCompletion"
+            if extra_body:
+                response = self._client.chat.completions.create(
+                    model=model_config.name,
+                    messages=chat_messages,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                    extra_body=extra_body,
+                )
+            else:
+                response = self._client.chat.completions.create(
+                    model=model_config.name,
+                    messages=chat_messages,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                )
+
+            first_choice = response.choices[0]
+            message = first_choice.message
+            content_text = message.content if message.content is not None else ""
 
             logger.debug(
-                f"Generated {len(content)} chars from Ollama model {model_config.name}"
+                "Generated %s chars from Ollama model %s",
+                len(content_text),
+                model_config.name,
             )
-            return content.strip()
+            return content_text.strip()
 
-        except Exception as e:
-            logger.error(f"Ollama generation failed for {model_config.name}: {e}")
+
+        except Exception as exc:
+            logger.error(
+                "Ollama generation failed for %s: %s",
+                model_config.name,
+                exc,
+            )
             raise
 
     def validate_model_config(self, model_config: "ModelConfig") -> bool:
@@ -125,50 +152,51 @@ class OllamaProvider(BaseModelProvider):
         model_config: "ModelConfig",
         messages: list[dict[str, str]],
         chunk_callback: Callable[[str, bool], Awaitable[None]],
-        **overrides,
+        **overrides: object,
     ) -> str:
         """Generate a streaming response using Ollama."""
         if not self._client:
             raise RuntimeError("Ollama client not initialized")
 
-        # Prepare generation parameters
-        params = {
-            "model": model_config.name,
-            "messages": messages,
-            "max_tokens": overrides.get("max_tokens", model_config.max_tokens),
-            "temperature": overrides.get("temperature", model_config.temperature),
-            "stream": True,
-        }
+        max_tokens = model_config.max_tokens
+        max_tokens_override = overrides.get("max_tokens")
+        if isinstance(max_tokens_override, int):
+            max_tokens = max_tokens_override
 
-        # Add Ollama-specific parameters
+        temperature = model_config.temperature
+        temperature_override = overrides.get("temperature")
+        if isinstance(temperature_override, (int, float)):
+            temperature = float(temperature_override)
+
         ollama_config = self.system_config.ollama
-        extra_body = {}
+        extra_options: dict[str, object] = {}
         if ollama_config.keep_alive is not None:
-            extra_body["keep_alive"] = ollama_config.keep_alive
+            extra_options["keep_alive"] = ollama_config.keep_alive
         if ollama_config.repeat_penalty is not None:
-            extra_body["repeat_penalty"] = ollama_config.repeat_penalty
+            extra_options["repeat_penalty"] = ollama_config.repeat_penalty
         if ollama_config.num_gpu_layers is not None:
-            extra_body["num_gpu"] = ollama_config.num_gpu_layers
+            extra_options["num_gpu"] = ollama_config.num_gpu_layers
         if ollama_config.num_thread is not None:
-            extra_body["num_thread"] = ollama_config.num_thread
+            extra_options["num_thread"] = ollama_config.num_thread
         if ollama_config.main_gpu is not None:
-            extra_body["main_gpu"] = ollama_config.main_gpu
+            extra_options["main_gpu"] = ollama_config.main_gpu
 
         try:
             complete_content = ""
 
-            # Use direct HTTP streaming since Ollama supports SSE
             async with httpx.AsyncClient() as client:
-                # Convert OpenAI format to Ollama format
-                payload = {
-                    "model": params["model"],
-                    "messages": params["messages"],
+                options: dict[str, object] = {
+                    "temperature": temperature,
+                    "num_predict": max_tokens,
+                }
+                if extra_options:
+                    options.update(extra_options)
+
+                payload: dict[str, object] = {
+                    "model": model_config.name,
+                    "messages": messages,
                     "stream": True,
-                    "options": {
-                        "temperature": params["temperature"],
-                        "num_predict": params["max_tokens"],
-                        **extra_body,
-                    },
+                    "options": options,
                 }
 
                 async with client.stream(
@@ -179,58 +207,68 @@ class OllamaProvider(BaseModelProvider):
                 ) as response:
                     response.raise_for_status()
 
-                    # Process streaming JSON responses
                     async for line in response.aiter_lines():
                         if not line.strip():
                             continue
 
                         try:
-                            # Parse the JSON chunk (Ollama sends one JSON object per line)
                             parsed = json.loads(line)
-
-                            # Check for errors
-                            if "error" in parsed:
-                                error_msg = parsed["error"]
-                                logger.error(f"Ollama streaming error: {error_msg}")
-                                raise RuntimeError(f"Streaming error: {error_msg}")
-
-                            # Extract content from the message
-                            if "message" in parsed and "content" in parsed["message"]:
-                                content_chunk = parsed["message"]["content"]
-
-                                if content_chunk:
-                                    complete_content += content_chunk
-                                    # Call the chunk callback with the new content
-                                    await chunk_callback(content_chunk, False)
-
-                            # Check if this is the final chunk
-                            if parsed.get("done", False):
-                                # Final callback to indicate completion
-                                await chunk_callback("", True)
-                                break
-
-                        except json.JSONDecodeError as e:
+                        except json.JSONDecodeError:
                             logger.debug(
-                                f"Skipping invalid JSON in Ollama stream: {line[:100]}..."
+                                "Skipping invalid JSON in Ollama stream: %s...",
+                                line[:100],
                             )
                             continue
-                        except Exception as e:
-                            logger.error(f"Error processing Ollama stream chunk: {e}")
+                        except Exception as exc:
+                            logger.error(
+                                "Error processing Ollama stream chunk: %s",
+                                exc,
+                            )
                             continue
 
+                        if not isinstance(parsed, dict):
+                            continue
+
+                        parsed_dict = cast(dict[str, object], parsed)
+
+                        error_value = parsed_dict.get("error")
+                        if error_value is not None:
+                            error_text = str(error_value)
+                            logger.error("Ollama streaming error: %s", error_text)
+                            raise RuntimeError(f"Streaming error: {error_text}")
+
+                        message_obj = parsed_dict.get("message")
+                        if isinstance(message_obj, dict):
+                            message_dict = cast(dict[str, object], message_obj)
+                            content_value = message_dict.get("content")
+                            if isinstance(content_value, str) and content_value:
+                                complete_content += content_value
+                                await chunk_callback(content_value, False)
+
+                        done_value = parsed_dict.get("done")
+                        if isinstance(done_value, bool) and done_value:
+                            await chunk_callback("", True)
+                            break
+
             logger.debug(
-                f"Ollama streaming completed: {len(complete_content)} chars from {model_config.name}"
+                "Ollama streaming completed: %s chars from %s",
+                len(complete_content),
+                model_config.name,
             )
             return complete_content.strip()
-
-        except Exception as e:
-            logger.error(f"Ollama streaming failed for {model_config.name}: {e}")
+        except Exception as exc:
+            logger.error(
+                "Ollama streaming failed for %s: %s",
+                model_config.name,
+                exc,
+            )
             raise
+
 
     async def get_enhanced_models(self) -> list["BaseEnhancedModelInfo"]:
         """Get enhanced model information for Ollama models."""
         basic_models = await self.get_available_models()
-        enhanced_models = []
+        enhanced_models: list["BaseEnhancedModelInfo"] = []
 
         from models.base_types import (
             BaseEnhancedModelInfo,
