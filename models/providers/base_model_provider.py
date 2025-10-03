@@ -9,6 +9,7 @@ from openai import OpenAI
 
 if TYPE_CHECKING:
     from config.settings import ModelConfig, SystemConfig
+    from models.base_types import BaseEnhancedModelInfo
 
 
 @dataclass
@@ -41,6 +42,10 @@ class BaseModelProvider(ABC):
     @abstractmethod
     async def get_available_models(self) -> list[str]:
         """Get list of available models from this provider."""
+
+    @abstractmethod
+    async def get_enhanced_models(self) -> list["BaseEnhancedModelInfo"]:
+        """Return rich metadata for models surfaced by this provider."""
 
     @abstractmethod
     async def generate_response(

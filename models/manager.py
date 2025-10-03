@@ -8,13 +8,7 @@ from contextlib import asynccontextmanager
 from typing import Protocol, TypeAlias, cast
 
 from config.settings import ModelConfig, SystemConfig
-from models.base_types import (
-    BaseEnhancedModelInfo,
-    ModelPricing,
-    ModelTier,
-    ModelWeightClass,
-    SourceInfo,
-)
+from models.base_types import BaseEnhancedModelInfo
 
 from .providers.base_model_provider import BaseModelProvider, GenerationMetadata
 from .providers.providers import ProviderFactory
@@ -27,6 +21,7 @@ ModelCatalog: TypeAlias = dict[str, list[str]]
 
 BLACKLISTED_MODELS: frozenset[str] = frozenset(
     {
+        # Meta routes this variant through heavy-handed safety filters that break debate flow.
         "meta-llama/llama-3.2-11b-vision-instruct",
     }
 )
@@ -59,6 +54,13 @@ class ModelManager:
             )
         return self._providers[provider_name]
 
+    def _require_model_config(self, model_id: str) -> ModelConfig:
+        """Return the registered config or raise a uniform not-registered error."""
+        try:
+            return self._model_configs[model_id]
+        except KeyError as exc:
+            raise ValueError(f"Model {model_id} not registered") from exc
+
     def register_model(self, model_id: str, config: ModelConfig) -> None:
         """Register a model configuration for quick lookup."""
         try:
@@ -77,10 +79,7 @@ class ModelManager:
         self, model_id: str, messages: MessageList, **overrides: object
     ) -> str:
         """Generate a response from the specified model."""
-        if model_id not in self._model_configs:
-            raise ValueError(f"Model {model_id} not registered")
-
-        config = self._model_configs[model_id]
+        config = self._require_model_config(model_id)
         provider = self._get_provider(config.provider)
 
         response = await provider.generate_response(config, messages, **overrides)
@@ -97,10 +96,7 @@ class ModelManager:
         **overrides: object,
     ) -> str:
         """Generate a streaming response from the specified model."""
-        if model_id not in self._model_configs:
-            raise ValueError(f"Model {model_id} not registered")
-
-        config = self._model_configs[model_id]
+        config = self._require_model_config(model_id)
         provider = self._get_provider(config.provider)
 
         if provider.supports_streaming():
@@ -115,6 +111,7 @@ class ModelManager:
             )
             return response
 
+        # Providers that cannot stream still call the callback once so the caller can reuse the same code path.
         response = await provider.generate_response(config, messages, **overrides)
         await chunk_callback(response, True)
         logger.debug(
@@ -128,8 +125,7 @@ class ModelManager:
     @asynccontextmanager
     async def model_session(self, model_id: str) -> AsyncIterator["ModelManager"]:
         """Create a session context for model operations."""
-        if model_id not in self._model_configs:
-            raise ValueError(f"Model {model_id} not registered")
+        self._require_model_config(model_id)
 
         logger.debug("Starting session for model %s", model_id)
         try:
@@ -146,9 +142,9 @@ class ModelManager:
                 provider = self._get_provider(provider_name)
                 models = await provider.get_available_models()
                 all_models[provider_name] = models
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.error("Failed to get models from %s: %s", provider_name, exc)
-                all_models[provider_name] = []
+                raise
 
         return all_models
 
@@ -196,42 +192,21 @@ class ModelManager:
         for provider_name in ProviderFactory.get_available_providers():
             try:
                 provider = self._get_provider(provider_name)
-
-                if hasattr(provider, "get_enhanced_models"):
-                    enhanced_provider = cast(EnhancedModelProvider, provider)
-                    provider_enhanced = await enhanced_provider.get_enhanced_models()
-                    enhanced_models.extend(provider_enhanced)
-                    continue
-
-                basic_models = await provider.get_available_models()
-                for model_id in basic_models:
-                    fallback_model = BaseEnhancedModelInfo(
-                        id=model_id,
-                        name=model_id,
-                        provider=provider_name,
-                        description="Standard model",
-                        weight_class=ModelWeightClass.MIDDLEWEIGHT,
-                        tier=ModelTier.BALANCED,
-                        context_length=4096,
-                        max_completion_tokens=1024,
-                        pricing=ModelPricing(
-                            prompt_cost_per_1k=0.0,
-                            completion_cost_per_1k=0.0,
-                            is_free=True,
-                            currency="USD",
-                        ),
-                        value_score=5.0,
-                        is_preview=False,
-                        is_text_only=True,
-                        estimated_params=None,
-                        source_info=cast(SourceInfo, {}),
+                # Each provider must surface rich metadata; bail out loudly if a new provider forgets.
+                if not hasattr(provider, "get_enhanced_models"):
+                    raise NotImplementedError(
+                        f"Provider {provider_name} does not expose enhanced metadata"
                     )
-                    enhanced_models.append(fallback_model)
 
-            except Exception as exc:  # noqa: BLE001
+                enhanced_provider = cast(EnhancedModelProvider, provider)
+                provider_enhanced = await enhanced_provider.get_enhanced_models()
+                enhanced_models.extend(provider_enhanced)
+
+            except Exception as exc:
                 logger.error(
                     "Failed to get enhanced models from %s: %s", provider_name, exc
                 )
+                raise
 
         filtered_models = [
             model for model in enhanced_models if model.id not in BLACKLISTED_MODELS
@@ -250,10 +225,7 @@ class ModelManager:
         self, model_id: str, messages: MessageList, **overrides: object
     ) -> GenerationMetadata:
         """Generate a response with full metadata for cost tracking."""
-        if model_id not in self._model_configs:
-            raise ValueError(f"Model {model_id} not registered")
-
-        config = self._model_configs[model_id]
+        config = self._require_model_config(model_id)
         provider = self._get_provider(config.provider)
 
         metadata = await provider.generate_response_with_metadata(
@@ -276,10 +248,7 @@ class ModelManager:
         **overrides: object,
     ) -> GenerationMetadata:
         """Generate a streaming response with full metadata for cost tracking."""
-        if model_id not in self._model_configs:
-            raise ValueError(f"Model {model_id} not registered")
-
-        config = self._model_configs[model_id]
+        config = self._require_model_config(model_id)
         provider = self._get_provider(config.provider)
 
         metadata = await provider.generate_response_stream_with_metadata(
@@ -298,10 +267,7 @@ class ModelManager:
         self, model_id: str, generation_id: str
     ) -> float | None:
         """Query the cost for a specific generation using the appropriate provider."""
-        if model_id not in self._model_configs:
-            raise ValueError(f"Model {model_id} not registered")
-
-        config = self._model_configs[model_id]
+        config = self._require_model_config(model_id)
         provider = self._get_provider(config.provider)
 
         return await provider.query_generation_cost(generation_id)

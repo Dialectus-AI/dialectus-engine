@@ -14,6 +14,7 @@ from .openrouter_generation_types import OpenRouterChatCompletionResponse, OpenR
 
 if TYPE_CHECKING:
     from config.settings import SystemConfig, ModelConfig
+    from models.base_types import BaseEnhancedModelInfo
     from models.openrouter.openrouter_enhanced_model_info import OpenRouterEnhancedModelInfo
 
 logger = logging.getLogger(__name__)
@@ -90,7 +91,7 @@ class OpenRouterProvider(BaseModelProvider):
         enhanced_models = await self.get_enhanced_models()
         return [model.id for model in enhanced_models]
 
-    async def get_enhanced_models(self) -> list["OpenRouterEnhancedModelInfo"]:
+    async def get_enhanced_models(self) -> list["BaseEnhancedModelInfo"]:
         """Get enhanced model information with filtering and classification."""
         if not self._client:
             logger.warning("OpenRouter client not initialized - no API key")
@@ -131,7 +132,7 @@ class OpenRouterProvider(BaseModelProvider):
                         "Using cached OpenRouter models (%s models)",
                         len(enhanced_models),
                     )
-                    return enhanced_models
+                    return cast(list[BaseEnhancedModelInfo], enhanced_models)
 
                 logger.warning(
                     "All cached models failed to reconstruct, fetching fresh data..."
@@ -186,7 +187,7 @@ class OpenRouterProvider(BaseModelProvider):
                 logger.info(
                     f"OpenRouter: Fetched and cached {len(models_response.data)} models, filtered down to {len(enhanced_models)} curated options"
                 )
-                return enhanced_models
+                return cast(list[BaseEnhancedModelInfo], enhanced_models)
 
         except Exception as e:
             logger.error(f"Failed to get enhanced OpenRouter models: {e}")
