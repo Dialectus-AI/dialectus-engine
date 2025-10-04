@@ -60,6 +60,7 @@
         "patterns": [
           "code-",
           "-code",
+          "-coder",
           "codestral",
           "codegeex",
           "codegen",
