@@ -26,9 +26,10 @@ python -m build               # Build sdist and wheel
 - Pydantic v2 only: call `model_dump()` / `model_dump_json()`; avoid deprecated helpers.
 
 ## CLI Workflow Notes
-- Codex CLI runs through PowerShell: Bash heredocs (`python - <<'PY'`) and POSIX redirection syntax fail. Use `python -c`, temp files, or native PowerShell idioms instead.
-- PowerShell defaults to CRLF and UTF-16 in some tools—explicitly pass `encoding="utf-8"` when writing files from scripts.
-- Keep runtime emoji out of engine logs or scripts; PowerShell consoles often mangle them and they violate our no-emoji rule for cross-shell compatibility.
+## CLI Workflow Notes
+- The Codex CLI runs through a Bash shell in this repository; POSIX redirection, heredocs, and common GNU utilities are available.
+- Favor `bash -lc 'â€¦'` commands when chaining operations; avoid PowerShell-specific syntax.
+- When writing files via scripts, ensure UTF-8 encoding and LF line endings.
 
 ## Testing Guidelines
 - Tests should mirror module paths (e.g., `tests/models/test_manager.py`).
