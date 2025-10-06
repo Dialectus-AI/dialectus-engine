@@ -65,18 +65,8 @@ class BaseEnhancedModelInfo(BaseModel):
 
     @property
     def display_name(self) -> str:
-        """User-friendly display name without visual indicators (handled by frontend)."""
-
-        if self.pricing.is_free:
-            cost_info = "FREE"
-        else:
-            cost_info = f"${self.pricing.avg_cost_per_1k:.4f}/1K"
-
-        params_info = f" ({self.estimated_params})" if self.estimated_params else ""
-        model_info = f"{self.name}{params_info}"
-        preview_flag = " [PREVIEW]" if self.is_preview else ""
-
-        return f"{cost_info} | {model_info}{preview_flag}"
+        """User-friendly display name - just the model name without technical details."""
+        return self.name
 
     @property
     def sort_key(self) -> tuple[int, int, float, float]:
