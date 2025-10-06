@@ -64,6 +64,11 @@ class DebateFormat(ABC):
         """Get format-specific labels for each participant's side/role."""
         pass
 
+    @abstractmethod
+    def get_side_descriptions(self, participants: list[str]) -> dict[str, str]:
+        """Get format-specific descriptions explaining each participant's role."""
+        pass
+
     def get_max_participants(self) -> int:
         """Maximum number of participants supported."""
         return 2

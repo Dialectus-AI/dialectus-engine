@@ -92,6 +92,16 @@ class OxfordFormat(DebateFormat):
             labels[participant] = "Proposition" if i == 0 else "Opposition"
         return labels
 
+    def get_side_descriptions(self, participants: list[str]) -> dict[str, str]:
+        """Return descriptions for each side in Oxford debate."""
+        descriptions: dict[str, str] = {}
+        for i, participant in enumerate(participants[:2]):
+            if i == 0:
+                descriptions[participant] = "This AI will argue in support of the motion."
+            else:
+                descriptions[participant] = "This AI will argue against the motion."
+        return descriptions
+
     def get_format_instructions(self) -> str:
         """Oxford format-specific instructions."""
         return """OXFORD DEBATE FORMAT:

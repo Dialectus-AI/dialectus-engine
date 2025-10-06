@@ -88,6 +88,16 @@ class SocraticFormat(DebateFormat):
             labels[participant] = "Questioner" if i == 0 else "Responder"
         return labels
 
+    def get_side_descriptions(self, participants: list[str]) -> dict[str, str]:
+        """Return descriptions for each role in Socratic dialogue."""
+        descriptions: dict[str, str] = {}
+        for i, participant in enumerate(participants[:2]):
+            if i == 0:
+                descriptions[participant] = "This AI will probe and question assumptions through inquiry."
+            else:
+                descriptions[participant] = "This AI will respond to questions and explore ideas through dialogue."
+        return descriptions
+
     def get_format_instructions(self) -> str:
         """Socratic format-specific instructions."""
         return """SOCRATIC DIALOGUE FORMAT:

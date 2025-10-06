@@ -81,6 +81,13 @@ class ParliamentaryFormat(DebateFormat):
             for i, participant in enumerate(participants[:2])
         }
 
+    def get_side_descriptions(self, participants: list[str]) -> dict[str, str]:
+        """Return descriptions for each side in Parliamentary debate."""
+        return {
+            participant: "This AI will defend the government's position on the motion." if i == 0 else "This AI will challenge the government's position and argue for the opposition."
+            for i, participant in enumerate(participants[:2])
+        }
+
     def get_format_instructions(self) -> str:
         """Parliamentary format-specific instructions."""
         return """PARLIAMENTARY DEBATE FORMAT:

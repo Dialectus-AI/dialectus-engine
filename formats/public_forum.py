@@ -94,6 +94,16 @@ class PublicForumFormat(DebateFormat):
             labels[participant] = "Advocate" if i == 0 else "Opponent"
         return labels
 
+    def get_side_descriptions(self, participants: list[str]) -> dict[str, str]:
+        """Return descriptions for each side in Public Forum debate."""
+        descriptions: dict[str, str] = {}
+        for i, participant in enumerate(participants[:2]):
+            if i == 0:
+                descriptions[participant] = "This AI will advocate in support of the resolution."
+            else:
+                descriptions[participant] = "This AI will oppose the resolution."
+        return descriptions
+
     def get_format_instructions(self) -> str:
         """Public Forum format-specific instructions."""
         return """PUBLIC FORUM DEBATE FORMAT:
