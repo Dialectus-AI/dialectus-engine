@@ -205,12 +205,6 @@ class ModelCacheManager:
         if entry:
             del self._memory_cache[cache_key]
 
-        disk_entry = self._load_from_disk(cache_key)
-        if disk_entry and datetime.now() < disk_entry.expires_at:
-            self._memory_cache[cache_key] = disk_entry
-            logger.debug("Cache HIT (disk): %s", cache_key)
-            return disk_entry.data
-
         logger.debug("Cache MISS: %s", cache_key)
         return None
 
@@ -237,10 +231,9 @@ class ModelCacheManager:
         )
 
         self._memory_cache[cache_key] = entry
-        self._save_to_disk(cache_key, entry)
 
         logger.info(
-            "Cached %s/%s response (expires: %s)",
+            "Cached %s/%s response in memory (expires: %s)",
             provider,
             endpoint,
             expires_at.strftime("%Y-%m-%d %H:%M:%S"),
