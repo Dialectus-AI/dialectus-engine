@@ -44,8 +44,15 @@ class OpenRouterProvider(BaseModelProvider):
         else:
             # Prepare headers for OpenRouter
             headers: dict[str, str] = {}
-            if system_config.openrouter.site_url:
-                headers["HTTP-Referer"] = system_config.openrouter.site_url
+
+            # Get site_url from environment or config (environment takes precedence)
+            site_url = self._get_site_url()
+            if site_url:
+                headers["HTTP-Referer"] = site_url
+                logger.info(f"OpenRouter HTTP-Referer header set to: {site_url}")
+            else:
+                logger.warning("OpenRouter site_url not configured - this may trigger stricter rate limits. Set OPENROUTER_SITE_URL env var.")
+
             if system_config.openrouter.app_name:
                 headers["X-Title"] = system_config.openrouter.app_name
 
@@ -64,6 +71,17 @@ class OpenRouterProvider(BaseModelProvider):
             API key string if found, None otherwise
         """
         return os.getenv("OPENROUTER_API_KEY") or self.system_config.openrouter.api_key
+
+    def _get_site_url(self) -> str | None:
+        """Get OpenRouter site URL from environment or config.
+
+        Site URL is sent as HTTP-Referer header for OpenRouter attribution and rate limiting.
+        Environment variable takes precedence over config.
+
+        Returns:
+            Site URL string if found, None otherwise
+        """
+        return os.getenv("OPENROUTER_SITE_URL") or self.system_config.openrouter.site_url
 
     @property
     def provider_name(self) -> str:
@@ -154,8 +172,9 @@ class OpenRouterProvider(BaseModelProvider):
                 "Content-Type": "application/json",
             }
 
-            if self.system_config.openrouter.site_url:
-                headers["HTTP-Referer"] = self.system_config.openrouter.site_url
+            site_url = self._get_site_url()
+            if site_url:
+                headers["HTTP-Referer"] = site_url
             if self.system_config.openrouter.app_name:
                 headers["X-Title"] = self.system_config.openrouter.app_name
 
@@ -217,8 +236,9 @@ class OpenRouterProvider(BaseModelProvider):
                 "Content-Type": "application/json",
             }
 
-            if self.system_config.openrouter.site_url:
-                headers["HTTP-Referer"] = self.system_config.openrouter.site_url
+            site_url = self._get_site_url()
+            if site_url:
+                headers["HTTP-Referer"] = site_url
             if self.system_config.openrouter.app_name:
                 headers["X-Title"] = self.system_config.openrouter.app_name
 
@@ -309,8 +329,9 @@ class OpenRouterProvider(BaseModelProvider):
                 "Content-Type": "application/json",
             }
 
-            if self.system_config.openrouter.site_url:
-                headers["HTTP-Referer"] = self.system_config.openrouter.site_url
+            site_url = self._get_site_url()
+            if site_url:
+                headers["HTTP-Referer"] = site_url
             if self.system_config.openrouter.app_name:
                 headers["X-Title"] = self.system_config.openrouter.app_name
 
@@ -456,8 +477,9 @@ class OpenRouterProvider(BaseModelProvider):
                 "Content-Type": "application/json",
             }
 
-            if self.system_config.openrouter.site_url:
-                headers["HTTP-Referer"] = self.system_config.openrouter.site_url
+            site_url = self._get_site_url()
+            if site_url:
+                headers["HTTP-Referer"] = site_url
             if self.system_config.openrouter.app_name:
                 headers["X-Title"] = self.system_config.openrouter.app_name
 
@@ -555,8 +577,9 @@ class OpenRouterProvider(BaseModelProvider):
                 "Content-Type": "application/json",
             }
 
-            if self.system_config.openrouter.site_url:
-                headers["HTTP-Referer"] = self.system_config.openrouter.site_url
+            site_url = self._get_site_url()
+            if site_url:
+                headers["HTTP-Referer"] = site_url
             if self.system_config.openrouter.app_name:
                 headers["X-Title"] = self.system_config.openrouter.app_name
 
