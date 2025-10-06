@@ -14,6 +14,15 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Available personality types for debate participants
+PERSONALITY_TYPES = [
+    "analytical",
+    "passionate",
+    "scholarly",
+    "practical",
+    "neutral",
+]
+
 
 class PromptBuilder:
     """Handles generation of system prompts and instructions for debate participants."""
