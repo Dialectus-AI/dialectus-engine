@@ -13,7 +13,7 @@ from models.manager import ModelManager
 from .types import DebatePhase, Position
 from .models import DebateContext, DebateMessage
 from .context_builder import ContextBuilder
-from .utils import calculate_max_tokens, query_and_update_cost
+from .utils import calculate_max_tokens, query_and_update_cost, trim_incomplete_sentence
 
 if TYPE_CHECKING:
     from formats import DebateFormat, FormatPhase
@@ -315,6 +315,9 @@ class ResponseHandler:
         cleaned = re.sub(
             r"^\*+\s*", "", cleaned, flags=re.MULTILINE
         )  # Remove lines starting with *
+
+        # Trim incomplete sentence if response was cut off by token limit
+        cleaned = trim_incomplete_sentence(cleaned)
 
         # Debug logging if cleaning resulted in empty response
         final_cleaned = cleaned.strip()

@@ -80,13 +80,13 @@ class PromptBuilder:
         return f"""You are participating in a formal debate about: "{context.topic}"
 
 DEBATE FORMAT: {self.format.name.upper()}
-WORD LIMIT: {self.config.debate.word_limit} words per response
+WORD LIMIT: {self.config.debate.word_limit} words or less per response
 
 {format_instructions}
 
 GENERAL RULES:
 1. Stay focused on the topic
-2. Respect the word limit
+2. Keep your response under {self.config.debate.word_limit} words
 3. Provide evidence and reasoning
 4. Address opponent's arguments
 5. Maintain a respectful tone
