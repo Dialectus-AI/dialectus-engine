@@ -32,14 +32,14 @@ class PublicForumFormat(DebateFormat):
             FormatPhase(
                 phase=DebatePhase.OPENING,
                 name="Advocate Constructive Speech",
-                instruction="As the Advocate, present your case supporting the resolution. Focus on clear, accessible arguments that the general public can understand. Provide concrete evidence and real-world examples.",
+                instruction="Deliver your constructive speech supporting the resolution. Focus on clear, accessible arguments that the general public can understand. Provide concrete evidence and real-world examples.",
                 speaking_order=[advocate],
                 time_multiplier=1.0,
             ),
             FormatPhase(
                 phase=DebatePhase.OPENING,
                 name="Opponent Constructive Speech",
-                instruction="As the Opponent, present your case against the resolution. Challenge the Advocate's framework and provide counter-arguments with evidence. Focus on practical concerns and alternative perspectives.",
+                instruction="Deliver your constructive speech opposing the resolution. Challenge the Advocate's framework and provide counter-arguments with evidence. Focus on practical concerns and alternative perspectives.",
                 speaking_order=[opponent],
                 time_multiplier=1.0,
             ),

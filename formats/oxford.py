@@ -32,14 +32,14 @@ class OxfordFormat(DebateFormat):
             FormatPhase(
                 phase=DebatePhase.OPENING,
                 name="Proposition Opening Statement",
-                instruction="As the Proposition, present your case supporting the motion. Establish key arguments, provide evidence, and set the framework for debate.",
+                instruction="Deliver your opening statement supporting the motion from the Proposition side. Establish key arguments, provide evidence, and set the framework for debate.",
                 speaking_order=[proposition],
                 time_multiplier=1.0,
             ),
             FormatPhase(
                 phase=DebatePhase.OPENING,
                 name="Opposition Opening Statement",
-                instruction="As the Opposition, challenge the motion and the Proposition's framework. Present your counter-case with strong evidence and reasoning.",
+                instruction="Deliver your opening statement challenging the motion from the Opposition side. Present your counter-case with strong evidence and reasoning.",
                 speaking_order=[opposition],
                 time_multiplier=1.0,
             ),

@@ -32,14 +32,14 @@ class SocraticFormat(DebateFormat):
             FormatPhase(
                 phase=DebatePhase.OPENING,
                 name="Initial Position Statement",
-                instruction="As the responder, state your initial understanding or belief about the topic. Be open about what you know and what you're uncertain about.",
+                instruction="State your initial understanding or belief about the topic from the responder perspective. Be open about what you know and what you're uncertain about.",
                 speaking_order=[responder],
                 time_multiplier=0.8,
             ),
             FormatPhase(
                 phase=DebatePhase.OPENING,
                 name="Opening Inquiry",
-                instruction="As the questioner, begin probing the responder's initial position. Ask clarifying questions about definitions and basic assumptions.",
+                instruction="Begin probing the responder's initial position from the questioner role. Ask clarifying questions about definitions and basic assumptions.",
                 speaking_order=[questioner],
                 time_multiplier=0.8,
             ),

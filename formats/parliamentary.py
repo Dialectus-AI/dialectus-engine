@@ -33,14 +33,14 @@ class ParliamentaryFormat(DebateFormat):
             FormatPhase(
                 phase=DebatePhase.OPENING,
                 name="Prime Minister's Opening",
-                instruction="As Prime Minister, define the motion, present the government's case, and outline key arguments. Set the framework for the debate.",
+                instruction="Deliver the Prime Minister's opening speech. Define the motion, present the government's case, and outline key arguments while setting the framework for the debate.",
                 speaking_order=[pm],
                 time_multiplier=1.2,  # Slightly longer for PM
             ),
             FormatPhase(
                 phase=DebatePhase.OPENING,
                 name="Leader of Opposition's Response",
-                instruction="As Leader of Opposition, directly challenge the government's case. Present alternative framework and counter-arguments.",
+                instruction="Deliver the Leader of Opposition's response. Directly challenge the government's case while presenting an alternative framework and counter-arguments.",
                 speaking_order=[lo],
                 time_multiplier=1.1,
             ),
