@@ -154,17 +154,12 @@ class ModelManager:
 
         enhanced_models: list[EnhancedModelRecord] = []
         for model in typed_models:
-            description = (
-                f"{model.description[:200]}..."
-                if len(model.description) > 200
-                else model.description
-            )
             enhanced_models.append(
                 {
                     "id": model.id,
                     "name": model.name,
                     "provider": model.provider,
-                    "description": description,
+                    "description": model.description,
                     "weight_class": model.weight_class.value,
                     "tier": model.tier.value,
                     "context_length": model.context_length,
