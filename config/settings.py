@@ -212,7 +212,7 @@ def get_template_config() -> AppConfig:
             topic="Should artificial intelligence be regulated by government oversight?",
             format="oxford",
             time_per_turn=120,
-            word_limit=200,
+            word_limit=100,
         ),
         models={
             "model_a": ModelConfig(

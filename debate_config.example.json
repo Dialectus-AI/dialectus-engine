@@ -1,12 +1,11 @@
 {
   "_comment_local_development": "This file is copied to debate_config.json on first run. Edit debate_config.json for your local settings. debate_config.json is gitignored to protect secrets.",
   "_comment_production": "For production (Railway, Docker), use environment variables to override these settings. See DEPLOYMENT.md for full list of environment variables.",
-
   "debate": {
     "topic": "Should artificial intelligence be regulated by government oversight?",
     "format": "oxford",
     "time_per_turn": 120,
-    "word_limit": 200
+    "word_limit": 100
   },
   "models": {
     "model_a": {
@@ -30,7 +29,9 @@
       "evidence",
       "persuasiveness"
     ],
-    "judge_models": ["openthinker:7b"],
+    "judge_models": [
+      "openthinker:7b"
+    ],
     "judge_provider": "ollama"
   },
   "system": {
