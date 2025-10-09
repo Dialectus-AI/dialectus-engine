@@ -3,7 +3,7 @@
 from .engine import DebateEngine
 from .types import DebatePhase, Position
 from .models import DebateContext, DebateMessage
-from .prompt_builder import PromptBuilder
+from .prompt_builder import PromptBuilder, PERSONALITY_TYPES
 from .context_builder import ContextBuilder
 from .response_handler import ResponseHandler
 from .round_manager import RoundManager
@@ -16,6 +16,7 @@ __all__ = [
     "DebateContext",
     "DebateMessage",
     "PromptBuilder",
+    "PERSONALITY_TYPES",
     "ContextBuilder",
     "ResponseHandler",
     "RoundManager",
