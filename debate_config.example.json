@@ -1,6 +1,5 @@
 {
-  "_comment_local_development": "This file is copied to debate_config.json on first run. Edit debate_config.json for your local settings. debate_config.json is gitignored to protect secrets.",
-  "_comment_production": "For production (Railway, Docker), use environment variables to override these settings. See DEPLOYMENT.md for full list of environment variables.",
+  "_comment": "Copy this file to debate_config.json and edit with your settings. debate_config.json is gitignored to protect secrets.",
   "debate": {
     "topic": "Should artificial intelligence be regulated by government oversight?",
     "format": "oxford",
@@ -53,29 +52,8 @@
       "max_retries": 3,
       "timeout": 60
     },
-    "save_transcripts": true,
-    "transcript_dir": "transcripts",
-    "database_path": null,
-    "_comment_database_path": "Leave null to use 'debates.db'. For production with persistent storage: set DATABASE_PATH env var to volume mount path",
     "log_level": "INFO",
     "debate_topic_source": "openrouter",
     "debate_topic_model": "anthropic/claude-3-haiku"
-  },
-  "auth": {
-    "_comment_development_mode": "Set to false in production. Can be overridden with AUTH_DEVELOPMENT_MODE=false env var",
-    "development_mode": true,
-    "email": {
-      "_comment": "All email settings can be overridden with environment variables: EMAIL_ENABLED, SMTP_SERVER, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM_EMAIL, SMTP_FROM_NAME, SMTP_USE_TLS, FRONTEND_URL",
-      "enabled": false,
-      "smtp_server": "smtp.example.com",
-      "smtp_port": 587,
-      "smtp_user": "your-smtp-username",
-      "smtp_password": null,
-      "_comment_smtp_password": "Use SMTP_PASSWORD environment variable in production (never commit passwords to git)",
-      "from_email": "noreply@yourdomain.com",
-      "from_name": "Your App Name",
-      "use_tls": true,
-      "frontend_url": "http://localhost:5173"
-    }
   }
 }

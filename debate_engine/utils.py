@@ -88,7 +88,6 @@ async def query_and_update_cost(
         cost = await model_manager.query_generation_cost(speaker_id, message.generation_id)
         if cost is not None:
             # Update the message object in memory
-            # The web API will save this when it saves the transcript
             message.cost = cost
             message.cost_queried_at = datetime.now()
             logger.info(f"Updated cost for message {message.generation_id}: ${cost}")

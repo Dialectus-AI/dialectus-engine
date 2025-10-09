@@ -4,48 +4,78 @@
 
 # Dialectus Engine
 
-Core debate orchestration engine and REST API for the Dialectus AI debate system.
+A Python library for orchestrating AI-powered debates with multi-provider model support.
 
-![Python](https://img.shields.io/badge/python-3.8+-blue.svg)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688.svg)
-![SQLite](https://img.shields.io/badge/database-SQLite-003B57.svg)
+![Python](https://img.shields.io/badge/python-3.13+-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Status](https://img.shields.io/badge/status-Production%20Ready-brightgreen.svg)
 
 ## Overview
 
-The Dialectus Engine provides the core logic for managing AI-powered debates, including participant coordination, turn management, judge integration, and user authentication. It exposes a RESTful API and WebSocket interface for real-time debate interactions with secure user management.
+The Dialectus Engine is a standalone Python library that provides core debate orchestration logic, including participant coordination, turn management, AI judge integration, and multi-provider model support. It's designed to be imported and used by other applications to build debate systems.
 
 ## Components
 
 - **Core Engine** (`debate_engine/`) - Main debate orchestration logic
-- **REST API** (`web/`) - FastAPI-based web service with authentication
-- **User Authentication** (`web/auth_*`) - JWT-based user management with email verification
 - **Models** (`models/`) - AI model provider integrations (Ollama, OpenRouter)
 - **Configuration** (`config/`) - System configuration management
 - **Judges** (`judges/`) - AI judge implementations with ensemble support
-- **Formats** (`formats/`) - Debate format definitions (Oxford, Parliamentary, Socratic)
-- **Transcripts** (`transcripts/`) - SQLite database for debate storage and user data
+- **Formats** (`formats/`) - Debate format definitions (Oxford, Parliamentary, Socratic, Public Forum)
+
+## Installation
+
+### From Source
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/dialectus-engine.git
+cd dialectus-engine
+
+# Install in development mode
+pip install -e .
+
+# Or install with dev dependencies
+pip install -e ".[dev]"
+```
+
+### As a Dependency
+
+```bash
+# Install from git
+pip install git+https://github.com/yourusername/dialectus-engine.git@main
+```
 
 ## Quick Start
 
-1. **Install dependencies:**
-```bash
-pip install -r requirements.txt
-```
+```python
+import asyncio
+from debate_engine.core import DebateEngine
+from models.manager import ModelManager
+from config.settings import AppConfig, ModelConfig
 
-2. **Configure the system:**
-```bash
-cp debate_config.example.json debate_config.json
-# Edit debate_config.json with your provider settings
-```
+async def run_debate():
+    # Load configuration
+    config = AppConfig.from_json_file("debate_config.json")
 
-3. **Start the server:**
-```bash
-python web_server.py
-```
+    # Set up model manager
+    model_manager = ModelManager()
 
-4. **Access the API documentation at http://localhost:8000/docs**
+    # Register models
+    for model_id, model_config in config.models.items():
+        model_manager.register_model(model_id, model_config)
+
+    # Create debate engine
+    engine = DebateEngine(
+        config=config,
+        model_manager=model_manager
+    )
+
+    # Run debate
+    transcript = await engine.run_debate()
+    print(transcript)
+
+asyncio.run(run_debate())
+```
 
 ## Configuration
 
@@ -94,71 +124,80 @@ Supports multiple judges for ensemble decisions:
 }
 ```
 
-### Topic Generation
+## Features
 
-Used by the web interface's "refresh topic" feature:
-```json
-{
-  "system": {
-    "debate_topic_source": "openrouter",
-    "debate_topic_model": "anthropic/claude-3-haiku"
-  }
-}
-```
-
-## API Endpoints
-
-### Core Endpoints
-- `GET /health` - API health check
-- `GET /models` - List available AI models from all providers
-- `GET /providers` - List provider status and configuration
-- `GET /formats` - List available debate formats
-
-### Debate Management
-- `POST /debates` - Create new debate
-- `GET /debates/{id}` - Get debate status and details
-- `POST /debates/{id}/start` - Start debate execution
-- `POST /debates/{id}/cancel` - Cancel running debate
-- `GET /debates/{id}/transcript` - Get debate transcript
-- `WebSocket /ws/debate/{id}` - Real-time debate streaming
-
-### User Authentication
-- `POST /auth/register` - Register new user account
-- `POST /auth/verify` - Verify email address with token
-- `POST /auth/complete-registration` - Complete registration with username
-- `POST /auth/login` - User login with JWT token
-- `POST /auth/logout` - User logout
-- `GET /auth/me` - Get current authenticated user
-
-### Utilities
-- `GET /generate-topic` - Generate random debate topic
-- `GET /transcripts` - List stored debate transcripts
-- `GET /transcripts/{id}` - Get specific transcript details
-
-### System Management
-- `GET /ollama/health` - Check Ollama provider health
-- `GET /cache/stats` - View model cache statistics
-- `POST /cache/cleanup` - Clean up expired cache entries
-- `DELETE /cache/models` - Clear model cache
-
-### Model Integration
+### Multi-Provider Model Support
 - **Ollama**: Local model management with hardware optimization
-- **OpenRouter**: Cloud model access with API key authentication
+- **OpenRouter**: Cloud model access to 100+ models
+- **Async streaming**: Chunk-by-chunk response generation
 - **Auto-discovery**: Dynamic model listing from all configured providers
+- **Caching**: In-memory cache with TTL for model metadata
+
+### Debate Formats
+- **Oxford**: Classic opening/rebuttal/closing structure
+- **Parliamentary**: British-style government vs. opposition
+- **Socratic**: Question-driven dialogue format
+- **Public Forum**: American high school debate style
+
+### AI Judge System
+- **LLM-based evaluation**: Detailed criterion scoring
+- **Ensemble judging**: Aggregate decisions from multiple judges
+- **Structured decisions**: JSON-serializable judge results
+- **Configurable criteria**: Logic, evidence, persuasiveness, etc.
 
 ## Architecture
 
-The engine serves as the backend for both:
-- **CLI Interface** - Command-line client for debates
-- **Web Interface** - Browser-based real-time UI
-
 Key architectural principles:
-- **API-first**: All functionality exposed via REST/WebSocket
+- **Library-first**: Designed to be imported by other applications
 - **Provider agnostic**: Support for multiple AI model sources
-- **Real-time**: WebSocket streaming for live debate updates
-- **Persistent**: SQLite storage for debates and judging results
+- **Async by default**: All model interactions are async
+- **Type-safe**: Strict Pyright configuration with modern type hints
+- **Pydantic everywhere**: All config and data models use Pydantic v2
 - **Configurable**: JSON-based configuration with validation
 
-## Development
+### Technology Stack
+- **Python 3.13+** with modern type hints (`X | None`, `list[T]`, `dict[K, V]`)
+- **Pydantic v2** for data validation and settings management
+- **OpenAI SDK** for OpenRouter API integration (streaming support)
+- **httpx** for async HTTP requests (Ollama provider)
+- **asyncio** for concurrent debate operations
 
-This repository creates a focused, deployable service for the debate engine and API layer. The engine handles all AI model interactions, debate logic, and data persistence while exposing clean APIs for client applications.
+## Usage Examples
+
+### Listing Available Models
+
+```python
+from models.manager import ModelManager
+
+async def list_models():
+    manager = ModelManager()
+    models = await manager.get_all_models()
+    for model_id, model_info in models.items():
+        print(f"{model_id}: {model_info.description}")
+```
+
+### Running a Custom Format
+
+```python
+from formats.registry import format_registry
+
+# Get available formats
+formats = format_registry.list_formats()
+
+# Load a specific format
+oxford = format_registry.get_format("oxford")
+phases = oxford.phases()
+```
+
+### Ensemble Judging
+
+```python
+from judges.factory import JudgeFactory
+
+# Create judge with multiple models
+config.judging.judge_models = ["openthinker:7b", "llama3.2:3b", "qwen2.5:3b"]
+judge = JudgeFactory.create_judge(config.judging, model_manager)
+
+# Get aggregated decision
+decision = await judge.judge_debate(context)
+```

@@ -166,7 +166,7 @@ class DebateEngine:
         self.context.current_phase = DebatePhase.COMPLETED
         logger.info(f"Debate completed successfully in {total_debate_time_ms}ms")
 
-        # Store debate time for later transcript saving
+        # Store debate time in metadata
         self.context.metadata["total_debate_time_ms"] = total_debate_time_ms
 
         return self.context

@@ -29,7 +29,7 @@ class AIJudge(BaseJudge):
         super().__init__(criteria)
         self.model_manager = model_manager
         self.judge_model_name = judge_model_name
-        self.judge_provider = judge_provider  # Store provider for database saving
+        self.judge_provider = judge_provider
         self.system_config = system_config
 
         # Initialize ensemble temperature (can be overridden for ensemble judges)
