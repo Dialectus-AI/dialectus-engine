@@ -72,6 +72,9 @@ cache/
 transcripts/
 *.db
 *.sqlite
+TOURNAMENT.md
 
 # Claude
 .claude/
+CLAUDE.md
+AGENTS.md
