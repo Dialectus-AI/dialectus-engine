@@ -2,7 +2,6 @@
 
 from typing import Literal
 from pydantic import BaseModel, Field, field_validator
-import yaml
 from pathlib import Path
 
 
@@ -171,18 +170,6 @@ class AppConfig(BaseModel):
             )
 
         return cls(**data)
-
-    def save_to_file(self, config_path: Path) -> None:
-        """Save configuration to YAML file."""
-        config_path.parent.mkdir(parents=True, exist_ok=True)
-
-        with open(config_path, "w", encoding="utf-8") as f:
-            yaml.dump(
-                self.model_dump(exclude_unset=True),
-                f,
-                default_flow_style=False,
-                indent=2,
-            )
 
 
 def get_default_config() -> AppConfig:

@@ -33,18 +33,17 @@ class OllamaProvider(BaseModelProvider):
 
     async def is_running(self) -> bool:
         """Fast health check to see if Ollama server is running."""
-        import requests
+        import httpx
 
         try:
-
-            # Use synchronous requests for simplicity and speed
-            response = requests.get(f"{self._ollama_base_url}/api/tags", timeout=1.0)
-            response.raise_for_status()
-            return True
-        except requests.exceptions.Timeout as e:
+            async with httpx.AsyncClient(timeout=1.0) as client:
+                response = await client.get(f"{self._ollama_base_url}/api/tags")
+                response.raise_for_status()
+                return True
+        except httpx.TimeoutException as e:
             logger.error(f"Ollama health check timeout after 1s: {e}")
             return False
-        except requests.exceptions.ConnectionError as e:
+        except httpx.ConnectError as e:
             logger.error(f"Ollama health check connection error: {e}")
             return False
         except Exception as e:

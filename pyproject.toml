@@ -12,19 +12,9 @@ authors = [
     {name = "Dialectus Team"}
 ]
 dependencies = [
-    "aiosmtplib>=4.0.2",
-    "bcrypt>=4.3.0",
-    "email-validator>=2.3.0",
-    "fastapi>=0.116.1",
     "httpx>=0.28.1",
     "openai>=1.105.0",
     "pydantic>=2.11.7",
-    "python-jose[cryptography]>=3.5.0",
-    "python-multipart>=0.0.20",
-    "pyyaml>=6.0.2",
-    "requests>=2.32.5",
-    "slowapi>=0.1.9",
-    "uvicorn[standard]>=0.35.0",
 ]
 
 [project.optional-dependencies]
@@ -33,4 +23,4 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["debate_engine*", "models*", "judges*", "formats*", "tournaments*", "config*", "web*"]
+include = ["debate_engine*", "models*", "judges*", "formats*", "tournaments*", "config*"]
