@@ -79,50 +79,23 @@ asyncio.run(run_debate())
 
 ## Configuration
 
-The engine uses `debate_config.json` for system configuration. Key sections:
+The engine uses `debate_config.json` for system configuration. To get started:
 
-### Provider Configuration
+```bash
+# Copy the example configuration
+cp debate_config.example.json debate_config.json
 
-```json
-{
-  "system": {
-    "ollama_base_url": "http://localhost:11434",
-    "ollama": {
-      "num_gpu_layers": -1,
-      "keep_alive": "5m",
-      "repeat_penalty": 1.1
-    },
-    "openrouter": {
-      "api_key": "your-openrouter-api-key-here",
-      "base_url": "https://openrouter.ai/v1",
-      "timeout": 60,
-      "max_retries": 3
-    }
-  }
-}
+# Edit with your settings and API keys
+nano debate_config.json
 ```
 
-### Judging Configuration
+Key configuration sections:
+- **Models**: Define debate participants with provider, personality, and parameters
+- **Providers**: Configure Ollama (local) and OpenRouter (cloud) settings
+- **Judging**: Set evaluation criteria and judge models
+- **Debate**: Default topic, format, and word limits
 
-```json
-{
-  "judging": {
-    "criteria": ["logic", "evidence", "persuasiveness"],
-    "judge_models": ["openthinker:7b"],
-    "judge_provider": "ollama"
-  }
-}
-```
-
-Supports multiple judges for ensemble decisions:
-```json
-{
-  "judging": {
-    "judge_models": ["openthinker:7b", "llama3.2:3b", "qwen2.5:3b"],
-    "judge_provider": "ollama"
-  }
-}
-```
+For detailed configuration documentation, see [CONFIG_GUIDE.md](CONFIG_GUIDE.md).
 
 ## Features
 

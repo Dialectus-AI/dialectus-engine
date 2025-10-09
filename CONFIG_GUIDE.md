@@ -6,25 +6,25 @@ Dialectus uses a single configuration file called `debate_config.json` that cont
 
 ## Configuration Files
 
-### `debate_config.json` (Auto-created)
-- **Location**: Root directory of engine/CLI projects
+### `debate_config.json` (Your Configuration)
+- **Location**: Root directory
 - **Purpose**: Your actual configuration with API keys and preferences
-- **Status**: Automatically created on first run, ignored by git
+- **Status**: Created from example file, ignored by git
 - **Contains**: All your settings including API keys
 
 ### `debate_config.example.json` (Template)
-- **Location**: Root directory of engine/CLI projects  
+- **Location**: Root directory
 - **Purpose**: Template showing all available configuration options
 - **Status**: Committed to git as documentation
 - **Contains**: Example values and full structure reference
 
-## Auto-Creation Process
+## Setup
 
-When you first run the system:
+To configure the engine:
 
-1. **Checks for `debate_config.json`** - if it exists, uses it
-2. **Copies from `debate_config.example.json`** - if example exists, copies it
-3. **Creates from template** - fallback to built-in defaults
+1. **Copy the example file**: `cp debate_config.example.json debate_config.json`
+2. **Edit your settings**: Open `debate_config.json` and update values
+3. **Add API keys**: Set your OpenRouter API key if using cloud models
 
 ## Configuration Structure
 
@@ -133,13 +133,17 @@ Set environment variable (fallback):
 export OPENROUTER_API_KEY="sk-or-v1-your-actual-api-key-here"
 ```
 
-## Configuration Override Flow
+## Configuration Usage
 
-1. **Base Config** (`debate_config.json`) - System defaults
-2. **Web UI Form** - Per-debate overrides 
-3. **Final Config** - Used for that specific debate
+The `debate_config.json` file provides default values that can be overridden programmatically when creating a debate:
 
-Example: If config file has `temperature: 0.7` but web form sets `0.9`, the debate uses `0.9`.
+```python
+config = AppConfig.from_json_file("debate_config.json")
+
+# Override topic for this specific debate
+engine = DebateEngine(config, model_manager)
+await engine.initialize_debate(topic="Custom debate topic")
+```
 
 ## Available Model Formats
 
@@ -155,10 +159,10 @@ Example: If config file has `temperature: 0.7` but web form sets `0.9`, the deba
 
 ## Getting Started
 
-1. **First Run**: System auto-creates `debate_config.json` from example
-2. **Add API Key**: Edit the `openrouter.api_key` field  
+1. **Copy Config**: Create `debate_config.json` from the example file
+2. **Add API Key**: Edit the `openrouter.api_key` field if using cloud models
 3. **Customize Models**: Add your preferred model combinations
-4. **Start Debating**: Use web interface or CLI
+4. **Load in Code**: Use `AppConfig.from_json_file("debate_config.json")` in your application
 
 ## Troubleshooting
 
