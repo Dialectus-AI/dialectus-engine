@@ -10,6 +10,7 @@ from typing import Callable, Awaitable, TYPE_CHECKING
 
 from config.settings import AppConfig
 from models.manager import ModelManager
+from models.providers import ProviderRateLimitError
 from .types import DebatePhase, Position
 from .models import DebateContext, DebateMessage
 from .context_builder import ContextBuilder
@@ -146,6 +147,8 @@ class ResponseHandler:
                 f"RESPONSE HANDLER: Successfully generated {len(response_content)} chars "
                 f"for {speaker_id} in {generation_time:.2f}s"
             )
+        except ProviderRateLimitError:
+            raise
         except Exception as e:
             generation_time = time.time() - start_time
             model_config = self.config.models[speaker_id]
@@ -220,6 +223,8 @@ class ResponseHandler:
                 f"RESPONSE HANDLER: Successfully generated {len(generation_metadata.content)} chars "
                 f"via streaming for {speaker_id}, generation_id: {generation_metadata.generation_id}"
             )
+        except ProviderRateLimitError:
+            raise
         except Exception as e:
             model_config = self.config.models[speaker_id]
             error_msg = (

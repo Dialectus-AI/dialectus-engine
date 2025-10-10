@@ -8,10 +8,12 @@ from typing import TYPE_CHECKING, ClassVar, Awaitable, Callable, cast
 import logging
 from openai import OpenAI
 import httpx
+from httpx import HTTPStatusError
 
 from .base_model_provider import BaseModelProvider, GenerationMetadata
 from .openrouter_generation_types import OpenRouterChatCompletionResponse, OpenRouterGenerationApiResponse
 from models.base_types import BaseEnhancedModelInfo
+from .exceptions import ProviderRateLimitError
 
 if TYPE_CHECKING:
     from config.settings import SystemConfig, ModelConfig
@@ -208,6 +210,18 @@ class OpenRouterProvider(BaseModelProvider):
                 )
                 return cast(list[BaseEnhancedModelInfo], enhanced_models)
 
+        except HTTPStatusError as http_err:
+            status = http_err.response.status_code if http_err.response else None
+            if status == 429:
+                detail = "OpenRouter rate limited the model discovery request."
+                raise ProviderRateLimitError(
+                    provider="openrouter",
+                    model=None,
+                    status_code=429,
+                    detail=detail,
+                ) from http_err
+            logger.error("OpenRouter models request failed with HTTP %s", status)
+            raise
         except Exception as e:
             logger.error(f"Failed to get enhanced OpenRouter models: {e}")
             raise  # Fail fast - don't hide errors from the frontend
@@ -289,6 +303,24 @@ class OpenRouterProvider(BaseModelProvider):
 
             return content.strip()
 
+        except HTTPStatusError as http_err:
+            status = http_err.response.status_code if http_err.response else None
+            if status == 429:
+                detail = "OpenRouter rate limited the request."
+                if ":free" in model_config.name:
+                    detail += " Free-tier routes (suffix ':free') require sufficient balance on OpenRouter."
+                raise ProviderRateLimitError(
+                    provider="openrouter",
+                    model=model_config.name,
+                    status_code=429,
+                    detail=detail,
+                ) from http_err
+            logger.error(
+                "OpenRouter generation HTTP failure for %s: status %s",
+                model_config.name,
+                status,
+            )
+            raise
         except Exception as exc:
             logger.error("OpenRouter generation failed for %s: %s", model_config.name, exc)
             raise
@@ -449,6 +481,24 @@ class OpenRouterProvider(BaseModelProvider):
             )
             return complete_content.strip()
 
+        except HTTPStatusError as http_err:
+            status = http_err.response.status_code if http_err.response else None
+            if status == 429:
+                detail = "OpenRouter rate limited the request."
+                if ":free" in model_config.name:
+                    detail += " Free-tier routes (suffix ':free') require sufficient balance on OpenRouter."
+                raise ProviderRateLimitError(
+                    provider="openrouter",
+                    model=model_config.name,
+                    status_code=429,
+                    detail=detail,
+                ) from http_err
+            logger.error(
+                "OpenRouter streaming HTTP failure for %s: status %s",
+                model_config.name,
+                status,
+            )
+            raise
         except Exception as exc:
             logger.error("OpenRouter streaming failed for %s: %s", model_config.name, exc)
             raise
@@ -551,6 +601,24 @@ class OpenRouterProvider(BaseModelProvider):
                 provider="openrouter",
             )
 
+        except HTTPStatusError as http_err:
+            status = http_err.response.status_code if http_err.response else None
+            if status == 429:
+                detail = "OpenRouter rate limited the request."
+                if ":free" in model_config.name:
+                    detail += " Free-tier routes (suffix ':free') require sufficient balance on OpenRouter."
+                raise ProviderRateLimitError(
+                    provider="openrouter",
+                    model=model_config.name,
+                    status_code=429,
+                    detail=detail,
+                ) from http_err
+            logger.error(
+                "OpenRouter metadata generation HTTP failure for %s: status %s",
+                model_config.name,
+                status,
+            )
+            raise
         except Exception as exc:
             logger.error(
                 "OpenRouter metadata generation failed for %s: %s",
@@ -601,6 +669,22 @@ class OpenRouterProvider(BaseModelProvider):
                 logger.debug(f"Retrieved cost for generation {generation_id}: ${total_cost}")
                 return total_cost
 
+        except HTTPStatusError as http_err:
+            status = http_err.response.status_code if http_err.response else None
+            if status == 429:
+                detail = "OpenRouter rate limited the cost query request."
+                raise ProviderRateLimitError(
+                    provider="openrouter",
+                    model=None,
+                    status_code=429,
+                    detail=detail,
+                ) from http_err
+            logger.error(
+                "OpenRouter cost query HTTP failure for %s: status %s",
+                generation_id,
+                status,
+            )
+            raise
         except Exception as e:
             logger.error(f"Failed to query cost for generation {generation_id}: {e}")
             raise
