@@ -1,0 +1,35 @@
+{
+  "include": [
+    "dialectus"
+  ],
+  "exclude": [
+    "**/build",
+    "**/.mypy_cache",
+    "**/venv",
+    "**/__pycache__",
+    "**/*.egg-info",
+    "**/dist"
+  ],
+  "extraPaths": [
+    "."
+  ],
+  "pythonVersion": "3.13",
+  "typeCheckingMode": "strict",
+  "reportMissingImports": true,
+  "reportMissingTypeStubs": true,
+  "reportUnusedImport": true,
+  "reportUnusedVariable": true,
+  "reportUndefinedVariable": true,
+  "reportUnnecessaryTypeIgnoreComment": true,
+  "reportPrivateUsage": false,
+  "useLibraryCodeForTypes": true,
+  "executionEnvironments": [
+    {
+      "root": ".",
+      "pythonVersion": "3.13",
+      "extraPaths": [
+        "."
+      ]
+    }
+  ]
+}
