@@ -7,9 +7,20 @@ name = "dialectus-engine"
 version = "0.1.0"
 description = "AI debate engine framework - importable Python library"
 readme = "README.md"
+license = "MIT"
 requires-python = ">=3.13"
 authors = [
-    {name = "Dialectus Team"}
+    {name = "Dialectus AI"}
+]
+keywords = ["ai", "debate", "llm", "argumentation", "ollama", "openrouter", "artificial-intelligence"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
     "httpx>=0.28.1",
@@ -17,10 +28,15 @@ dependencies = [
     "pydantic>=2.11.7",
 ]
 
+[project.urls]
+Homepage = "https://github.com/dialectus-ai/dialectus-engine"
+Repository = "https://github.com/dialectus-ai/dialectus-engine"
+Issues = "https://github.com/dialectus-ai/dialectus-engine/issues"
+
 [project.optional-dependencies]
 dev = [
     "pip-tools",
 ]
 
-[tool.setuptools.packages.find]
-include = ["debate_engine*", "models*", "judges*", "formats*", "tournaments*", "config*"]
+[tool.setuptools]
+packages = ["dialectus", "dialectus.engine"]
