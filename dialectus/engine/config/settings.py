@@ -11,7 +11,9 @@ class ModelConfig(BaseModel):
 
     name: str = Field(
         ...,
-        description="Model name (e.g., 'llama3.2:3b' for Ollama, 'openai/gpt-4' for OpenRouter)",
+        description=(
+            "Model name (e.g., 'llama3.2:3b' for Ollama, 'openai/gpt-4' for OpenRouter)"
+        ),
     )
     provider: str = Field(
         default="ollama", description="Model provider (ollama, openrouter, etc.)"
@@ -70,7 +72,10 @@ class OllamaConfig(BaseModel):
     )
     keep_alive: str | None = Field(
         default="5m",
-        description="How long to keep models loaded (e.g., '5m', '1h', '0' for immediate unload)",
+        description=(
+            "How long to keep models loaded (e.g., '5m', '1h', '0' for immediate"
+            " unload)"
+        ),
     )
     repeat_penalty: float | None = Field(
         default=1.1, description="Penalty for repetition in responses"
@@ -82,7 +87,9 @@ class OpenRouterConfig(BaseModel):
 
     api_key: str | None = Field(
         default=None,
-        description="OpenRouter API key (can also be set via OPENROUTER_API_KEY env var)",
+        description=(
+            "OpenRouter API key (can also be set via OPENROUTER_API_KEY env var)"
+        ),
     )
     base_url: str = Field(
         default="https://openrouter.ai/api/v1", description="OpenRouter API base URL"
@@ -197,7 +204,9 @@ def get_template_config() -> AppConfig:
     """Get template configuration for config file generation."""
     return AppConfig(
         debate=DebateConfig(
-            topic="Should artificial intelligence be regulated by government oversight?",
+            topic=(
+                "Should artificial intelligence be regulated by government oversight?"
+            ),
             format="oxford",
             time_per_turn=120,
             word_limit=100,

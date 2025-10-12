@@ -84,8 +84,9 @@ class DebateEngine:
     async def run_full_debate(
         self,
         phase_callback: Callable[[str, dict[str, Any]], Awaitable[None]] | None = None,
-        message_callback: Callable[[str, dict[str, Any]], Awaitable[None]]
-        | None = None,
+        message_callback: (
+            Callable[[str, dict[str, Any]], Awaitable[None]] | None
+        ) = None,
         chunk_callback: Callable[[str, bool], Awaitable[None]] | None = None,
     ) -> DebateContext:
         """Run a complete debate from start to finish.

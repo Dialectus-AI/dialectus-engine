@@ -135,7 +135,9 @@ class OpenRouterCapabilityExtractor:
             ModelWeightClass.ULTRAWEIGHT: 1.5,
             ModelWeightClass.HEAVYWEIGHT: 1.3,
             ModelWeightClass.MIDDLEWEIGHT: 1.0,
-            ModelWeightClass.LIGHTWEIGHT: 0.7,  # Lower score for small models in debate context
+            ModelWeightClass.LIGHTWEIGHT: (
+                0.7
+            ),  # Lower score for small models in debate context
         }.get(weight_class, 1.0)
 
         # Conversational suitability bonus

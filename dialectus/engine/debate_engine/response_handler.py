@@ -141,8 +141,9 @@ class ResponseHandler:
         start_time = time.time()
         try:
             logger.info(
-                f"RESPONSE HANDLER: Starting response generation for {speaker_id} "
-                f"({self.config.models[speaker_id].name}) via {self.config.models[speaker_id].provider}"
+                f"RESPONSE HANDLER: Starting response generation for {speaker_id}"
+                f" ({self.config.models[speaker_id].name}) via"
+                f" {self.config.models[speaker_id].provider}"
             )
             async with self.model_manager.model_session(speaker_id):
                 response_content = await self.model_manager.generate_response(
@@ -150,8 +151,8 @@ class ResponseHandler:
                 )
             generation_time = time.time() - start_time
             logger.info(
-                f"RESPONSE HANDLER: Successfully generated {len(response_content)} chars "
-                f"for {speaker_id} in {generation_time:.2f}s"
+                f"RESPONSE HANDLER: Successfully generated {len(response_content)}"
+                f" chars for {speaker_id} in {generation_time:.2f}s"
             )
         except ProviderRateLimitError:
             raise
@@ -220,8 +221,9 @@ class ResponseHandler:
         # Generate streaming response with metadata for cost tracking
         try:
             logger.info(
-                f"RESPONSE HANDLER: Starting streaming response generation for {speaker_id} "
-                f"({self.config.models[speaker_id].name}) via {self.config.models[speaker_id].provider}"
+                "RESPONSE HANDLER: Starting streaming response generation for"
+                f" {speaker_id} ({self.config.models[speaker_id].name}) via"
+                f" {self.config.models[speaker_id].provider}"
             )
             async with self.model_manager.model_session(speaker_id):
                 generation_metadata = (
@@ -233,16 +235,18 @@ class ResponseHandler:
                     )
                 )
             logger.info(
-                f"RESPONSE HANDLER: Successfully generated {len(generation_metadata.content)} chars "
-                f"via streaming for {speaker_id}, generation_id: {generation_metadata.generation_id}"
+                "RESPONSE HANDLER: Successfully generated"
+                f" {len(generation_metadata.content)} chars via streaming for"
+                f" {speaker_id}, generation_id: {generation_metadata.generation_id}"
             )
         except ProviderRateLimitError:
             raise
         except Exception as e:
             model_config = self.config.models[speaker_id]
             error_msg = (
-                f"RESPONSE HANDLER STREAMING FAILURE: {speaker_id} ({model_config.name}) "
-                f"via {model_config.provider} failed: {type(e).__name__}: {str(e)}"
+                f"RESPONSE HANDLER STREAMING FAILURE: {speaker_id}"
+                f" ({model_config.name}) via {model_config.provider} failed:"
+                f" {type(e).__name__}: {str(e)}"
             )
             logger.error(error_msg)
             raise RuntimeError(error_msg) from e
@@ -299,7 +303,8 @@ class ResponseHandler:
         # Debug logging for empty responses
         if not response.strip():
             logger.warning(
-                f"Model {display_name} ({speaker_id}) returned empty response before cleaning"
+                f"Model {display_name} ({speaker_id}) returned empty response before"
+                " cleaning"
             )
 
         cleaned = response.strip()

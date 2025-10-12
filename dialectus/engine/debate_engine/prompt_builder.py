@@ -128,15 +128,32 @@ You will be told your specific role and speaking context for each response."""
         role_name = side_labels.get(model_id, position.value.title())
 
         position_guidance = {
-            Position.PRO: f"You ARE the {role_name} speaker. You support the motion and believe it is correct.",
-            Position.CON: f"You ARE the {role_name} speaker. You oppose the motion and believe it is wrong.",
+            Position.PRO: (
+                f"You ARE the {role_name} speaker. You support the motion and believe"
+                " it is correct."
+            ),
+            Position.CON: (
+                f"You ARE the {role_name} speaker. You oppose the motion and believe it"
+                " is wrong."
+            ),
         }
 
         personality_guidance = {
-            "analytical": "Your speaking style is data-driven, logical, and systematic.",
-            "passionate": "Your speaking style is persuasive and emotionally engaging while factual.",
-            "scholarly": "Your speaking style references academic sources and theoretical frameworks.",
-            "practical": "Your speaking style emphasizes real-world applications and practical implications.",
+            "analytical": (
+                "Your speaking style is data-driven, logical, and systematic."
+            ),
+            "passionate": (
+                "Your speaking style is persuasive and emotionally engaging while"
+                " factual."
+            ),
+            "scholarly": (
+                "Your speaking style references academic sources and theoretical"
+                " frameworks."
+            ),
+            "practical": (
+                "Your speaking style emphasizes real-world applications and practical"
+                " implications."
+            ),
             "neutral": "Your speaking style is balanced with measured reasoning.",
         }
 
@@ -169,9 +186,15 @@ Remember: You are embodying the {role_name} position throughout this debate. Spe
             Phase-specific instruction
         """
         instructions = {
-            DebatePhase.OPENING: "Present your opening arguments clearly and persuasively.",
-            DebatePhase.REBUTTAL: "Address the opponent's arguments and strengthen your position.",
+            DebatePhase.OPENING: (
+                "Present your opening arguments clearly and persuasively."
+            ),
+            DebatePhase.REBUTTAL: (
+                "Address the opponent's arguments and strengthen your position."
+            ),
             DebatePhase.CROSS_EXAM: "Ask probing questions or provide direct answers.",
-            DebatePhase.CLOSING: "Summarize your case and make your final persuasive appeal.",
+            DebatePhase.CLOSING: (
+                "Summarize your case and make your final persuasive appeal."
+            ),
         }
         return instructions.get(phase, "Participate according to the debate format.")

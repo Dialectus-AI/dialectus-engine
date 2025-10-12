@@ -48,7 +48,8 @@ class OpenRouterProvider(BaseModelProvider):
 
         if not api_key:
             logger.warning(
-                "No OpenRouter API key found. Set OPENROUTER_API_KEY or configure in system settings."
+                "No OpenRouter API key found. Set OPENROUTER_API_KEY or configure in"
+                " system settings."
             )
             self._client = None
         else:
@@ -62,7 +63,8 @@ class OpenRouterProvider(BaseModelProvider):
                 logger.info(f"OpenRouter HTTP-Referer header set to: {site_url}")
             else:
                 logger.warning(
-                    "OpenRouter site_url not configured - this may trigger stricter rate limits. Set OPENROUTER_SITE_URL env var."
+                    "OpenRouter site_url not configured - this may trigger stricter"
+                    " rate limits. Set OPENROUTER_SITE_URL env var."
                 )
 
             if system_config.openrouter.app_name:
@@ -111,7 +113,8 @@ class OpenRouterProvider(BaseModelProvider):
                 if time_since_last < self._min_request_interval:
                     sleep_time = self._min_request_interval - time_since_last
                     logger.debug(
-                        f"Rate limiting: waiting {sleep_time:.2f}s before next OpenRouter request"
+                        f"Rate limiting: waiting {sleep_time:.2f}s before next"
+                        " OpenRouter request"
                     )
                     await asyncio.sleep(sleep_time)
 
@@ -224,7 +227,8 @@ class OpenRouterProvider(BaseModelProvider):
                 cache_manager.set("openrouter", "models", enhanced_models, ttl_hours=1)
 
                 logger.info(
-                    f"OpenRouter: Fetched and cached {len(models_response.data)} models, filtered down to {len(enhanced_models)} curated options"
+                    f"OpenRouter: Fetched and cached {len(models_response.data)}"
+                    f" models, filtered down to {len(enhanced_models)} curated options"
                 )
                 return cast(list[BaseEnhancedModelInfo], enhanced_models)
 
@@ -329,7 +333,10 @@ class OpenRouterProvider(BaseModelProvider):
             if status == 429:
                 detail = "OpenRouter rate limited the request."
                 if ":free" in model_config.name:
-                    detail += " Free-tier routes (suffix ':free') require sufficient balance on OpenRouter."
+                    detail += (
+                        " Free-tier routes (suffix ':free') require sufficient balance"
+                        " on OpenRouter."
+                    )
                 raise ProviderRateLimitError(
                     provider="openrouter",
                     model=model_config.name,
@@ -517,7 +524,10 @@ class OpenRouterProvider(BaseModelProvider):
             if status == 429:
                 detail = "OpenRouter rate limited the request."
                 if ":free" in model_config.name:
-                    detail += " Free-tier routes (suffix ':free') require sufficient balance on OpenRouter."
+                    detail += (
+                        " Free-tier routes (suffix ':free') require sufficient balance"
+                        " on OpenRouter."
+                    )
                 raise ProviderRateLimitError(
                     provider="openrouter",
                     model=model_config.name,
@@ -644,7 +654,10 @@ class OpenRouterProvider(BaseModelProvider):
             if status == 429:
                 detail = "OpenRouter rate limited the request."
                 if ":free" in model_config.name:
-                    detail += " Free-tier routes (suffix ':free') require sufficient balance on OpenRouter."
+                    detail += (
+                        " Free-tier routes (suffix ':free') require sufficient balance"
+                        " on OpenRouter."
+                    )
                 raise ProviderRateLimitError(
                     provider="openrouter",
                     model=model_config.name,
@@ -669,7 +682,8 @@ class OpenRouterProvider(BaseModelProvider):
         """Query OpenRouter for the cost of a specific generation. Fails fast on errors."""
         if not self._client:
             raise RuntimeError(
-                "OpenRouter client not initialized - this should not happen if we got a generation_id"
+                "OpenRouter client not initialized - this should not happen if we got a"
+                " generation_id"
             )
 
         if not generation_id:

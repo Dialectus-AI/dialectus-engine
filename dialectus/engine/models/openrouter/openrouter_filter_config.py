@@ -67,7 +67,8 @@ class OpenRouterFilterConfig:
                     )
                 else:
                     logger.warning(
-                        "OpenRouter filter config at %s has unexpected format; using defaults",
+                        "OpenRouter filter config at %s has unexpected format; using"
+                        " defaults",
                         self.config_path,
                     )
                     self._config = self._get_default_config()
@@ -89,30 +90,26 @@ class OpenRouterFilterConfig:
         """Fallback default configuration if JSON file is missing/invalid."""
         return {
             "filters": {
-                "exclude_patterns": [
-                    {
-                        "category": "meta_routing_models",
-                        "patterns": [
-                            "auto.*router",
-                            "router",
-                            "meta.*llama.*auto",
-                            "mixture.*expert",
-                            "moe",
-                        ],
-                    }
-                ],
-                "preview_patterns": [
-                    {
-                        "category": "preview_anonymous_models",
-                        "patterns": [
-                            "^preview-",
-                            "^anonymous-",
-                            "^beta-",
-                            "-preview$",
-                            "-beta$",
-                        ],
-                    }
-                ],
+                "exclude_patterns": [{
+                    "category": "meta_routing_models",
+                    "patterns": [
+                        "auto.*router",
+                        "router",
+                        "meta.*llama.*auto",
+                        "mixture.*expert",
+                        "moe",
+                    ],
+                }],
+                "preview_patterns": [{
+                    "category": "preview_anonymous_models",
+                    "patterns": [
+                        "^preview-",
+                        "^anonymous-",
+                        "^beta-",
+                        "-preview$",
+                        "-beta$",
+                    ],
+                }],
             },
             "settings": {
                 "allow_preview_models": False,

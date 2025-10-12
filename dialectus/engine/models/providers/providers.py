@@ -23,7 +23,8 @@ class ProviderFactory:
         """Create a provider instance by name."""
         if provider_name not in cls._providers:
             raise ValueError(
-                f"Unknown provider: {provider_name}. Available: {list(cls._providers.keys())}"
+                f"Unknown provider: {provider_name}. Available:"
+                f" {list(cls._providers.keys())}"
             )
 
         provider_class = cls._providers[provider_name]

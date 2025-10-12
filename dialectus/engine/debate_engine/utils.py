@@ -50,7 +50,8 @@ def trim_incomplete_sentence(text: str) -> str:
             # Keep everything up to and including the last sentence
             trimmed = text[: last_period + 1].rstrip()
             logger.info(
-                f"Trimmed incomplete sentence: removed {len(text) - len(trimmed)} characters"
+                f"Trimmed incomplete sentence: removed {len(text) - len(trimmed)}"
+                " characters"
             )
             return trimmed
         else:

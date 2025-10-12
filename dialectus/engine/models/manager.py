@@ -19,12 +19,10 @@ MessageList: TypeAlias = list[MessageDict]
 EnhancedModelRecord: TypeAlias = dict[str, object]
 ModelCatalog: TypeAlias = dict[str, list[str]]
 
-BLACKLISTED_MODELS: frozenset[str] = frozenset(
-    {
-        # Meta routes this variant through heavy-handed safety filters that break debate flow.
-        "meta-llama/llama-3.2-11b-vision-instruct",
-    }
-)
+BLACKLISTED_MODELS: frozenset[str] = frozenset({
+    # Meta routes this variant through heavy-handed safety filters that break debate flow.
+    "meta-llama/llama-3.2-11b-vision-instruct",
+})
 
 
 class EnhancedModelProvider(Protocol):
@@ -156,29 +154,27 @@ class ModelManager:
 
         enhanced_models: list[EnhancedModelRecord] = []
         for model in typed_models:
-            enhanced_models.append(
-                {
-                    "id": model.id,
-                    "name": model.name,
-                    "provider": model.provider,
-                    "description": model.description,
-                    "weight_class": model.weight_class.value,
-                    "tier": model.tier.value,
-                    "context_length": model.context_length,
-                    "max_completion_tokens": model.max_completion_tokens,
-                    "pricing": {
-                        "prompt_cost_per_1k": model.pricing.prompt_cost_per_1k,
-                        "completion_cost_per_1k": model.pricing.completion_cost_per_1k,
-                        "avg_cost_per_1k": model.pricing.avg_cost_per_1k,
-                        "is_free": model.pricing.is_free,
-                    },
-                    "value_score": round(model.value_score, 2),
-                    "is_preview": model.is_preview,
-                    "is_text_only": model.is_text_only,
-                    "estimated_params": model.estimated_params,
-                    "display_name": model.display_name,
-                }
-            )
+            enhanced_models.append({
+                "id": model.id,
+                "name": model.name,
+                "provider": model.provider,
+                "description": model.description,
+                "weight_class": model.weight_class.value,
+                "tier": model.tier.value,
+                "context_length": model.context_length,
+                "max_completion_tokens": model.max_completion_tokens,
+                "pricing": {
+                    "prompt_cost_per_1k": model.pricing.prompt_cost_per_1k,
+                    "completion_cost_per_1k": model.pricing.completion_cost_per_1k,
+                    "avg_cost_per_1k": model.pricing.avg_cost_per_1k,
+                    "is_free": model.pricing.is_free,
+                },
+                "value_score": round(model.value_score, 2),
+                "is_preview": model.is_preview,
+                "is_text_only": model.is_text_only,
+                "estimated_params": model.estimated_params,
+                "display_name": model.display_name,
+            })
 
         return enhanced_models
 
@@ -252,7 +248,8 @@ class ModelManager:
             config, messages, chunk_callback, **overrides
         )
         logger.debug(
-            "Generated %s chars via streaming with metadata from %s (%s), generation_id: %s",
+            "Generated %s chars via streaming with metadata from %s (%s),"
+            " generation_id: %s",
             len(metadata.content),
             model_id,
             config.provider,

@@ -74,9 +74,10 @@ class JudgeCoordinator:
                     if decision.criterion_scores:
                         first_score = decision.criterion_scores[0]
                         logger.info(
-                            f"Judge {i + 1} first score sample: {first_score.participant_id} - "
-                            f"{first_score.criterion.value}: {first_score.score} - "
-                            f"{first_score.feedback[:50]}..."
+                            f"Judge {i + 1} first score sample:"
+                            f" {first_score.participant_id} -"
+                            f" {first_score.criterion.value}: {first_score.score} -"
+                            f" {first_score.feedback[:50]}..."
                         )
 
                 except Exception as e:
@@ -87,7 +88,7 @@ class JudgeCoordinator:
             if failed_judges:
                 failed_list = "; ".join(failed_judges)
                 raise RuntimeError(
-                    f"Ensemble judging requires ALL judges to succeed. "
+                    "Ensemble judging requires ALL judges to succeed. "
                     f"Failed judges ({len(failed_judges)}/{len(judges)}): {failed_list}"
                 )
 
@@ -95,7 +96,8 @@ class JudgeCoordinator:
                 raise RuntimeError("All ensemble judges failed to evaluate the debate")
 
             logger.info(
-                f"Ensemble evaluation: All {len(decisions)} judges completed successfully"
+                f"Ensemble evaluation: All {len(decisions)} judges completed"
+                " successfully"
             )
 
             # Return the list of decisions for ensemble handling

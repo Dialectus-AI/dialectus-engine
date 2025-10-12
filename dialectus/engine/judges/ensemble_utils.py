@@ -54,22 +54,28 @@ def calculate_ensemble_result(
 
         if identical_decisions:
             logger.warning(
-                "WARNING: All ensemble judges produced identical decisions - this suggests a problem with randomness or caching"
+                "WARNING: All ensemble judges produced identical decisions - this"
+                " suggests a problem with randomness or caching"
             )
             for i, decision in enumerate(decisions):
                 logger.warning(
-                    f"Judge {i + 1} decision: winner={decision.winner_id}, margin={decision.winner_margin:.2f}, scores={len(decision.criterion_scores)}"
+                    f"Judge {i + 1} decision: winner={decision.winner_id},"
+                    f" margin={decision.winner_margin:.2f},"
+                    f" scores={len(decision.criterion_scores)}"
                 )
 
     logger.info("=== ENSEMBLE DEBUG: Individual judge decisions ===")
     for i, decision in enumerate(decisions):
         logger.info(
-            f"Judge {i + 1}: winner={decision.winner_id}, margin={decision.winner_margin:.2f}"
+            f"Judge {i + 1}: winner={decision.winner_id},"
+            f" margin={decision.winner_margin:.2f}"
         )
         if decision.criterion_scores:
             first_score = decision.criterion_scores[0]
             logger.info(
-                f"  First score: {first_score.participant_id} - {first_score.criterion.value}: {first_score.score} - {first_score.feedback[:50]}"
+                f"  First score: {first_score.participant_id} -"
+                f" {first_score.criterion.value}: {first_score.score} -"
+                f" {first_score.feedback[:50]}"
             )
 
     # Count votes for each participant
@@ -116,14 +122,17 @@ def calculate_ensemble_result(
         ensemble_winner = tie_winner
         tied_votes = max_votes
         winner_score = participant_avg_scores[tie_winner]
-        decision_method = f"tie-breaker by scores (tied at {tied_votes}/{len(decisions)} votes, winner scored {winner_score:.1f} avg)"
+        decision_method = (
+            f"tie-breaker by scores (tied at {tied_votes}/{len(decisions)} votes,"
+            f" winner scored {winner_score:.1f} avg)"
+        )
 
     # Validate vote vs score consistency (warn if mismatch but don't fail)
     score_winner = max(participants, key=lambda p: participant_avg_scores[p])
     if score_winner != ensemble_winner:
         logger.warning(
-            f"Vote winner ({ensemble_winner}) differs from score winner ({score_winner}). "
-            f"Using vote-based result with tie-breaking."
+            f"Vote winner ({ensemble_winner}) differs from score winner"
+            f" ({score_winner}). Using vote-based result with tie-breaking."
         )
 
     # Calculate winner margin from averaged scores
@@ -144,7 +153,10 @@ def calculate_ensemble_result(
         "num_judges": len(decisions),
         "consensus_level": consensus_level,
         "summary_reasoning": f"Winner determined by {decision_method}",
-        "summary_feedback": f"Ensemble decision from {len(decisions)} judges. Consensus level: {consensus_level:.1%}",
+        "summary_feedback": (
+            f"Ensemble decision from {len(decisions)} judges. Consensus level:"
+            f" {consensus_level:.1%}"
+        ),
     }
 
 

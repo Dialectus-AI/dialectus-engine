@@ -96,8 +96,9 @@ class RoundManager:
         self,
         format_phase: FormatPhase,
         context: DebateContext,
-        message_callback: Callable[[str, dict[str, Any]], Awaitable[None]]
-        | None = None,
+        message_callback: (
+            Callable[[str, dict[str, Any]], Awaitable[None]] | None
+        ) = None,
         chunk_callback: Callable[[str, bool], Awaitable[None]] | None = None,
     ) -> list[DebateMessage]:
         """Conduct a round with streaming callbacks.

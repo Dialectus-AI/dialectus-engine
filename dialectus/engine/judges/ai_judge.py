@@ -69,7 +69,8 @@ class AIJudge(BaseJudge):
             decision = self._parse_evaluation(evaluation, context)
 
             logger.info(
-                f"AI judge decision: {decision.winner_id} wins by {decision.winner_margin:.1f}"
+                f"AI judge decision: {decision.winner_id} wins by"
+                f" {decision.winner_margin:.1f}"
             )
             return decision
 
@@ -124,7 +125,8 @@ class AIJudge(BaseJudge):
             return side_labels
         except Exception as e:
             logger.warning(
-                f"Failed to get format-specific labels: {e}, falling back to generic labels"
+                f"Failed to get format-specific labels: {e}, falling back to generic"
+                " labels"
             )
             # Fallback to generic labels
             fallback_labels: dict[str, str] = {}
@@ -228,28 +230,24 @@ class AIJudge(BaseJudge):
 
         # Use current time and a random element for uniqueness
         evaluation_id = int(time.time() * 1000) % 10000
-        random_instruction = random.choice(
-            [
-                "Pay particular attention to the strength of evidence presented.",
-                "Focus especially on how well arguments address counterpoints.",
-                "Consider the persuasive impact and clarity of each argument.",
-                "Evaluate the logical consistency and reasoning quality.",
-                "Assess how effectively each side builds their case.",
-            ]
-        )
+        random_instruction = random.choice([
+            "Pay particular attention to the strength of evidence presented.",
+            "Focus especially on how well arguments address counterpoints.",
+            "Consider the persuasive impact and clarity of each argument.",
+            "Evaluate the logical consistency and reasoning quality.",
+            "Assess how effectively each side builds their case.",
+        ])
 
         # Create complete example showing all participants and criteria
         example_scores: list[str] = []
         for criterion in criteria:
             for side_label in side_labels:
-                example_scores.append(
-                    f"""    {{
+                example_scores.append(f"""    {{
       "criterion": "{criterion}",
       "participant": "{side_label}",
       "score": 7.5,
       "feedback": "specific feedback for {side_label} on {criterion}"
-    }}"""
-                )
+    }}""")
 
         participants_list = "\n".join(f"- {label}" for label in side_labels)
         scores_text = ",\n".join(example_scores)
@@ -335,7 +333,8 @@ Provide your evaluation as valid JSON only, no additional text:"""
                         )
                     else:
                         logger.debug(
-                            "No complete JSON object found, attempting to parse entire response"
+                            "No complete JSON object found, attempting to parse entire"
+                            " response"
                         )
                         json_text = evaluation.strip()
                 else:
@@ -368,7 +367,8 @@ Provide your evaluation as valid JSON only, no additional text:"""
                 feedback = score_data.get("feedback", "")
                 if not isinstance(feedback, str):
                     logger.warning(
-                        f"Converting non-string feedback: {type(feedback)} -> {feedback}"
+                        f"Converting non-string feedback: {type(feedback)} ->"
+                        f" {feedback}"
                     )
                     feedback = str(feedback) if feedback else ""
 
@@ -386,14 +386,16 @@ Provide your evaluation as valid JSON only, no additional text:"""
             reasoning = evaluation_data.get("reasoning", "")
 
             logger.debug(
-                f"Judge overall_feedback type: {type(overall_feedback)}, value: {overall_feedback}"
+                f"Judge overall_feedback type: {type(overall_feedback)}, value:"
+                f" {overall_feedback}"
             )
             logger.debug(f"Judge reasoning type: {type(reasoning)}, value: {reasoning}")
 
             # Ensure these are strings, not objects
             if not isinstance(overall_feedback, str):
                 logger.warning(
-                    f"Converting non-string overall_feedback: {type(overall_feedback)} -> {overall_feedback}"
+                    f"Converting non-string overall_feedback: {type(overall_feedback)}"
+                    f" -> {overall_feedback}"
                 )
                 overall_feedback = str(overall_feedback) if overall_feedback else ""
 
@@ -421,7 +423,8 @@ Provide your evaluation as valid JSON only, no additional text:"""
             calculated_winner = self._determine_winner_from_scores(criterion_scores)
             if calculated_winner != winner_id and calculated_winner != "unknown":
                 logger.warning(
-                    f"Judge declared winner {winner_id} but highest scoring participant is {calculated_winner}"
+                    f"Judge declared winner {winner_id} but highest scoring participant"
+                    f" is {calculated_winner}"
                 )
 
             judge_decision = JudgeDecision(
@@ -513,9 +516,9 @@ Provide your evaluation as valid JSON only, no additional text:"""
 
         if actual_combinations != expected_combinations:
             raise ValueError(
-                f"Incomplete judge scoring: expected {expected_combinations} "
-                f"criterion scores ({len(participants)} participants × {len(self.criteria)} criteria), "
-                f"but got {actual_combinations}"
+                f"Incomplete judge scoring: expected {expected_combinations} criterion"
+                f" scores ({len(participants)} participants × {len(self.criteria)}"
+                f" criteria), but got {actual_combinations}"
             )
 
         # Validate each participant has scores for all criteria
@@ -541,7 +544,8 @@ Provide your evaluation as valid JSON only, no additional text:"""
                     error_parts.append(f"unexpected: {extra_criteria}")
 
                 raise ValueError(
-                    f"Judge provided incomplete scoring for {side_label}: {', '.join(error_parts)}"
+                    f"Judge provided incomplete scoring for {side_label}:"
+                    f" {', '.join(error_parts)}"
                 )
 
     async def _query_and_update_judge_cost(
@@ -564,16 +568,19 @@ Provide your evaluation as valid JSON only, no additional text:"""
                 judge_decision.cost_queried_at = datetime.now().isoformat()
 
                 logger.info(
-                    f"Updated cost for judge decision {judge_decision.generation_id}: ${cost}"
+                    f"Updated cost for judge decision {judge_decision.generation_id}:"
+                    f" ${cost}"
                 )
             else:
                 logger.warning(
-                    f"Failed to retrieve cost for judge generation {judge_decision.generation_id}"
+                    "Failed to retrieve cost for judge generation"
+                    f" {judge_decision.generation_id}"
                 )
 
         except Exception as e:
             logger.error(
-                f"Failed to query cost for judge generation {judge_decision.generation_id}: {e}"
+                "Failed to query cost for judge generation"
+                f" {judge_decision.generation_id}: {e}"
             )
 
 
