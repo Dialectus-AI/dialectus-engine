@@ -37,7 +37,7 @@ jobs:
           venv/bin/python -m ruff check . --fix
           venv/bin/python -m ruff format . --check
       - name: Type check with pyright
-        run: venv/bin/pyright .  # Respects pyrightconfig.json
+        run: venv/bin/python -m pyright .  # Respects pyrightconfig.json
       - name: Run tests
         run: venv/bin/python -m pytest
       - name: Build package
