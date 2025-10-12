@@ -21,6 +21,7 @@ jobs:
         with:
           ref: ${{ github.event.inputs.tag || github.ref }} # Use input tag for manual runs, fallback to event ref
           persist-credentials: false # Security: don't persist creds
+          submodules: true # Initialize submodules to fix cleanup foreach
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
