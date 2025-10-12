@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*' # Only runs on tags like v0.1.1
+  workflow_dispatch: # Enables manual runs
+    inputs:
+      tag: # Input to specify the tag (e.g., v0.1.0)
+        description: 'Tag or version to publish (e.g., v0.1.0)'
+        required: true
+        type: string
 
 jobs:
   build:
@@ -13,6 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.inputs.tag || github.ref }} # Use input tag for manual runs, fallback to event ref
           persist-credentials: false # Security: don't persist creds
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -32,7 +39,7 @@ jobs:
   publish-to-testpypi:
     name: >-
       Publish Python 🐍 distribution 📦 to TestPyPI
-    needs: [build] # Consistent array syntax
+    needs: [build]
     runs-on: ubuntu-latest
     environment:
       name: testpypi
@@ -55,7 +62,7 @@ jobs:
   publish-to-pypi:
     name: >-
       Publish Python 🐍 distribution 📦 to PyPI
-    if: ${{ !contains(github.ref, '-test') }} # Skip if tag has -test suffix
+    if: ${{ !contains(github.event.inputs.tag || github.ref, '-test') }}
     needs: [build, publish-to-testpypi] # Wait for test success
     runs-on: ubuntu-latest
     environment:
