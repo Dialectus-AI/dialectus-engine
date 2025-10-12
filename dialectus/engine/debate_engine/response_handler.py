@@ -73,7 +73,9 @@ class ResponseHandler:
         )
 
         # Build conversation context
-        messages = self.context_builder.build_conversation_context(speaker_id, phase, context)
+        messages = self.context_builder.build_conversation_context(
+            speaker_id, phase, context
+        )
 
         # Generate response with timing
         start_time = time.time()
@@ -89,7 +91,9 @@ class ResponseHandler:
         generation_time = time.time() - start_time
 
         # Clean the response to remove any echoed prefixes
-        cleaned_response = self.clean_model_response(response_content, speaker_id, context)
+        cleaned_response = self.clean_model_response(
+            response_content, speaker_id, context
+        )
 
         return DebateMessage(
             speaker_id=speaker_id,
@@ -163,7 +167,9 @@ class ResponseHandler:
             raise RuntimeError(error_msg) from e
 
         # Clean the response to remove any echoed prefixes
-        cleaned_response = self.clean_model_response(response_content, speaker_id, context)
+        cleaned_response = self.clean_model_response(
+            response_content, speaker_id, context
+        )
 
         return DebateMessage(
             speaker_id=speaker_id,
@@ -218,8 +224,13 @@ class ResponseHandler:
                 f"({self.config.models[speaker_id].name}) via {self.config.models[speaker_id].provider}"
             )
             async with self.model_manager.model_session(speaker_id):
-                generation_metadata = await self.model_manager.generate_response_stream_with_metadata(
-                    speaker_id, messages, chunk_callback, max_tokens=adjusted_max_tokens
+                generation_metadata = (
+                    await self.model_manager.generate_response_stream_with_metadata(
+                        speaker_id,
+                        messages,
+                        chunk_callback,
+                        max_tokens=adjusted_max_tokens,
+                    )
                 )
             logger.info(
                 f"RESPONSE HANDLER: Successfully generated {len(generation_metadata.content)} chars "
@@ -237,7 +248,9 @@ class ResponseHandler:
             raise RuntimeError(error_msg) from e
 
         # Clean the response to remove any echoed prefixes
-        cleaned_response = self.clean_model_response(generation_metadata.content, speaker_id, context)
+        cleaned_response = self.clean_model_response(
+            generation_metadata.content, speaker_id, context
+        )
 
         # Create message with cost tracking fields
         debate_message = DebateMessage(
@@ -246,21 +259,28 @@ class ResponseHandler:
             phase=format_phase.phase,
             round_number=context.current_round,
             content=cleaned_response,
-            metadata={"generation_time_ms": generation_metadata.generation_time_ms or 0},
+            metadata={
+                "generation_time_ms": generation_metadata.generation_time_ms or 0
+            },
             message_id=message_id,
             cost=generation_metadata.cost,
             generation_id=generation_metadata.generation_id,
         )
 
         # Schedule background cost query for OpenRouter models
-        if generation_metadata.generation_id and generation_metadata.provider == "openrouter":
+        if (
+            generation_metadata.generation_id
+            and generation_metadata.provider == "openrouter"
+        ):
             asyncio.create_task(
                 query_and_update_cost(debate_message, speaker_id, self.model_manager)
             )
 
         return debate_message
 
-    def clean_model_response(self, response: str, speaker_id: str, context: DebateContext) -> str:
+    def clean_model_response(
+        self, response: str, speaker_id: str, context: DebateContext
+    ) -> str:
         """Clean model response by removing any echoed prefixes or formatting.
 
         Args:

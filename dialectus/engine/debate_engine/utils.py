@@ -42,17 +42,13 @@ def trim_incomplete_sentence(text: str) -> str:
         return text
 
     # Check if ends with sentence-ending punctuation
-    if text[-1] not in '.!?':
+    if text[-1] not in ".!?":
         # Find last complete sentence
-        last_period = max(
-            text.rfind('.'),
-            text.rfind('!'),
-            text.rfind('?')
-        )
+        last_period = max(text.rfind("."), text.rfind("!"), text.rfind("?"))
 
         if last_period > 0:
             # Keep everything up to and including the last sentence
-            trimmed = text[:last_period + 1].rstrip()
+            trimmed = text[: last_period + 1].rstrip()
             logger.info(
                 f"Trimmed incomplete sentence: removed {len(text) - len(trimmed)} characters"
             )
@@ -86,14 +82,20 @@ async def query_and_update_cost(
         # Wait a bit to ensure the generation is finalized on OpenRouter's end
         await asyncio.sleep(2.0)
 
-        cost = await model_manager.query_generation_cost(speaker_id, message.generation_id)
+        cost = await model_manager.query_generation_cost(
+            speaker_id, message.generation_id
+        )
         if cost is not None:
             # Update the message object in memory
             message.cost = cost
             message.cost_queried_at = datetime.now()
             logger.info(f"Updated cost for message {message.generation_id}: ${cost}")
         else:
-            logger.warning(f"Failed to retrieve cost for generation {message.generation_id}")
+            logger.warning(
+                f"Failed to retrieve cost for generation {message.generation_id}"
+            )
 
     except Exception as e:
-        logger.error(f"Failed to query cost for generation {message.generation_id}: {e}")
+        logger.error(
+            f"Failed to query cost for generation {message.generation_id}: {e}"
+        )

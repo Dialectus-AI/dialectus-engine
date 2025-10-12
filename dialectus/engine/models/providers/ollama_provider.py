@@ -72,7 +72,10 @@ class OllamaProvider(BaseModelProvider):
             return []
 
     async def generate_response(
-        self, model_config: ModelConfig, messages: list[dict[str, str]], **overrides: object
+        self,
+        model_config: ModelConfig,
+        messages: list[dict[str, str]],
+        **overrides: object,
     ) -> str:
         """Generate a response using Ollama."""
         if not self._client:
@@ -131,7 +134,6 @@ class OllamaProvider(BaseModelProvider):
                 model_config.name,
             )
             return content_text.strip()
-
 
         except Exception as exc:
             logger.error(
@@ -265,7 +267,6 @@ class OllamaProvider(BaseModelProvider):
                 exc,
             )
             raise
-
 
     async def get_enhanced_models(self) -> list[BaseEnhancedModelInfo]:
         """Get enhanced model information for Ollama models."""

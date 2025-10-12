@@ -5,6 +5,7 @@ from enum import Enum
 
 class DebatePhase(Enum):
     """Phases of a debate."""
+
     SETUP = "setup"
     OPENING = "opening"
     REBUTTAL = "rebuttal"
@@ -16,6 +17,7 @@ class DebatePhase(Enum):
 
 class Position(Enum):
     """Debate positions."""
+
     PRO = "pro"
     CON = "con"
     NEUTRAL = "neutral"

@@ -58,13 +58,13 @@ def calculate_ensemble_result(
             )
             for i, decision in enumerate(decisions):
                 logger.warning(
-                    f"Judge {i+1} decision: winner={decision.winner_id}, margin={decision.winner_margin:.2f}, scores={len(decision.criterion_scores)}"
+                    f"Judge {i + 1} decision: winner={decision.winner_id}, margin={decision.winner_margin:.2f}, scores={len(decision.criterion_scores)}"
                 )
 
     logger.info("=== ENSEMBLE DEBUG: Individual judge decisions ===")
     for i, decision in enumerate(decisions):
         logger.info(
-            f"Judge {i+1}: winner={decision.winner_id}, margin={decision.winner_margin:.2f}"
+            f"Judge {i + 1}: winner={decision.winner_id}, margin={decision.winner_margin:.2f}"
         )
         if decision.criterion_scores:
             first_score = decision.criterion_scores[0]

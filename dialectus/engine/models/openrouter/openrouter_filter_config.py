@@ -36,7 +36,9 @@ class _ConfigDict(TypedDict, total=False):
     filters: _FilterConfigDict
     settings: _SettingsDict
 
+
 logger = logging.getLogger(__name__)
+
 
 class OpenRouterFilterConfig:
     """Loads and manages OpenRouter filtering configuration from external JSON file."""
@@ -231,4 +233,3 @@ class OpenRouterFilterConfig:
     def reload(self) -> None:
         """Reload configuration from file."""
         self._load_config()
-

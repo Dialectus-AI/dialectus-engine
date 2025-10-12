@@ -13,6 +13,7 @@ from .types import DebatePhase
 if TYPE_CHECKING:
     from dialectus.engine.formats import DebateFormat, FormatPhase
 
+
 class ContextBuilder:
     """Builds conversation context for model prompts during debates."""
 
@@ -54,7 +55,10 @@ class ContextBuilder:
         # Add system prompt
         if speaker_id in self.prompt_builder.system_prompts:
             messages.append(
-                {"role": "system", "content": self.prompt_builder.system_prompts[speaker_id]}
+                {
+                    "role": "system",
+                    "content": self.prompt_builder.system_prompts[speaker_id],
+                }
             )
 
         # Add role-focused phase instruction
@@ -114,7 +118,10 @@ class ContextBuilder:
         # Add system prompt
         if speaker_id in self.prompt_builder.system_prompts:
             messages.append(
-                {"role": "system", "content": self.prompt_builder.system_prompts[speaker_id]}
+                {
+                    "role": "system",
+                    "content": self.prompt_builder.system_prompts[speaker_id],
+                }
             )
 
         # Add role-focused phase instruction instead of procedural description

@@ -1,4 +1,3 @@
-
 from dialectus.engine.models.base_types import BaseModel
 
 

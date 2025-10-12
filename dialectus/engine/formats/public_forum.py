@@ -19,7 +19,10 @@ class PublicForumFormat(DebateFormat):
 
     @property
     def description(self) -> str:
-        return "Public Forum Debate format for discussing current events and real-world issues with accessible arguments"
+        return (
+            "Public Forum Debate format for discussing current events and real-world"
+            " issues with accessible arguments"
+        )
 
     def get_phases(self, participants: list[str]) -> list[FormatPhase]:
         """Public Forum format: Constructive Speeches -> Crossfire -> Rebuttals -> Final Focus"""
@@ -33,49 +36,78 @@ class PublicForumFormat(DebateFormat):
             FormatPhase(
                 phase=DebatePhase.OPENING,
                 name="Advocate Constructive Speech",
-                instruction="Deliver your constructive speech supporting the resolution. Focus on clear, accessible arguments that the general public can understand. Provide concrete evidence and real-world examples.",
+                instruction=(
+                    "Deliver your constructive speech supporting the resolution. Focus"
+                    " on clear, accessible arguments that the general public can"
+                    " understand. Provide concrete evidence and real-world examples."
+                ),
                 speaking_order=[advocate],
                 time_multiplier=1.0,
             ),
             FormatPhase(
                 phase=DebatePhase.OPENING,
                 name="Opponent Constructive Speech",
-                instruction="Deliver your constructive speech opposing the resolution. Challenge the Advocate's framework and provide counter-arguments with evidence. Focus on practical concerns and alternative perspectives.",
+                instruction=(
+                    "Deliver your constructive speech opposing the resolution."
+                    " Challenge the Advocate's framework and provide counter-arguments"
+                    " with evidence. Focus on practical concerns and alternative"
+                    " perspectives."
+                ),
                 speaking_order=[opponent],
                 time_multiplier=1.0,
             ),
             FormatPhase(
                 phase=DebatePhase.CROSS_EXAM,
                 name="Crossfire Round One",
-                instruction="Engage in direct questioning and response. Ask strategic questions to clarify positions, expose weaknesses, or advance your argument. Keep exchanges dynamic and accessible.",
+                instruction=(
+                    "Engage in direct questioning and response. Ask strategic questions"
+                    " to clarify positions, expose weaknesses, or advance your"
+                    " argument. Keep exchanges dynamic and accessible."
+                ),
                 speaking_order=[advocate, opponent, advocate, opponent],
                 time_multiplier=0.6,
             ),
             FormatPhase(
                 phase=DebatePhase.REBUTTAL,
                 name="Advocate Rebuttal",
-                instruction="Respond to the Opponent's constructive case. Attack their strongest arguments while defending your own position. Begin to frame the key voting issues.",
+                instruction=(
+                    "Respond to the Opponent's constructive case. Attack their"
+                    " strongest arguments while defending your own position. Begin to"
+                    " frame the key voting issues."
+                ),
                 speaking_order=[advocate],
                 time_multiplier=0.8,
             ),
             FormatPhase(
                 phase=DebatePhase.REBUTTAL,
                 name="Opponent Rebuttal",
-                instruction="Respond to the Advocate's constructive case. Challenge their arguments and evidence while reinforcing your opposition to the resolution.",
+                instruction=(
+                    "Respond to the Advocate's constructive case. Challenge their"
+                    " arguments and evidence while reinforcing your opposition to the"
+                    " resolution."
+                ),
                 speaking_order=[opponent],
                 time_multiplier=0.8,
             ),
             FormatPhase(
                 phase=DebatePhase.CROSS_EXAM,
                 name="Crossfire Round Two",
-                instruction="Second round of direct questioning. Focus on the clash that has developed and key disagreements. Push for clarity on the most important issues.",
+                instruction=(
+                    "Second round of direct questioning. Focus on the clash that has"
+                    " developed and key disagreements. Push for clarity on the most"
+                    " important issues."
+                ),
                 speaking_order=[opponent, advocate, opponent, advocate],
                 time_multiplier=0.6,
             ),
             FormatPhase(
                 phase=DebatePhase.CLOSING,
                 name="Final Focus Speeches",
-                instruction="Make your final appeal to the judges and audience. Focus on the key voting issues, explain why your side wins the most important arguments, and provide a clear decision framework.",
+                instruction=(
+                    "Make your final appeal to the judges and audience. Focus on the"
+                    " key voting issues, explain why your side wins the most important"
+                    " arguments, and provide a clear decision framework."
+                ),
                 speaking_order=[advocate, opponent],
                 time_multiplier=0.9,
             ),
@@ -100,7 +132,9 @@ class PublicForumFormat(DebateFormat):
         descriptions: dict[str, str] = {}
         for i, participant in enumerate(participants[:2]):
             if i == 0:
-                descriptions[participant] = "This AI will advocate in support of the resolution."
+                descriptions[participant] = (
+                    "This AI will advocate in support of the resolution."
+                )
             else:
                 descriptions[participant] = "This AI will oppose the resolution."
         return descriptions
@@ -147,13 +181,27 @@ class PublicForumFormat(DebateFormat):
             List of message dictionaries for the AI model
         """
         # Customize system prompt for Public Forum format
-        pf_system = "You are an expert at generating Public Forum debate topics. Public Forum debates focus on current events, policy issues, and real-world problems that affect society. Topics should be accessible to general audiences, contemporary, and have clear practical implications."
+        pf_system = (
+            "You are an expert at generating Public Forum debate topics. Public Forum"
+            " debates focus on current events, policy issues, and real-world problems"
+            " that affect society. Topics should be accessible to general audiences,"
+            " contemporary, and have clear practical implications."
+        )
 
         # Build theme/tone requirements using base class helper
         theme_tone_requirements = self._build_theme_tone_requirements(theme, tone)
 
         # Build Public Forum-specific user prompt
-        pf_user = f"Generate a single Public Forum debate topic suitable for high school or college students discussing current events and policy issues. The topic should be phrased as a clear statement that ordinary citizens could understand and have opinions about.{theme_tone_requirements} Focus on real-world policy questions, not abstract philosophical concepts or highly technical subjects. Make it current and relevant to today's society. Respond with just the topic statement, no additional text or explanation."
+        pf_user = (
+            "Generate a single Public Forum debate topic suitable for high school or"
+            " college students discussing current events and policy issues. The topic"
+            " should be phrased as a clear statement that ordinary citizens could"
+            f" understand and have opinions about.{theme_tone_requirements} Focus on"
+            " real-world policy questions, not abstract philosophical concepts or"
+            " highly technical subjects. Make it current and relevant to today's"
+            " society. Respond with just the topic statement, no additional text or"
+            " explanation."
+        )
 
         return [
             {"role": "system", "content": pf_system},

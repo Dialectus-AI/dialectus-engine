@@ -7,6 +7,7 @@ from typing import TypedDict
 
 class OpenRouterGenerationResponse(TypedDict):
     """Complete typed response from OpenRouter generation cost query API."""
+
     id: str
     upstream_id: str | None
     total_cost: float  # This is the key field we need for cost tracking
@@ -38,11 +39,13 @@ class OpenRouterGenerationResponse(TypedDict):
 
 class OpenRouterGenerationApiResponse(TypedDict):
     """Wrapper response from OpenRouter generation API endpoint."""
+
     data: OpenRouterGenerationResponse
 
 
 class OpenRouterChatCompletionUsage(TypedDict):
     """Usage information from OpenRouter chat completion response."""
+
     prompt_tokens: int
     completion_tokens: int
     total_tokens: int
@@ -50,9 +53,12 @@ class OpenRouterChatCompletionUsage(TypedDict):
 
 class OpenRouterChatCompletionResponse(TypedDict):
     """Chat completion response from OpenRouter with generation ID."""
+
     id: str  # This is the generation ID we need to capture
     object: str
     created: int
     model: str
-    choices: list[dict[str, object]]  # We'll keep this generic since we only need content
+    choices: list[
+        dict[str, object]
+    ]  # We'll keep this generic since we only need content
     usage: OpenRouterChatCompletionUsage | None

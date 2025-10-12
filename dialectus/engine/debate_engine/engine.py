@@ -84,7 +84,8 @@ class DebateEngine:
     async def run_full_debate(
         self,
         phase_callback: Callable[[str, dict[str, Any]], Awaitable[None]] | None = None,
-        message_callback: Callable[[str, dict[str, Any]], Awaitable[None]] | None = None,
+        message_callback: Callable[[str, dict[str, Any]], Awaitable[None]]
+        | None = None,
         chunk_callback: Callable[[str, bool], Awaitable[None]] | None = None,
     ) -> DebateContext:
         """Run a complete debate from start to finish.
@@ -140,13 +141,18 @@ class DebateEngine:
 
             # Invoke phase callback if provided
             if phase_callback:
-                await phase_callback("phase_started", {
-                    "phase": format_phase.name,
-                    "instruction": format_phase.instruction,
-                    "current_phase": self.context.current_round,
-                    "total_phases": total_phases,
-                    "progress_percentage": round((phase_index / total_phases) * 100),
-                })
+                await phase_callback(
+                    "phase_started",
+                    {
+                        "phase": format_phase.name,
+                        "instruction": format_phase.instruction,
+                        "current_phase": self.context.current_round,
+                        "total_phases": total_phases,
+                        "progress_percentage": round(
+                            (phase_index / total_phases) * 100
+                        ),
+                    },
+                )
 
             # If streaming callbacks provided, use streaming version
             if message_callback or chunk_callback:
@@ -154,10 +160,12 @@ class DebateEngine:
                     format_phase,
                     self.context,
                     message_callback=message_callback,
-                    chunk_callback=chunk_callback
+                    chunk_callback=chunk_callback,
                 )
             else:
-                await self.round_manager.conduct_format_round(format_phase, self.context)
+                await self.round_manager.conduct_format_round(
+                    format_phase, self.context
+                )
 
             # Brief pause between phases
             await asyncio.sleep(0.5)

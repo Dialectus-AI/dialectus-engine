@@ -125,13 +125,22 @@ class DebateFormat(ABC):
             List of message dictionaries for the AI model
         """
         # Build the system prompt
-        system_content = "You are an expert debate topic generator. Create engaging, balanced, and thought-provoking debate topics that have clear pro and con sides."
+        system_content = (
+            "You are an expert debate topic generator. Create engaging, balanced, and"
+            " thought-provoking debate topics that have clear pro and con sides."
+        )
 
         # Build theme/tone requirements
         theme_tone_requirements = self._build_theme_tone_requirements(theme, tone)
 
         # Build the user prompt
-        user_content = f"Generate a single debate topic that would make for an interesting and balanced debate. The topic should be phrased as a clear statement that can be argued for or against.{theme_tone_requirements} Make it thought-provoking and suitable for intellectual discourse. Respond with just the topic statement, no additional text or explanation."
+        user_content = (
+            "Generate a single debate topic that would make for an interesting and"
+            " balanced debate. The topic should be phrased as a clear statement that"
+            f" can be argued for or against.{theme_tone_requirements} Make it"
+            " thought-provoking and suitable for intellectual discourse. Respond with"
+            " just the topic statement, no additional text or explanation."
+        )
 
         return [
             {"role": "system", "content": system_content},

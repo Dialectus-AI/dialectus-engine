@@ -59,7 +59,7 @@ class JudgeCoordinator:
                     # Add slight randomness to avoid identical evaluations
                     random_seed = random.random()
                     logger.info(
-                        f"Starting evaluation for judge {i+1}: {judge.name} "
+                        f"Starting evaluation for judge {i + 1}: {judge.name} "
                         f"(seed: {random_seed:.4f})"
                     )
 
@@ -74,7 +74,7 @@ class JudgeCoordinator:
                     if decision.criterion_scores:
                         first_score = decision.criterion_scores[0]
                         logger.info(
-                            f"Judge {i+1} first score sample: {first_score.participant_id} - "
+                            f"Judge {i + 1} first score sample: {first_score.participant_id} - "
                             f"{first_score.criterion.value}: {first_score.score} - "
                             f"{first_score.feedback[:50]}..."
                         )

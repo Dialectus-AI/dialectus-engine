@@ -176,14 +176,18 @@ class AIJudge(BaseJudge):
         temperature = getattr(self, "_ensemble_temperature", 0.3)
 
         async with self.model_manager.model_session(self.judge_id):
-            generation_metadata = await self.model_manager.generate_response_with_metadata(
-                self.judge_id, messages, max_tokens=3000, temperature=temperature
+            generation_metadata = (
+                await self.model_manager.generate_response_with_metadata(
+                    self.judge_id, messages, max_tokens=3000, temperature=temperature
+                )
             )
 
         generation_time = time.time() - start_time
 
         # Store generation metadata for use in decision creation
-        self._last_generation_time_ms = generation_metadata.generation_time_ms or int(generation_time * 1000)
+        self._last_generation_time_ms = generation_metadata.generation_time_ms or int(
+            generation_time * 1000
+        )
         self._last_generation_cost = generation_metadata.cost
         self._last_generation_id = generation_metadata.generation_id
         self._last_generation_provider = generation_metadata.provider
@@ -266,7 +270,7 @@ Please evaluate this debate and provide your judgment in the following JSON form
   ]
 }}
 
-EVALUATION CRITERIA: {', '.join(criteria)}
+EVALUATION CRITERIA: {", ".join(criteria)}
 
 PARTICIPANTS:
 {participants_list}
@@ -434,8 +438,10 @@ Provide your evaluation as valid JSON only, no additional text:"""
             )
 
             # Schedule background cost query for OpenRouter judges
-            if (judge_decision.generation_id and
-                getattr(self, "_last_generation_provider", None) == "openrouter"):
+            if (
+                judge_decision.generation_id
+                and getattr(self, "_last_generation_provider", None) == "openrouter"
+            ):
                 asyncio.create_task(self._query_and_update_judge_cost(judge_decision))
 
             return judge_decision
@@ -450,7 +456,7 @@ Provide your evaluation as valid JSON only, no additional text:"""
         repair_json = json_text.strip()
 
         # Remove control characters that cause JSON parsing errors
-        repair_json = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', repair_json)
+        repair_json = re.sub(r"[\x00-\x1f\x7f-\x9f]", "", repair_json)
 
         # Remove any trailing comma before closing braces/brackets
         repair_json = re.sub(r",(\s*[}\]])", r"\1", repair_json)
@@ -496,7 +502,10 @@ Provide your evaluation as valid JSON only, no additional text:"""
         return repair_json
 
     def _validate_complete_scoring(
-        self, criterion_scores: list[CriterionScore], participants: list[str], context: DebateContext
+        self,
+        criterion_scores: list[CriterionScore],
+        participants: list[str],
+        context: DebateContext,
     ) -> None:
         """Validate that judge provided complete scoring for all participants and criteria."""
         expected_combinations = len(participants) * len(self.criteria)
@@ -535,7 +544,9 @@ Provide your evaluation as valid JSON only, no additional text:"""
                     f"Judge provided incomplete scoring for {side_label}: {', '.join(error_parts)}"
                 )
 
-    async def _query_and_update_judge_cost(self, judge_decision: "JudgeDecision") -> None:
+    async def _query_and_update_judge_cost(
+        self, judge_decision: "JudgeDecision"
+    ) -> None:
         """Background task to query and update cost for a judge decision with generation_id."""
         if not judge_decision.generation_id:
             return
@@ -544,18 +555,26 @@ Provide your evaluation as valid JSON only, no additional text:"""
             # Wait a bit to ensure the generation is finalized on OpenRouter's end
             await asyncio.sleep(2.0)
 
-            cost = await self.model_manager.query_generation_cost(self.judge_id, judge_decision.generation_id)
+            cost = await self.model_manager.query_generation_cost(
+                self.judge_id, judge_decision.generation_id
+            )
             if cost is not None:
                 # Update the judge decision object
                 judge_decision.cost = cost
                 judge_decision.cost_queried_at = datetime.now().isoformat()
 
-                logger.info(f"Updated cost for judge decision {judge_decision.generation_id}: ${cost}")
+                logger.info(
+                    f"Updated cost for judge decision {judge_decision.generation_id}: ${cost}"
+                )
             else:
-                logger.warning(f"Failed to retrieve cost for judge generation {judge_decision.generation_id}")
+                logger.warning(
+                    f"Failed to retrieve cost for judge generation {judge_decision.generation_id}"
+                )
 
         except Exception as e:
-            logger.error(f"Failed to query cost for judge generation {judge_decision.generation_id}: {e}")
+            logger.error(
+                f"Failed to query cost for judge generation {judge_decision.generation_id}: {e}"
+            )
 
 
 # EnsembleJudge class deleted - ensemble logic moved to core.py coordinator

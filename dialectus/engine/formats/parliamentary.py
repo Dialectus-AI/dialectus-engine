@@ -19,7 +19,10 @@ class ParliamentaryFormat(DebateFormat):
 
     @property
     def description(self) -> str:
-        return "Parliamentary debate with Government and Opposition sides, formal procedures and structured speeches"
+        return (
+            "Parliamentary debate with Government and Opposition sides, formal"
+            " procedures and structured speeches"
+        )
 
     def get_phases(self, participants: list[str]) -> list[FormatPhase]:
         """Parliamentary format: PM -> LO -> Deputy PM -> Deputy LO -> Rebuttals"""
@@ -34,33 +37,50 @@ class ParliamentaryFormat(DebateFormat):
             FormatPhase(
                 phase=DebatePhase.OPENING,
                 name="Prime Minister's Opening",
-                instruction="Deliver the Prime Minister's opening speech. Define the motion, present the government's case, and outline key arguments while setting the framework for the debate.",
+                instruction=(
+                    "Deliver the Prime Minister's opening speech. Define the motion,"
+                    " present the government's case, and outline key arguments while"
+                    " setting the framework for the debate."
+                ),
                 speaking_order=[pm],
                 time_multiplier=1.2,  # Slightly longer for PM
             ),
             FormatPhase(
                 phase=DebatePhase.OPENING,
                 name="Leader of Opposition's Response",
-                instruction="Deliver the Leader of Opposition's response. Directly challenge the government's case while presenting an alternative framework and counter-arguments.",
+                instruction=(
+                    "Deliver the Leader of Opposition's response. Directly challenge"
+                    " the government's case while presenting an alternative framework"
+                    " and counter-arguments."
+                ),
                 speaking_order=[lo],
                 time_multiplier=1.1,
             ),
             FormatPhase(
                 phase=DebatePhase.REBUTTAL,
                 name="Government Rebuttal",
-                instruction="Defend government position against opposition attacks. Reinforce key government arguments and address opposition points.",
+                instruction=(
+                    "Defend government position against opposition attacks. Reinforce"
+                    " key government arguments and address opposition points."
+                ),
                 speaking_order=[pm],
             ),
             FormatPhase(
                 phase=DebatePhase.REBUTTAL,
                 name="Opposition Rebuttal",
-                instruction="Final opposition response. Demolish government arguments and consolidate opposition case.",
+                instruction=(
+                    "Final opposition response. Demolish government arguments and"
+                    " consolidate opposition case."
+                ),
                 speaking_order=[lo],
             ),
             FormatPhase(
                 phase=DebatePhase.CLOSING,
                 name="Closing Statements",
-                instruction="Make final appeals to convince the House. Summarize your side's victory in this debate.",
+                instruction=(
+                    "Make final appeals to convince the House. Summarize your side's"
+                    " victory in this debate."
+                ),
                 speaking_order=[
                     lo,
                     pm,
@@ -85,7 +105,14 @@ class ParliamentaryFormat(DebateFormat):
     def get_side_descriptions(self, participants: list[str]) -> dict[str, str]:
         """Return descriptions for each side in Parliamentary debate."""
         return {
-            participant: "This AI will defend the government's position on the motion." if i == 0 else "This AI will challenge the government's position and argue for the opposition."
+            participant: (
+                "This AI will defend the government's position on the motion."
+                if i == 0
+                else (
+                    "This AI will challenge the government's position and argue for the"
+                    " opposition."
+                )
+            )
             for i, participant in enumerate(participants[:2])
         }
 
@@ -119,13 +146,24 @@ class ParliamentaryFormat(DebateFormat):
             List of message dictionaries for the AI model
         """
         # Customize system prompt for Parliamentary format
-        parl_system = "You are an expert at generating Parliamentary debate topics. Parliamentary debates focus on governance, policy implementation, and matters of public administration. Topics should be suitable for formal legislative discussion and policy debate."
+        parl_system = (
+            "You are an expert at generating Parliamentary debate topics. Parliamentary"
+            " debates focus on governance, policy implementation, and matters of public"
+            " administration. Topics should be suitable for formal legislative"
+            " discussion and policy debate."
+        )
 
         # Build theme/tone requirements using base class helper
         theme_tone_requirements = self._build_theme_tone_requirements(theme, tone)
 
         # Build Parliamentary-specific user prompt
-        parl_user = f"Generate a single Parliamentary debate topic suitable for formal policy discussion. The topic should be phrased as a motion that could be debated in a legislature.{theme_tone_requirements} Focus on governance, policy implementation, and public administration matters. Respond with just the topic statement, no additional text or explanation."
+        parl_user = (
+            "Generate a single Parliamentary debate topic suitable for formal policy"
+            " discussion. The topic should be phrased as a motion that could be"
+            f" debated in a legislature.{theme_tone_requirements} Focus on governance,"
+            " policy implementation, and public administration matters. Respond with"
+            " just the topic statement, no additional text or explanation."
+        )
 
         return [
             {"role": "system", "content": parl_system},

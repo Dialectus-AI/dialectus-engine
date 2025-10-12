@@ -1,4 +1,3 @@
-
 from dialectus.engine.models.base_types import ModelWeightClass
 from dialectus.engine.models.openrouter.openrouter_model import OpenRouterModel
 
@@ -40,7 +39,7 @@ class OpenRouterCapabilityExtractor:
                     elif "M" in pattern.upper():
                         # Convert millions to billions if over 1000M
                         if size >= 1000:
-                            return f"{size/1000:.1f}B"
+                            return f"{size / 1000:.1f}B"
                         return f"{size:.0f}M"
                     else:  # B (billions)
                         return f"{size:.1f}B" if size != int(size) else f"{int(size)}B"
@@ -242,4 +241,3 @@ class OpenRouterCapabilityExtractor:
 
         # Ensure bonus stays in reasonable range
         return max(0.5, min(bonus, 2.0))
-

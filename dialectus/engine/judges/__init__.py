@@ -11,5 +11,5 @@ __all__ = [
     "JudgmentCriterion",
     "AIJudge",
     "create_judges",
-    "create_judge_with_auto_config"
+    "create_judge_with_auto_config",
 ]

@@ -18,7 +18,9 @@ class ProviderRateLimitError(RuntimeError):
         self.status_code = status_code
         self.detail = detail
 
-        base_message = f"{provider.capitalize()} returned HTTP {status_code} (rate limited)."
+        base_message = (
+            f"{provider.capitalize()} returned HTTP {status_code} (rate limited)."
+        )
         if detail:
             base_message = f"{base_message} {detail}"
 

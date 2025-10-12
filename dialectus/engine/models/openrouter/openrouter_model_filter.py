@@ -114,9 +114,7 @@ class OpenRouterModelFilter:
             if re.search(pattern, model_id_lower) or re.search(
                 pattern, model_name_lower
             ):
-                logger.debug(
-                    "Excluding model %s due to pattern: %s", model.id, pattern
-                )
+                logger.debug("Excluding model %s due to pattern: %s", model.id, pattern)
                 return True
 
         return False
@@ -244,25 +242,19 @@ class OpenRouterModelFilter:
         if cost_limit is None:
             cost_setting = config.get_setting("max_cost_per_1k_tokens", 0.02)
             cost_limit = (
-                float(cost_setting)
-                if isinstance(cost_setting, (int, float))
-                else 0.02
+                float(cost_setting) if isinstance(cost_setting, (int, float)) else 0.02
             )
 
         if min_context_required is None:
             context_setting = config.get_setting("min_context_length", 4096)
             min_context_required = (
-                int(context_setting)
-                if isinstance(context_setting, int)
-                else 4096
+                int(context_setting) if isinstance(context_setting, int) else 4096
             )
 
         if per_tier_limit is None:
             max_models_setting = config.get_setting("max_models_per_tier", 5)
             per_tier_limit = (
-                int(max_models_setting)
-                if isinstance(max_models_setting, int)
-                else 5
+                int(max_models_setting) if isinstance(max_models_setting, int) else 5
             )
 
         free_tier_setting = config.get_setting("exclude_free_tier_models", False)
@@ -297,10 +289,7 @@ class OpenRouterModelFilter:
                 continue
 
             # Skip models that are too expensive
-            if (
-                not model.pricing.is_free
-                and model.pricing.avg_cost_per_1k > cost_limit
-            ):
+            if not model.pricing.is_free and model.pricing.avg_cost_per_1k > cost_limit:
                 continue
 
             # Skip models with insufficient context

@@ -53,8 +53,12 @@ class FormatRegistry:
                 "description": instance.description,
                 "side_a_label": side_labels.get("participant_a", "Pro"),
                 "side_b_label": side_labels.get("participant_b", "Con"),
-                "side_a_description": side_descriptions.get("participant_a", "This AI will argue in favor of the topic."),
-                "side_b_description": side_descriptions.get("participant_b", "This AI will argue against the topic."),
+                "side_a_description": side_descriptions.get(
+                    "participant_a", "This AI will argue in favor of the topic."
+                ),
+                "side_b_description": side_descriptions.get(
+                    "participant_b", "This AI will argue against the topic."
+                ),
             }
         return descriptions
 

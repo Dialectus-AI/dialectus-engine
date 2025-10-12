@@ -8,7 +8,7 @@ from .providers import ProviderFactory
 
 __all__ = [
     "ProviderFactory",
-    "OllamaProvider", 
+    "OllamaProvider",
     "OpenRouterProvider",
     "BaseModelProvider",
     "ProviderRateLimitError",

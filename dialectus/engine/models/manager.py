@@ -73,7 +73,9 @@ class ModelManager:
             raise
 
         self._model_configs[model_id] = config
-        logger.info("Registered model %s: %s (%s)", model_id, config.name, config.provider)
+        logger.info(
+            "Registered model %s: %s (%s)", model_id, config.name, config.provider
+        )
 
     async def generate_response(
         self, model_id: str, messages: MessageList, **overrides: object

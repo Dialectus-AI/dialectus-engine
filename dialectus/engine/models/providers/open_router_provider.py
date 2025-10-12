@@ -61,7 +61,9 @@ class OpenRouterProvider(BaseModelProvider):
                 headers["HTTP-Referer"] = site_url
                 logger.info(f"OpenRouter HTTP-Referer header set to: {site_url}")
             else:
-                logger.warning("OpenRouter site_url not configured - this may trigger stricter rate limits. Set OPENROUTER_SITE_URL env var.")
+                logger.warning(
+                    "OpenRouter site_url not configured - this may trigger stricter rate limits. Set OPENROUTER_SITE_URL env var."
+                )
 
             if system_config.openrouter.app_name:
                 headers["X-Title"] = system_config.openrouter.app_name
@@ -91,7 +93,9 @@ class OpenRouterProvider(BaseModelProvider):
         Returns:
             Site URL string if found, None otherwise
         """
-        return os.getenv("OPENROUTER_SITE_URL") or self.system_config.openrouter.site_url
+        return (
+            os.getenv("OPENROUTER_SITE_URL") or self.system_config.openrouter.site_url
+        )
 
     @property
     def provider_name(self) -> str:
@@ -241,7 +245,10 @@ class OpenRouterProvider(BaseModelProvider):
             raise  # Fail fast - don't hide errors from the frontend
 
     async def generate_response(
-        self, model_config: ModelConfig, messages: list[dict[str, str]], **overrides: object
+        self,
+        model_config: ModelConfig,
+        messages: list[dict[str, str]],
+        **overrides: object,
     ) -> str:
         """Generate a response using OpenRouter."""
         if not self._client:
@@ -336,7 +343,9 @@ class OpenRouterProvider(BaseModelProvider):
             )
             raise
         except Exception as exc:
-            logger.error("OpenRouter generation failed for %s: %s", model_config.name, exc)
+            logger.error(
+                "OpenRouter generation failed for %s: %s", model_config.name, exc
+            )
             raise
 
     def validate_model_config(self, model_config: ModelConfig) -> bool:
@@ -453,8 +462,14 @@ class OpenRouterProvider(BaseModelProvider):
                             if isinstance(error_obj, dict):
                                 error_dict = cast(dict[str, object], error_obj)
                                 message_value = error_dict.get("message")
-                                error_msg = message_value if isinstance(message_value, str) else "Unknown streaming error"
-                                logger.error("OpenRouter streaming error: %s", error_msg)
+                                error_msg = (
+                                    message_value
+                                    if isinstance(message_value, str)
+                                    else "Unknown streaming error"
+                                )
+                                logger.error(
+                                    "OpenRouter streaming error: %s", error_msg
+                                )
                                 raise RuntimeError(f"Streaming error: {error_msg}")
 
                             choices_value = parsed_dict.get("choices")
@@ -465,7 +480,9 @@ class OpenRouterProvider(BaseModelProvider):
                             typed_choices: list[dict[str, object]] = []
                             for choice_candidate in choice_candidates:
                                 if isinstance(choice_candidate, dict):
-                                    typed_choices.append(cast(dict[str, object], choice_candidate))
+                                    typed_choices.append(
+                                        cast(dict[str, object], choice_candidate)
+                                    )
 
                             if not typed_choices:
                                 continue
@@ -514,11 +531,16 @@ class OpenRouterProvider(BaseModelProvider):
             )
             raise
         except Exception as exc:
-            logger.error("OpenRouter streaming failed for %s: %s", model_config.name, exc)
+            logger.error(
+                "OpenRouter streaming failed for %s: %s", model_config.name, exc
+            )
             raise
 
     async def generate_response_with_metadata(
-        self, model_config: ModelConfig, messages: list[dict[str, str]], **overrides: object
+        self,
+        model_config: ModelConfig,
+        messages: list[dict[str, str]],
+        **overrides: object,
     ) -> GenerationMetadata:
         """Generate response with full metadata including generation ID for cost tracking."""
         if not self._client:
@@ -585,7 +607,9 @@ class OpenRouterProvider(BaseModelProvider):
 
             generation_id = response_data["id"]
             if not generation_id:
-                raise RuntimeError(f"OpenRouter response missing generation ID: {response_data}")
+                raise RuntimeError(
+                    f"OpenRouter response missing generation ID: {response_data}"
+                )
 
             usage_data = response_data["usage"]
             prompt_tokens: int | None = None
@@ -644,7 +668,9 @@ class OpenRouterProvider(BaseModelProvider):
     async def query_generation_cost(self, generation_id: str) -> float:
         """Query OpenRouter for the cost of a specific generation. Fails fast on errors."""
         if not self._client:
-            raise RuntimeError("OpenRouter client not initialized - this should not happen if we got a generation_id")
+            raise RuntimeError(
+                "OpenRouter client not initialized - this should not happen if we got a generation_id"
+            )
 
         if not generation_id:
             raise ValueError("generation_id is required for cost queries")
@@ -652,7 +678,9 @@ class OpenRouterProvider(BaseModelProvider):
         try:
             api_key = self._get_api_key()
             if not api_key:
-                raise RuntimeError("OpenRouter API key missing - cannot query generation cost")
+                raise RuntimeError(
+                    "OpenRouter API key missing - cannot query generation cost"
+                )
 
             headers: dict[str, str] = {
                 "Authorization": f"Bearer {api_key}",
@@ -680,7 +708,9 @@ class OpenRouterProvider(BaseModelProvider):
                 cost_data: OpenRouterGenerationApiResponse = response.json()
                 total_cost = cost_data["data"]["total_cost"]
 
-                logger.debug(f"Retrieved cost for generation {generation_id}: ${total_cost}")
+                logger.debug(
+                    f"Retrieved cost for generation {generation_id}: ${total_cost}"
+                )
                 return total_cost
 
         except HTTPStatusError as http_err:
