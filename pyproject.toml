@@ -5,14 +5,14 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "dialectus-engine"
 version = "0.1.1"
-description = "AI debate engine framework - importable Python library"
+description = "Dialectus AI debate engine framework"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.13"
 authors = [
     {name = "Dialectus AI"}
 ]
-keywords = ["ai", "debate", "llm", "argumentation", "ollama", "openrouter", "artificial-intelligence"]
+keywords = ["ai", "debate", "llm", "ollama", "openrouter", "artificial-intelligence"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
