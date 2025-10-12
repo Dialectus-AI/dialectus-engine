@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
-from typing import Protocol, TypeAlias, cast
+from typing import Protocol, cast
 
 from dialectus.engine.config.settings import ModelConfig, SystemConfig
 from dialectus.engine.models.base_types import BaseEnhancedModelInfo
@@ -13,14 +13,15 @@ from dialectus.engine.models.base_types import BaseEnhancedModelInfo
 from .providers.base_model_provider import BaseModelProvider, GenerationMetadata
 from .providers.providers import ProviderFactory
 
-ChunkCallback: TypeAlias = Callable[[str, bool], Awaitable[None]]
-MessageDict: TypeAlias = dict[str, str]
-MessageList: TypeAlias = list[MessageDict]
-EnhancedModelRecord: TypeAlias = dict[str, object]
-ModelCatalog: TypeAlias = dict[str, list[str]]
+type ChunkCallback = Callable[[str, bool], Awaitable[None]]
+type MessageDict = dict[str, str]
+type MessageList = list[MessageDict]
+type EnhancedModelRecord = dict[str, object]
+type ModelCatalog = dict[str, list[str]]
 
 BLACKLISTED_MODELS: frozenset[str] = frozenset({
-    # Meta routes this variant through heavy-handed safety filters that break debate flow.
+    # Meta routes this variant through heavy-handed safety filters
+    # that break debate flow.
     "meta-llama/llama-3.2-11b-vision-instruct",
 })
 
@@ -111,7 +112,8 @@ class ModelManager:
             )
             return response
 
-        # Providers that cannot stream still call the callback once so the caller can reuse the same code path.
+        # Providers that cannot stream still call the callback once so
+        # the caller can reuse the same code path.
         response = await provider.generate_response(config, messages, **overrides)
         await chunk_callback(response, True)
         logger.debug(
@@ -149,7 +151,7 @@ class ModelManager:
         return all_models
 
     async def get_enhanced_models(self) -> list[EnhancedModelRecord]:
-        """Get enhanced model information with metadata, filtering, and classification."""
+        """Get enhanced model info with metadata, filtering, classification."""
         typed_models = await self.get_enhanced_models_typed()
 
         enhanced_models: list[EnhancedModelRecord] = []
@@ -185,7 +187,8 @@ class ModelManager:
         for provider_name in ProviderFactory.get_available_providers():
             try:
                 provider = self._get_provider(provider_name)
-                # Each provider must surface rich metadata; bail out loudly if a new provider forgets.
+                # Each provider must surface rich metadata; bail out if
+                # a new provider forgets.
                 if not hasattr(provider, "get_enhanced_models"):
                     raise NotImplementedError(
                         f"Provider {provider_name} does not expose enhanced metadata"

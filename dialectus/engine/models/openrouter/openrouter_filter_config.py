@@ -137,7 +137,8 @@ class OpenRouterFilterConfig:
             return patterns
 
         for category_dict in cast(list[dict[str, object]], raw_categories):
-            # `typing.cast` keeps these lists well-typed without mutating runtime behaviour.
+            # `typing.cast` keeps these lists well-typed without mutating
+            # runtime behaviour.
             raw_patterns_obj = category_dict.get("patterns")
             if not isinstance(raw_patterns_obj, list):
                 continue
@@ -192,7 +193,7 @@ class OpenRouterFilterConfig:
         """
         import os
 
-        # Check environment variable first (Railway/production)
+        # Check environment variable first
         env_var_name = f"OPENROUTER_{setting_name.upper()}"
         env_value = os.getenv(env_var_name)
 

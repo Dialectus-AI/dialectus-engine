@@ -92,16 +92,21 @@ class DebateEngine:
         """Run a complete debate from start to finish.
 
         Args:
-            phase_callback: Called when phases start/complete with event type and data
-            message_callback: Called when messages start/complete with event type and data
+            phase_callback: Called when phases start/complete with event type
+                and data
+            message_callback: Called when messages start/complete with event
+                type and data
             chunk_callback: Called for streaming chunks during message generation
 
         Callback event types:
             phase_callback:
-                - "phase_started": {"phase": str, "instruction": str, "current_phase": int, "total_phases": int}
+                - "phase_started": {"phase": str, "instruction": str,
+                  "current_phase": int, "total_phases": int}
             message_callback:
-                - "message_start": {"message_id": str, "speaker_id": str, "position": str, "phase": str, "round_number": int}
-                - "message_complete": {"message_id": str, "speaker_id": str, "position": str, "content": str, ...}
+                - "message_start": {"message_id": str, "speaker_id": str,
+                  "position": str, "phase": str, "round_number": int}
+                - "message_complete": {"message_id": str, "speaker_id": str,
+                  "position": str, "content": str, ...}
             chunk_callback:
                 - chunk: str, is_complete: bool (same as streaming API)
 

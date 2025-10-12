@@ -71,7 +71,8 @@ class OpenRouterCapabilityExtractor:
     def determine_weight_class(
         cls, model: OpenRouterModel, estimated_params: str | None = None
     ) -> ModelWeightClass:
-        """Determine weight class based on context length, parameters, and capabilities."""
+        """Determine weight class based on context length, parameters, and 
+        capabilities."""
 
         # Get parameter count if not provided
         if not estimated_params:
@@ -116,9 +117,10 @@ class OpenRouterCapabilityExtractor:
     def calculate_debate_score(
         cls, model: OpenRouterModel, weight_class: ModelWeightClass
     ) -> float:
-        """Calculate debate suitability score based on conversational and reasoning capabilities."""
+        """Calculate debate suitability score based on conversational and reasoning 
+        capabilities."""
 
-        # Base score from context length (important for following debate flow and context)
+        # Base score from context length (important for following debate flow/context)
         context_score = min(
             model.context_length / 32000, 3.0
         )  # Cap at 3x for 32K+ context
@@ -159,7 +161,7 @@ class OpenRouterCapabilityExtractor:
 
             if len(non_text_outputs) == 0:  # Text-only output (required for debate)
                 if len(non_text_inputs) > 0:  # Multimodal input, text output (ideal)
-                    multimodal_bonus = 1.15  # Bonus for advanced multimodal models like GPT-4V, Claude-3
+                    multimodal_bonus = 1.15  # Bonus for advanced multimodal models
                 else:  # Text-only input and output
                     multimodal_bonus = 1.0  # Standard text models
             # Note: Models with non-text outputs filtered out earlier
@@ -223,7 +225,7 @@ class OpenRouterCapabilityExtractor:
             if keyword in model_name_lower or keyword in description_lower:
                 bonus -= 0.2
 
-        # Bonus for models with "chat" or "instruct" in name (strong conversational indicators)
+        # Bonus for with "chat" or "instruct" in name (strong conversational indicators)
         if any(word in model_name_lower for word in ["chat", "instruct"]):
             bonus += 0.3
 

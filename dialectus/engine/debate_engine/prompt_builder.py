@@ -95,9 +95,11 @@ GENERAL RULES:
 
 RESPONSE FORMAT:
 - Speak directly as your assigned role without any labels, prefixes, or announcements
-- Use plain text without markdown formatting (avoid **bold**, *italics*, # headers, bullet points)
+- Use plain text without markdown formatting (avoid **bold**, *italics*, # headers,
+  bullet points)
 - Write in natural conversational style as if speaking live to an audience
-- Do not add labels like "COUNTER:", "STATEMENT:", "OPENING:", etc. - just speak your argument
+- Do not add labels like "COUNTER:", "STATEMENT:", "OPENING:", etc. - just speak
+  your argument
 - Focus on content, not formatting or structure
 
 You will be told your specific role and speaking context for each response."""
@@ -167,13 +169,15 @@ You will be told your specific role and speaking context for each response."""
         return f"""{base_prompt}
 
 YOUR ROLE: {role_instruction}
-You are not describing what {role_name} would say - you ARE {role_name} speaking directly.
-Speak as if you are standing at the podium addressing the audience.
-Do not announce your role, add labels, or use prefixes like "COUNTER:" or "STATEMENT:" - simply speak your argument.
+You are not describing what {role_name} would say - you ARE {role_name} speaking
+directly. Speak as if you are standing at the podium addressing the audience.
+Do not announce your role, add labels, or use prefixes like "COUNTER:" or
+"STATEMENT:" - simply speak your argument.
 
 YOUR SPEAKING STYLE: {style_instruction}
 
-Remember: You are embodying the {role_name} position throughout this debate. Speak naturally and directly as that person would speak."""
+Remember: You are embodying the {role_name} position throughout this debate.
+Speak naturally and directly as that person would speak."""
 
     @staticmethod
     def get_phase_instruction(phase: DebatePhase) -> str:

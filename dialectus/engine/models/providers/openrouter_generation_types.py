@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Typed structures for OpenRouter generation API responses."""
+
+from __future__ import annotations
 
 from typing import TypedDict
 

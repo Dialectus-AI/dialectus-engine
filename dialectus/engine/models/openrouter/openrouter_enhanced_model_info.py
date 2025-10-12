@@ -58,8 +58,9 @@ class OpenRouterEnhancedModelInfo(BaseEnhancedModelInfo):
 
         pricing_obj = payload.get("pricing")
         if isinstance(pricing_obj, OpenRouterPricing):
-            # Fresh API data ships with provider-specific pricing; convert eagerly so downstream code never
-            # has to handle both shapes (keeps pyright and business logic aligned).
+            # Fresh API data ships with provider-specific pricing; convert eagerly so
+            # downstream code never has to handle both shapes (keeps pyright and 
+            # business logic aligned).
             payload["pricing"] = ModelPricing(
                 prompt_cost_per_1k=pricing_obj.prompt_cost_per_1k,
                 completion_cost_per_1k=pricing_obj.completion_cost_per_1k,
@@ -67,7 +68,8 @@ class OpenRouterEnhancedModelInfo(BaseEnhancedModelInfo):
                 currency="USD",
             )
         elif isinstance(pricing_obj, Mapping):
-            # Cached data (e.g., from disk) comes back as a plain mapping; validate into the canonical model.
+            # Cached data (e.g., from disk) comes back as a plain mapping; validate into
+            # the canonical model.
             payload["pricing"] = ModelPricing.model_validate(pricing_obj)
 
         weight_class = payload.get("weight_class")
@@ -82,14 +84,16 @@ class OpenRouterEnhancedModelInfo(BaseEnhancedModelInfo):
         if isinstance(source_info_obj, Mapping):
             source_info = dict(source_info_obj)
         else:
-            # Source info is optional in cached blobs; normalise to a dict for consistent downstream typing.
+            # Source info is optional in cached blobs; normalise to a dict for
+            # consistent downstream typing.
             source_info = {}
         payload["source_info"] = source_info
 
         if "openrouter_raw" not in source_info:
             source_info["openrouter_raw"] = raw_model
 
-        # Pydantic's runtime validation will confirm the payload contents; the cast keeps pyright aware that
-        # every field now matches the stricter base-model signature after our normalization above.
+        # Pydantic's runtime validation will confirm the payload contents; the cast
+        # keeps pyright aware that every field now matches the stricter base-model
+        # signature after our normalization above.
         validated_payload = cast(_ValidatedPayload, payload)
         super().__init__(**validated_payload)

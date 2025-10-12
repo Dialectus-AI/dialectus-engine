@@ -314,8 +314,14 @@ class ResponseHandler:
             r"^(?:proposition|opposition|pro|con)\s+(?:opening|rebuttal|closing)\s+(?:statement|argument)[\:\-\s]*",
             r"^(?:opening|rebuttal|closing)\s+(?:statement|argument)[\:\-\s]*",
             r"^(?:proposition|opposition|pro|con)[\:\-\s]+",
-            r"^\*\*(?:proposition|opposition|pro|con)\s+(?:opening|rebuttal|closing)\s+(?:statement|argument)\*\*[\:\-\s]*",  # **Position Statement**
-            r"^(?:Phase\s+\d+[\:\-\s]*)?(?:proposition|opposition|pro|con)\s+(?:opening|rebuttal|closing)[\:\-\s]*",  # Phase 1: Proposition Opening
+            (  # **Position Statement**
+                r"^\*\*(?:proposition|opposition|pro|con)\s+"
+                r"(?:opening|rebuttal|closing)\s+(?:statement|argument)\*\*[\:\-\s]*"
+            ),
+            (  # Phase 1: Proposition Opening
+                r"^(?:Phase\s+\d+[\:\-\s]*)?"
+                r"(?:proposition|opposition|pro|con)\s+(?:opening|rebuttal|closing)[\:\-\s]*"
+            ),
         ]
 
         for pattern in position_prefixes:
@@ -329,11 +335,10 @@ class ResponseHandler:
         ]
 
         for pattern in conversation_patterns:
-            # Keep removing the pattern until no more matches (handles multiple prefixes)
+            # Keep removing pattern until no more matches (handles multiple prefixes)
             while re.match(pattern, cleaned, re.IGNORECASE):
-                cleaned = re.sub(
-                    pattern, "", cleaned, count=1, flags=re.IGNORECASE
-                ).strip()
+                cleaned = re.sub(pattern, "", cleaned, count=1, flags=re.IGNORECASE)
+                cleaned = cleaned.strip()
 
         # Remove markdown formatting
         # Remove headers (# ## ###)

@@ -25,7 +25,8 @@ class SocraticFormat(DebateFormat):
         )
 
     def get_phases(self, participants: list[str]) -> list[FormatPhase]:
-        """Socratic format: Initial Position -> Probing Questions -> Deep Inquiry -> Reflection"""
+        """Socratic format: Initial Position -> Probing Questions -> Deep Inquiry -> 
+        Reflection"""
         if len(participants) < 2:
             raise ValueError("Socratic format requires at least 2 participants")
 
@@ -101,7 +102,8 @@ class SocraticFormat(DebateFormat):
         ]
 
     def get_position_assignments(self, participants: list[str]) -> dict[str, Position]:
-        """In Socratic dialogue, assign questioner and responder roles rather than pro/con."""
+        """In Socratic dialogue, assign questioner and responder roles rather than 
+        pro/con."""
         assignments: dict[str, Position] = {}
         for i, participant in enumerate(participants[:2]):
             # Use PRO for questioner (teacher), CON for responder (student)
@@ -132,25 +134,28 @@ class SocraticFormat(DebateFormat):
 
     def get_format_instructions(self) -> str:
         """Socratic format-specific instructions."""
-        return """SOCRATIC DIALOGUE FORMAT:
-            - Focus on collaborative inquiry and discovery, not adversarial debate
-            - Questions should probe assumptions, definitions, and underlying beliefs
-            - Answers should be honest and reflective, acknowledging uncertainty
-            - Build on previous exchanges to explore deeper implications
-            - Use the method of elenchus (cross-examination) to examine ideas
-            - Embrace intellectual humility and the "wisdom of knowing that you don't know"
+        return ("SOCRATIC DIALOGUE FORMAT:"
+            "- Focus on collaborative inquiry and discovery, not adversarial debate"
+            "- Questions should probe assumptions, definitions, and underlying beliefs"
+            "- Answers should be honest and reflective, acknowledging uncertainty"
+            "- Build on previous exchanges to explore deeper implications"
+            "- Use the method of elenchus (cross-examination) to examine ideas"
+            "- Embrace intellectual humility and the 'wisdom of knowing that you don't "
+            "know'"
 
-            QUESTIONER ROLE (Teacher/Examiner):
-            - Ask open-ended questions that lead to insight, not trap the responder
-            - Follow up on answers to explore contradictions and hidden assumptions  
-            - Guide the dialogue toward deeper understanding
+            "QUESTIONER ROLE (Teacher/Examiner):"
+            "- Ask open-ended questions that lead to insight, not trap the responder"
+            "- Follow up on answers to explore contradictions and hidden assumptions  "
+            "- Guide the dialogue toward deeper understanding"
 
-            RESPONDER ROLE (Student/Examined):
-            - Answer honestly and examine your own thinking process
-            - Admit when you're uncertain or when questions reveal flaws in your reasoning
-            - Be willing to revise your understanding based on the inquiry
+            "RESPONDER ROLE (Student/Examined):"
+            "- Answer honestly and examine your own thinking process"
+            "- Admit when you're uncertain or when questions reveal flaws in your "
+            "reasoning"
+            "- Be willing to revise your understanding based on the inquiry"
 
-            Remember: The goal is mutual learning and truth-seeking, not winning or losing."""
+            "Remember: The goal is mutual learning and truth-seeking, not winning or "
+            "losing.")
 
     def get_min_participants(self) -> int:
         """Socratic works best with exactly 2 participants."""

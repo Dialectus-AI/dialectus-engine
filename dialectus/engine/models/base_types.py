@@ -1,6 +1,8 @@
 """
 Base types for model providers.
-Shared types and enums that work across all providers (Ollama, OpenRouter, future direct APIs).
+
+Shared types and enums that work across all providers
+(Ollama, OpenRouter, future direct APIs).
 """
 
 from collections.abc import Mapping
@@ -64,7 +66,7 @@ class BaseEnhancedModelInfo(BaseModel):
 
     @property
     def display_name(self) -> str:
-        """User-friendly display name - just the model name without technical details."""
+        """User-friendly display name - just model name without tech details."""
         return self.name
 
     @property

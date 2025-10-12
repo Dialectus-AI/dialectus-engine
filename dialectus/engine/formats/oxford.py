@@ -7,7 +7,7 @@ from .topic_themes import TopicTheme, TopicTone
 
 
 class OxfordFormat(DebateFormat):
-    """Oxford Union-style debate with formal structure and balanced argument exchange."""
+    """Oxford Union-style debate with formal structure and balanced exchange."""
 
     @property
     def name(self) -> str:
@@ -25,7 +25,9 @@ class OxfordFormat(DebateFormat):
         )
 
     def get_phases(self, participants: list[str]) -> list[FormatPhase]:
-        """Oxford format: Proposition Opening -> Opposition Opening -> Rebuttals -> Cross-Examination -> Closing"""
+        """Oxford format: Proposition Opening -> Opposition Opening -> 
+        Rebuttals -> Cross-Examination -> Closing"""
+
         if len(participants) < 2:
             raise ValueError("Oxford format requires at least 2 participants")
 
@@ -132,16 +134,16 @@ class OxfordFormat(DebateFormat):
 
     def get_format_instructions(self) -> str:
         """Oxford format-specific instructions."""
-        return """OXFORD DEBATE FORMAT:
-            - Maintain formal academic discourse and courtesy throughout
-            - Proposition supports the motion, Opposition challenges it
-            - Structure arguments clearly: premise, evidence, reasoning, conclusion
-            - Address the Chair and audience with appropriate formality
-            - Engage substantively with opponent's strongest arguments
-            - Use evidence-based reasoning and logical analysis
-            - Cross-examination should be strategic and respectful
-
-            Remember: You are participating in a prestigious Oxford Union-style debate."""
+        return ("OXFORD DEBATE FORMAT: "
+            "- Maintain formal academic discourse and courtesy throughout"
+            "- Proposition supports the motion, Opposition challenges it"
+            "- Structure arguments clearly: premise, evidence, reasoning, conclusion"
+            "- Address the Chair and audience with appropriate formality"
+            "- Engage substantively with opponent's strongest arguments"
+            "- Use evidence-based reasoning and logical analysis"
+            "- Cross-examination should be strategic and respectful"
+            "Remember: You are participating in a prestigious Oxford Union-style "
+            "debate.")
 
     def get_max_participants(self) -> int:
         """Oxford format supports up to 4 participants (2 per side)."""

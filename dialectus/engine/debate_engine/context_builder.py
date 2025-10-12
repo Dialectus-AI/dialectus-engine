@@ -74,9 +74,11 @@ class ContextBuilder:
         for msg in context.messages[-6:]:  # Last 6 messages for context
             role = "assistant" if msg.speaker_id == speaker_id else "user"
 
-            # Use a cleaner format that's less likely to be repeated by small models
+            # Use a cleaner format that's less likely to be repeated by small
+            # models
             if role == "assistant":
-                # When showing the model its own previous messages, just show the content
+                # When showing the model its own previous messages, just show the
+                # content
                 messages.append({"role": role, "content": msg.content})
             else:
                 # When showing opponent messages, use a simple format
@@ -140,9 +142,11 @@ class ContextBuilder:
         for msg in context.messages[-6:]:  # Last 6 messages for context
             role = "assistant" if msg.speaker_id == speaker_id else "user"
 
-            # Use a cleaner format that's less likely to be repeated by small models
+            # Use a cleaner format that's less likely to be repeated by small
+            # models
             if role == "assistant":
-                # When showing the model its own previous messages, just show the content
+                # When showing the model its own previous messages, just show the
+                # content
                 messages.append({"role": role, "content": msg.content})
             else:
                 # When showing opponent messages, use a simple format

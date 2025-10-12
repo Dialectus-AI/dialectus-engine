@@ -198,17 +198,20 @@ class AIJudge(BaseJudge):
 
     def _get_judge_system_prompt(self) -> str:
         """Get system prompt for the AI judge."""
-        return """You are an expert debate judge with years of experience evaluating formal debates. Your role is to provide fair, objective, and detailed evaluations of debate performances.
+        return """You are an expert debate judge with years of experience
+evaluating formal debates. Your role is to provide fair, objective,
+and detailed evaluations of debate performances.
 
         JUDGING PRINCIPLES:
         1. Evaluate arguments based on logic, evidence, and persuasiveness
-        2. Consider how well debaters address opponent arguments  
+        2. Consider how well debaters address opponent arguments
         3. Assess adherence to debate format and rules
         4. Be impartial - judge the arguments, not the participants
         5. Provide specific, constructive feedback
         6. Score each criterion on a scale of 0-10 (10 being exceptional)
 
-        You must respond with a structured JSON evaluation that can be parsed programmatically. Be thorough but concise in your reasoning."""
+        You must respond with a structured JSON evaluation that can be
+parsed programmatically. Be thorough but concise in your reasoning."""
 
     def _create_evaluation_prompt(
         self,
@@ -252,17 +255,22 @@ class AIJudge(BaseJudge):
         participants_list = "\n".join(f"- {label}" for label in side_labels)
         scores_text = ",\n".join(example_scores)
 
-        return f"""Please evaluate this debate and provide your judgment in the following JSON format.
+        return f"""Please evaluate this debate and provide your judgment
+in the following JSON format.
 
 EVALUATION FOCUS: {random_instruction}
 EVALUATION ID: {evaluation_id}
 
-Please evaluate this debate and provide your judgment in the following JSON format:
+Please evaluate this debate and provide your judgment
+in the following JSON format:
 
 {{
   "winner": "{side_labels[0]} or {side_labels[1]}",
   "overall_feedback": "2-3 sentence summary of the debate quality",
-  "reasoning": "Write a detailed natural language explanation of your decision. Use complete sentences and paragraphs. Do NOT use structured data, dictionaries, or lists here - only descriptive text explaining your thought process.",
+  "reasoning": "Write a detailed natural language explanation of your
+decision. Use complete sentences and paragraphs. Do NOT use structured
+data, dictionaries, or lists here - only descriptive text explaining
+your thought process.",
   "criterion_scores": [
 {scores_text}
   ]
@@ -274,17 +282,26 @@ PARTICIPANTS:
 {participants_list}
 
 CRITICAL INSTRUCTIONS:
-- You MUST evaluate BOTH participants on ALL criteria - do not skip any participant-criterion combinations
-- Reference participants by their side labels only (e.g., "{side_labels[0]}", "{side_labels[1]}")
-- The "reasoning" field must contain ONLY natural language text explaining your decision
-- Do NOT put structured data, scores, or dictionaries in the "reasoning" field
+- You MUST evaluate BOTH participants on ALL criteria - do not skip
+any participant-criterion combinations
+- Reference participants by their side labels only
+(e.g., "{side_labels[0]}", "{side_labels[1]}")
+- The "reasoning" field must contain ONLY natural language text
+explaining your decision
+- Do NOT put structured data, scores, or dictionaries in the
+"reasoning" field
 - All numerical scores belong ONLY in the "criterion_scores" array
 - Focus on argument quality, evidence, and debate performance
 - Provide specific feedback for each participant and criterion
-- Your response must include exactly {len(criteria) * len(side_labels)} criterion_scores entries
+- Your response must include exactly {len(criteria) * len(side_labels)}
+criterion_scores entries
 
 EXAMPLE of correct reasoning field:
-"The {side_labels[0]} presented stronger evidence with three concrete examples, while the {side_labels[1]} relied more on theoretical arguments. The {side_labels[0]} also did a better job addressing counterarguments in the rebuttal phase, showing deeper engagement with the opposing viewpoint."
+"The {side_labels[0]} presented stronger evidence with three concrete
+examples, while the {side_labels[1]} relied more on theoretical
+arguments. The {side_labels[0]} also did a better job addressing
+counterarguments in the rebuttal phase, showing deeper engagement
+with the opposing viewpoint."
 
 DEBATE TRANSCRIPT:
 {transcript}
@@ -510,7 +527,8 @@ Provide your evaluation as valid JSON only, no additional text:"""
         participants: list[str],
         context: DebateContext,
     ) -> None:
-        """Validate that judge provided complete scoring for all participants and criteria."""
+        """Validate judge provided complete scoring for all participants
+        and criteria."""
         expected_combinations = len(participants) * len(self.criteria)
         actual_combinations = len(criterion_scores)
 
@@ -551,7 +569,8 @@ Provide your evaluation as valid JSON only, no additional text:"""
     async def _query_and_update_judge_cost(
         self, judge_decision: "JudgeDecision"
     ) -> None:
-        """Background task to query and update cost for a judge decision with generation_id."""
+        """Background task to query and update cost for a judge decision
+        with generation_id."""
         if not judge_decision.generation_id:
             return
 

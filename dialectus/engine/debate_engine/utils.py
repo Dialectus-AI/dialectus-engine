@@ -12,7 +12,8 @@ logger = logging.getLogger(__name__)
 
 
 def calculate_max_tokens(word_limit: int) -> int:
-    """Calculate maximum tokens based on word limit with buffer for incomplete sentences.
+    """Calculate maximum tokens based on word limit with buffer for incomplete 
+    sentences.
 
     Args:
         word_limit: Maximum number of words allowed

@@ -89,8 +89,8 @@ class OpenRouterProvider(BaseModelProvider):
     def _get_site_url(self) -> str | None:
         """Get OpenRouter site URL from environment or config.
 
-        Site URL is sent as HTTP-Referer header for OpenRouter attribution and rate limiting.
-        Environment variable takes precedence over config.
+        Site URL is sent as HTTP-Referer header for attribution and rate
+        limiting. Environment variable takes precedence over config.
 
         Returns:
             Site URL string if found, None otherwise
@@ -122,7 +122,10 @@ class OpenRouterProvider(BaseModelProvider):
             OpenRouterProvider._last_request_time = time.time()
 
     async def get_available_models(self) -> list[str]:
-        """Get curated list of available models from OpenRouter with intelligent filtering."""
+        """Get curated list of available models from OpenRouter.
+
+        Uses intelligent filtering to return high-quality models only.
+        """
         enhanced_models = await self.get_enhanced_models()
         return [model.id for model in enhanced_models]
 
@@ -145,8 +148,12 @@ class OpenRouterProvider(BaseModelProvider):
             cached_models = cache_manager.get("openrouter", "models")
             enhanced_models: list[OpenRouterEnhancedModelInfo] = []
             if isinstance(cached_models, list):
-                from dialectus.engine.models.openrouter.openrouter_enhanced_model_info import (
-                    OpenRouterEnhancedModelInfo,
+                from dialectus.engine.models.openrouter import (
+                    openrouter_enhanced_model_info,
+                )
+
+                OpenRouterEnhancedModelInfo = (
+                    openrouter_enhanced_model_info.OpenRouterEnhancedModelInfo
                 )
 
                 cached_list = cast(list[object], cached_models)
@@ -223,7 +230,7 @@ class OpenRouterProvider(BaseModelProvider):
                     max_models_per_tier=8,  # Limit selection to avoid overwhelming UI
                 )
 
-                # Cache the enhanced models for 1 hour (OpenRouter doesn't update frequently)
+                # Cache enhanced models (1 hour, OpenRouter updates slowly)
                 cache_manager.set("openrouter", "models", enhanced_models, ttl_hours=1)
 
                 logger.info(
@@ -552,7 +559,7 @@ class OpenRouterProvider(BaseModelProvider):
         messages: list[dict[str, str]],
         **overrides: object,
     ) -> GenerationMetadata:
-        """Generate response with full metadata including generation ID for cost tracking."""
+        """Generate response with full metadata including generation ID."""
         if not self._client:
             raise RuntimeError("OpenRouter client not initialized - check API key")
 
@@ -679,7 +686,7 @@ class OpenRouterProvider(BaseModelProvider):
             raise
 
     async def query_generation_cost(self, generation_id: str) -> float:
-        """Query OpenRouter for the cost of a specific generation. Fails fast on errors."""
+        """Query OpenRouter for the cost of a specific generation."""
         if not self._client:
             raise RuntimeError(
                 "OpenRouter client not initialized - this should not happen if we got a"

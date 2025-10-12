@@ -243,7 +243,9 @@ def get_template_config() -> AppConfig:
                 repeat_penalty=1.1,
             ),
             openrouter=OpenRouterConfig(
-                api_key=None,  # Set your OpenRouter API key here or use OPENROUTER_API_KEY env var
+                # Set your OpenRouter API key here or use
+                # OPENROUTER_API_KEY env var
+                api_key=None,
                 base_url="https://openrouter.ai/api/v1",
                 site_url=None,  # Your site URL for referrer tracking (optional)
                 app_name="Dialectus AI Debate System",

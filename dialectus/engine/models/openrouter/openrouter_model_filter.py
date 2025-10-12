@@ -40,7 +40,8 @@ class OpenRouterModelFilter:
             return False
 
         # Exclude models that output non-text (images, audio, video)
-        # These are fundamentally different from multimodal models that can INPUT multiple types
+        # These are fundamentally different from multimodal models that can INPUT
+        # multiple types
         non_text_outputs: list[str] = [
             modality
             for modality in model.architecture.output_modalities
@@ -49,8 +50,10 @@ class OpenRouterModelFilter:
         if non_text_outputs:
             return False
 
-        # Allow multimodal INPUT models - they're often better at reasoning and text generation
-        # Examples: GPT-4V, Claude 3, Gemini Pro Vision - excellent for debates even with image capability
+        # Allow multimodal INPUT models - they're often better at reasoning and
+        # text generation
+        # Examples: GPT-4V, Claude 3, Gemini Pro Vision - excellent for debates even
+        # with image capability
 
         # Additional checks based on model name/description for debate suitability
         model_name_lower = model.name.lower()
@@ -123,7 +126,8 @@ class OpenRouterModelFilter:
     def classify_model(
         cls, model: OpenRouterModel
     ) -> tuple[ModelWeightClass, str | None]:
-        """Classify model into weight class and estimate parameters using dynamic extraction."""
+        """Classify model into weight class and estimate parameters using dynamic 
+        extraction."""
 
         # Use the new capability extractor for automatic classification
         estimated_params = OpenRouterCapabilityExtractor.extract_parameter_count(model)
@@ -135,7 +139,8 @@ class OpenRouterModelFilter:
 
     @classmethod
     def calculate_value_score(cls, model: OpenRouterModel) -> float:
-        """Calculate value score (higher = better value) using debate-focused scoring."""
+        """Calculate value score (higher = better value) using debate-focused 
+        scoring."""
 
         # Use the new debate-focused scoring system
         weight_class = OpenRouterCapabilityExtractor.determine_weight_class(model)
@@ -148,9 +153,10 @@ class OpenRouterModelFilter:
         weight_class: ModelWeightClass,
         model_filter: "OpenRouterModelFilter",
     ) -> ModelTier:
-        """Determine model tier based on debate performance, cost efficiency, and capabilities."""
+        """Determine model tier based on debate performance, cost efficiency, and 
+        capabilities."""
 
-        # Check if model is preview using provided filter instance or create minimal check
+        # Check if preview using provided filter instance or create minimal check
         if model_filter and model_filter.is_preview_model(model):
             return ModelTier.BUDGET  # Preview models are always budget tier
         elif not model_filter and "preview" in model.name.lower():
@@ -173,7 +179,8 @@ class OpenRouterModelFilter:
 
         # Cost-based tiers with context length consideration
         if weight_class == ModelWeightClass.ULTRAWEIGHT:
-            # Large models: Premium if reasonably priced, Flagship if expensive but capable
+            # Large models: Premium if reasonably priced, 
+            # Flagship if expensive but capable
             if avg_cost <= 0.01:
                 return ModelTier.PREMIUM  # Great large model at good price
             elif avg_cost <= 0.02:
@@ -222,7 +229,8 @@ class OpenRouterModelFilter:
         max_models_per_tier: int | None = None,
         filter_config: OpenRouterFilterConfig | None = None,
     ) -> list[OpenRouterEnhancedModelInfo]:
-        """Filter and enhance models with intelligent selection using configurable filters."""
+        """Filter and enhance models with intelligent selection using configurable 
+        filters."""
 
         # Initialize filter config and get settings
         config = filter_config or OpenRouterFilterConfig()
@@ -334,8 +342,9 @@ class OpenRouterModelFilter:
         # Sort models by tier and value
         enhanced_models.sort(key=lambda m: m.sort_key)
 
-        # Limit models per tier to avoid overwhelming users
-        # `per_tier_limit` is always an int at this point; guard keeps pyright happy and avoids negative limits.
+        # Limit models per tier
+        # `per_tier_limit` is always an int at this point; guard keeps pyright happy and
+        # avoids negative limits.
         if per_tier_limit > 0:
             tier_counts: dict[ModelTier, int] = {}
             filtered_models: list[OpenRouterEnhancedModelInfo] = []
