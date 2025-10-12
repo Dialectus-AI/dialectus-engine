@@ -1,4 +1,4 @@
-<img src="./assets/logo.png" alt="Dialectus Engine" width="350">
+<img src="https://raw.githubusercontent.com/dialectus-ai/dialectus-engine/main/assets/logo.png" alt="Dialectus Engine" width="350">
 
 <br />
 
