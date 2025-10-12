@@ -1,0 +1,8 @@
+line-length = 88  # Matches Black/Pylance defaults
+
+[lint]
+select = ["E", "F", "I", "UP"]  # Common rules: errors, flakes, isort, unnecessary
+ignore = []  # Tune as needed (e.g., add "E501" to skip line-length checks)
+
+[format]
+quote-style = "double"  # Or "single"
