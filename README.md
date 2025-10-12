@@ -24,11 +24,17 @@ The Dialectus Engine is a standalone Python library that provides core debate or
 
 ## Installation
 
+### From PyPI
+
+```bash
+pip install dialectus-engine
+```
+
 ### From Source
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/dialectus-engine.git
+git clone https://github.com/dialectus-ai/dialectus-engine.git
 cd dialectus-engine
 
 # Install in development mode
@@ -40,9 +46,16 @@ pip install -e ".[dev]"
 
 ### As a Dependency
 
+Add to your `requirements.txt` or `pyproject.toml`:
+
+```
+dialectus-engine>=0.1.0
+```
+
+Or install directly from git:
+
 ```bash
-# Install from git
-pip install git+https://github.com/yourusername/dialectus-engine.git@main
+pip install git+https://github.com/dialectus-ai/dialectus-engine.git@main
 ```
 
 ## Quick Start
