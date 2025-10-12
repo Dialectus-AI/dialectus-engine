@@ -55,7 +55,7 @@ jobs:
   publish-to-pypi:
     name: >-
       Publish Python 🐍 distribution 📦 to PyPI
-    if: '!contains(github.ref, "-test")' # Skip if tag has -test suffix
+    if: ${{ !contains(github.ref, '-test') }} # Skip if tag has -test suffix
     needs: [build, publish-to-testpypi] # Wait for test success
     runs-on: ubuntu-latest
     environment:
