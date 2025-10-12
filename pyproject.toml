@@ -50,3 +50,21 @@ include = ["dialectus*"]
 
 [tool.setuptools.package-data]
 "dialectus.engine.config" = ["*.json"]
+
+[tool.pytest.ini_options]
+# Pytest configuration
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",                    # Verbose output
+    "--strict-markers",      # Raise error on unknown markers
+    "--tb=short",            # Shorter traceback format
+    "--disable-warnings",    # Disable warnings for cleaner output
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+]
