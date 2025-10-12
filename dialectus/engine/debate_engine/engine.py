@@ -3,18 +3,20 @@
 import asyncio
 import logging
 import time
-from typing import Any, Callable, Awaitable
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 from dialectus.engine.config.settings import AppConfig
-from dialectus.engine.models.manager import ModelManager
 from dialectus.engine.judges.base import BaseJudge
-from .types import DebatePhase
+from dialectus.engine.models.manager import ModelManager
+
+from .context_builder import ContextBuilder
+from .judge_coordinator import JudgeCoordinator
 from .models import DebateContext
 from .prompt_builder import PromptBuilder
-from .context_builder import ContextBuilder
 from .response_handler import ResponseHandler
 from .round_manager import RoundManager
-from .judge_coordinator import JudgeCoordinator
+from .types import DebatePhase
 
 logger = logging.getLogger(__name__)
 

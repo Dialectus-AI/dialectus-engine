@@ -1,9 +1,8 @@
 from typing import TYPE_CHECKING
 
 from .base_model_provider import BaseModelProvider
-from .open_router_provider import OpenRouterProvider
-
 from .ollama_provider import OllamaProvider
+from .open_router_provider import OpenRouterProvider
 
 if TYPE_CHECKING:
     from config.settings import SystemConfig

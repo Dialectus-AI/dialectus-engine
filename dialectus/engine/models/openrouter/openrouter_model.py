@@ -1,10 +1,15 @@
 from typing import Any
 
 from pydantic import Field
+
 from dialectus.engine.models.base_types import BaseModel
-from dialectus.engine.models.openrouter.openrouter_architecture import OpenRouterArchitecture
+from dialectus.engine.models.openrouter.openrouter_architecture import (
+    OpenRouterArchitecture,
+)
 from dialectus.engine.models.openrouter.openrouter_pricing import OpenRouterPricing
-from dialectus.engine.models.openrouter.openrouter_top_provider import OpenRouterTopProvider
+from dialectus.engine.models.openrouter.openrouter_top_provider import (
+    OpenRouterTopProvider,
+)
 
 
 class OpenRouterModel(BaseModel):

@@ -3,9 +3,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import TypedDict, cast
 
-from ..base_types import ModelPricing, ModelTier, ModelWeightClass
 from dialectus.engine.models.base_types import BaseEnhancedModelInfo
 from dialectus.engine.models.openrouter.openrouter_model import OpenRouterPricing
+
+from ..base_types import ModelPricing, ModelTier, ModelWeightClass
 
 
 class _EnhancedModelPayload(TypedDict, total=False):

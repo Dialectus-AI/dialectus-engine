@@ -6,14 +6,16 @@ import asyncio
 import logging
 import re
 import time
-from typing import Callable, Awaitable, TYPE_CHECKING
+from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING
 
 from dialectus.engine.config.settings import AppConfig
 from dialectus.engine.models.manager import ModelManager
 from dialectus.engine.models.providers import ProviderRateLimitError
-from .types import DebatePhase, Position
-from .models import DebateContext, DebateMessage
+
 from .context_builder import ContextBuilder
+from .models import DebateContext, DebateMessage
+from .types import DebatePhase, Position
 from .utils import calculate_max_tokens, query_and_update_cost, trim_incomplete_sentence
 
 if TYPE_CHECKING:

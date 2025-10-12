@@ -6,8 +6,9 @@ import logging
 from typing import TYPE_CHECKING
 
 from dialectus.engine.config.settings import AppConfig
-from .types import Position, DebatePhase
+
 from .models import DebateContext
+from .types import DebatePhase, Position
 
 if TYPE_CHECKING:
     from dialectus.engine.formats import DebateFormat

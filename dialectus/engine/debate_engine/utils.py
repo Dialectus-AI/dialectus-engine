@@ -5,6 +5,7 @@ import logging
 from datetime import datetime
 
 from dialectus.engine.models.manager import ModelManager
+
 from .models import DebateMessage
 
 logger = logging.getLogger(__name__)

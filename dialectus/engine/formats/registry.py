@@ -3,8 +3,8 @@
 from .base import DebateFormat
 from .oxford import OxfordFormat
 from .parliamentary import ParliamentaryFormat
-from .socratic import SocraticFormat
 from .public_forum import PublicForumFormat
+from .socratic import SocraticFormat
 
 
 class FormatRegistry:

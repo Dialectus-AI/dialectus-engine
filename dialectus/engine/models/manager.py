@@ -123,7 +123,7 @@ class ModelManager:
         return response
 
     @asynccontextmanager
-    async def model_session(self, model_id: str) -> AsyncIterator["ModelManager"]:
+    async def model_session(self, model_id: str) -> AsyncIterator[ModelManager]:
         """Create a session context for model operations."""
         self._require_model_config(model_id)
 

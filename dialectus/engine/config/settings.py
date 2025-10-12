@@ -1,8 +1,9 @@
 """Configuration settings and data models."""
 
-from typing import Literal
-from pydantic import BaseModel, Field, field_validator
 from pathlib import Path
+from typing import Literal
+
+from pydantic import BaseModel, Field, field_validator
 
 
 class ModelConfig(BaseModel):
@@ -152,7 +153,7 @@ class AppConfig(BaseModel):
 
         import json
 
-        with open(config_path, "r", encoding="utf-8") as f:
+        with open(config_path, encoding="utf-8") as f:
             data = json.load(f)
 
         # Validate required sections

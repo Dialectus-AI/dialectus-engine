@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from pathlib import Path
-import logging
 import json
+import logging
+from pathlib import Path
 from typing import TypedDict, cast
 
 
@@ -56,7 +56,7 @@ class OpenRouterFilterConfig:
         """Load configuration from JSON file with fallback to defaults."""
         try:
             if self.config_path.exists():
-                with open(self.config_path, "r", encoding="utf-8") as f:
+                with open(self.config_path, encoding="utf-8") as f:
                     loaded_config = json.load(f)
                 if isinstance(loaded_config, dict):
                     self._config = cast(_ConfigDict, loaded_config)

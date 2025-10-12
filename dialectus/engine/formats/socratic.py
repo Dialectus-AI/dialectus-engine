@@ -1,8 +1,9 @@
 """Socratic dialogue format implementation."""
 
+from dialectus.engine.debate_engine.types import DebatePhase
+
 from .base import DebateFormat, FormatPhase, Position
 from .topic_themes import TopicTheme, TopicTone
-from dialectus.engine.debate_engine.types import DebatePhase
 
 
 class SocraticFormat(DebateFormat):

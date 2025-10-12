@@ -2,8 +2,9 @@
 
 import logging
 
-from dialectus.engine.models.manager import ModelManager
 from dialectus.engine.config.settings import SystemConfig
+from dialectus.engine.models.manager import ModelManager
+
 from .ai_judge import AIJudge
 
 logger = logging.getLogger(__name__)

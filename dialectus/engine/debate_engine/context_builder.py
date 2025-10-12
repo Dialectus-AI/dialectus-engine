@@ -5,9 +5,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from dialectus.engine.config.settings import AppConfig
-from .types import DebatePhase
+
 from .models import DebateContext
 from .prompt_builder import PromptBuilder
+from .types import DebatePhase
 
 if TYPE_CHECKING:
     from dialectus.engine.formats import DebateFormat, FormatPhase

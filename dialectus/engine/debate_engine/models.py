@@ -1,10 +1,11 @@
 """Data models for the debate engine."""
 
-from typing import Any
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Any
 
 from dialectus.engine.config.settings import ModelConfig
+
 from .types import DebatePhase, Position
 
 

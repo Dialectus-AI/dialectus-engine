@@ -1,6 +1,6 @@
 
-from dialectus.engine.models.openrouter.openrouter_model import OpenRouterModel
 from dialectus.engine.models.base_types import ModelWeightClass
+from dialectus.engine.models.openrouter.openrouter_model import OpenRouterModel
 
 
 class OpenRouterCapabilityExtractor:

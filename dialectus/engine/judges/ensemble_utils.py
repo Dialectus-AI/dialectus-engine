@@ -3,8 +3,9 @@
 import logging
 from typing import Any, TypedDict
 
-from .base import JudgeDecision, CriterionScore
 from dialectus.engine.debate_engine.models import DebateContext
+
+from .base import CriterionScore, JudgeDecision
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +61,7 @@ def calculate_ensemble_result(
                     f"Judge {i+1} decision: winner={decision.winner_id}, margin={decision.winner_margin:.2f}, scores={len(decision.criterion_scores)}"
                 )
 
-    logger.info(f"=== ENSEMBLE DEBUG: Individual judge decisions ===")
+    logger.info("=== ENSEMBLE DEBUG: Individual judge decisions ===")
     for i, decision in enumerate(decisions):
         logger.info(
             f"Judge {i+1}: winner={decision.winner_id}, margin={decision.winner_margin:.2f}"

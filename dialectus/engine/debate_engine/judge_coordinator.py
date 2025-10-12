@@ -5,8 +5,9 @@ import random
 from typing import Any
 
 from dialectus.engine.judges.base import BaseJudge, JudgeDecision
-from .types import DebatePhase
+
 from .models import DebateContext
+from .types import DebatePhase
 
 logger = logging.getLogger(__name__)
 

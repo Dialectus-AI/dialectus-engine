@@ -1,16 +1,19 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Awaitable, Callable, cast
 import json
-from openai import OpenAI
-from .base_model_provider import BaseModelProvider
 import logging
+from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING, cast
+
 import httpx
+from openai import OpenAI
+
+from .base_model_provider import BaseModelProvider
 
 if TYPE_CHECKING:
+    from config.settings import ModelConfig, SystemConfig
+    from models.base_types import BaseEnhancedModelInfo, ModelWeightClass
     from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
-    from config.settings import SystemConfig, ModelConfig
-    from models.base_types import ModelWeightClass, BaseEnhancedModelInfo
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +21,7 @@ logger = logging.getLogger(__name__)
 class OllamaProvider(BaseModelProvider):
     """Ollama model provider implementation."""
 
-    def __init__(self, system_config: "SystemConfig"):
+    def __init__(self, system_config: SystemConfig):
         super().__init__(system_config)
         self._client = OpenAI(
             base_url=f"{system_config.ollama_base_url}/v1",
@@ -69,7 +72,7 @@ class OllamaProvider(BaseModelProvider):
             return []
 
     async def generate_response(
-        self, model_config: "ModelConfig", messages: list[dict[str, str]], **overrides: object
+        self, model_config: ModelConfig, messages: list[dict[str, str]], **overrides: object
     ) -> str:
         """Generate a response using Ollama."""
         if not self._client:
@@ -101,7 +104,7 @@ class OllamaProvider(BaseModelProvider):
         chat_messages = cast(list["ChatCompletionMessageParam"], messages)
 
         try:
-            response: "ChatCompletion"
+            response: ChatCompletion
             if extra_body:
                 response = self._client.chat.completions.create(
                     model=model_config.name,
@@ -138,7 +141,7 @@ class OllamaProvider(BaseModelProvider):
             )
             raise
 
-    def validate_model_config(self, model_config: "ModelConfig") -> bool:
+    def validate_model_config(self, model_config: ModelConfig) -> bool:
         """Validate Ollama model configuration."""
         return model_config.provider == "ollama"
 
@@ -148,7 +151,7 @@ class OllamaProvider(BaseModelProvider):
 
     async def generate_response_stream(
         self,
-        model_config: "ModelConfig",
+        model_config: ModelConfig,
         messages: list[dict[str, str]],
         chunk_callback: Callable[[str, bool], Awaitable[None]],
         **overrides: object,
@@ -264,16 +267,16 @@ class OllamaProvider(BaseModelProvider):
             raise
 
 
-    async def get_enhanced_models(self) -> list["BaseEnhancedModelInfo"]:
+    async def get_enhanced_models(self) -> list[BaseEnhancedModelInfo]:
         """Get enhanced model information for Ollama models."""
         basic_models = await self.get_available_models()
-        enhanced_models: list["BaseEnhancedModelInfo"] = []
+        enhanced_models: list[BaseEnhancedModelInfo] = []
 
         from models.base_types import (
             BaseEnhancedModelInfo,
-            ModelWeightClass,
-            ModelTier,
             ModelPricing,
+            ModelTier,
+            ModelWeightClass,
         )
 
         for model_id in basic_models:
@@ -318,7 +321,7 @@ class OllamaProvider(BaseModelProvider):
 
         return enhanced_models
 
-    def _classify_ollama_model(self, model_id: str) -> "ModelWeightClass":
+    def _classify_ollama_model(self, model_id: str) -> ModelWeightClass:
         """Classify Ollama model into weight class."""
 
         model_lower = model_id.lower()

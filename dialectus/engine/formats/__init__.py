@@ -3,9 +3,9 @@
 from .base import DebateFormat, FormatPhase
 from .oxford import OxfordFormat
 from .parliamentary import ParliamentaryFormat
-from .socratic import SocraticFormat
 from .public_forum import PublicForumFormat
 from .registry import format_registry
+from .socratic import SocraticFormat
 from .topic_themes import (
     THEME_DESCRIPTIONS,
     THEME_TONES,

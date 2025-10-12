@@ -30,7 +30,7 @@ class GenerationMetadata:
 class BaseModelProvider(ABC):
     """Abstract base class for model providers."""
 
-    def __init__(self, system_config: "SystemConfig"):
+    def __init__(self, system_config: SystemConfig):
         self.system_config = system_config
         self._client: OpenAI | None = None
 
@@ -44,20 +44,20 @@ class BaseModelProvider(ABC):
         """Get list of available models from this provider."""
 
     @abstractmethod
-    async def get_enhanced_models(self) -> list["BaseEnhancedModelInfo"]:
+    async def get_enhanced_models(self) -> list[BaseEnhancedModelInfo]:
         """Return rich metadata for models surfaced by this provider."""
 
     @abstractmethod
     async def generate_response(
         self,
-        model_config: "ModelConfig",
+        model_config: ModelConfig,
         messages: list[dict[str, str]],
         **overrides: object,
     ) -> str:
         """Generate a response using this provider."""
 
     @abstractmethod
-    def validate_model_config(self, model_config: "ModelConfig") -> bool:
+    def validate_model_config(self, model_config: ModelConfig) -> bool:
         """Validate that a model configuration is compatible with this provider."""
 
     def supports_streaming(self) -> bool:
@@ -66,7 +66,7 @@ class BaseModelProvider(ABC):
 
     async def generate_response_stream(
         self,
-        model_config: "ModelConfig",
+        model_config: ModelConfig,
         messages: list[dict[str, str]],
         chunk_callback: Callable[[str, bool], Awaitable[None]],
         **overrides: object,
@@ -80,7 +80,7 @@ class BaseModelProvider(ABC):
 
     async def generate_response_with_metadata(
         self,
-        model_config: "ModelConfig",
+        model_config: ModelConfig,
         messages: list[dict[str, str]],
         **overrides: object,
     ) -> GenerationMetadata:
@@ -90,7 +90,7 @@ class BaseModelProvider(ABC):
 
     async def generate_response_stream_with_metadata(
         self,
-        model_config: "ModelConfig",
+        model_config: ModelConfig,
         messages: list[dict[str, str]],
         chunk_callback: Callable[[str, bool], Awaitable[None]],
         **overrides: object,

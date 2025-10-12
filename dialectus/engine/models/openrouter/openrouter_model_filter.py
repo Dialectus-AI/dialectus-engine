@@ -3,14 +3,21 @@ OpenRouter API types and model filtering logic.
 Handles model selection, pricing analysis, and weight classification.
 """
 
-import re
 import logging
+import re
 
-from dialectus.engine.models.openrouter.openrouter_capability_extractor import OpenRouterCapabilityExtractor
-from dialectus.engine.models.openrouter.openrouter_enhanced_model_info import OpenRouterEnhancedModelInfo
-from dialectus.engine.models.openrouter.openrouter_filter_config import OpenRouterFilterConfig
+from dialectus.engine.models.openrouter.openrouter_capability_extractor import (
+    OpenRouterCapabilityExtractor,
+)
+from dialectus.engine.models.openrouter.openrouter_enhanced_model_info import (
+    OpenRouterEnhancedModelInfo,
+)
+from dialectus.engine.models.openrouter.openrouter_filter_config import (
+    OpenRouterFilterConfig,
+)
 from dialectus.engine.models.openrouter.openrouter_model import OpenRouterModel
-from ..base_types import ModelWeightClass, ModelTier, ModelPricing
+
+from ..base_types import ModelPricing, ModelTier, ModelWeightClass
 
 logger = logging.getLogger(__name__)
 

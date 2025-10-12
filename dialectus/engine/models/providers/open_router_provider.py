@@ -1,23 +1,31 @@
 from __future__ import annotations
 
-import os
 import asyncio
-import time
 import json
-from typing import TYPE_CHECKING, ClassVar, Awaitable, Callable, cast
 import logging
-from openai import OpenAI
+import os
+import time
+from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING, ClassVar, cast
+
 import httpx
 from httpx import HTTPStatusError
+from openai import OpenAI
+
+from dialectus.engine.models.base_types import BaseEnhancedModelInfo
 
 from .base_model_provider import BaseModelProvider, GenerationMetadata
-from .openrouter_generation_types import OpenRouterChatCompletionResponse, OpenRouterGenerationApiResponse
-from dialectus.engine.models.base_types import BaseEnhancedModelInfo
 from .exceptions import ProviderRateLimitError
+from .openrouter_generation_types import (
+    OpenRouterChatCompletionResponse,
+    OpenRouterGenerationApiResponse,
+)
 
 if TYPE_CHECKING:
-    from dialectus.engine.config.settings import SystemConfig, ModelConfig
-    from dialectus.engine.models.openrouter.openrouter_enhanced_model_info import OpenRouterEnhancedModelInfo
+    from dialectus.engine.config.settings import ModelConfig, SystemConfig
+    from dialectus.engine.models.openrouter.openrouter_enhanced_model_info import (
+        OpenRouterEnhancedModelInfo,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +40,7 @@ class OpenRouterProvider(BaseModelProvider):
         3.0  # Minimum 3 seconds between requests to prevent 429 errors
     )
 
-    def __init__(self, system_config: "SystemConfig"):
+    def __init__(self, system_config: SystemConfig):
         super().__init__(system_config)
 
         # Get API key from config or environment
@@ -111,22 +119,28 @@ class OpenRouterProvider(BaseModelProvider):
         enhanced_models = await self.get_enhanced_models()
         return [model.id for model in enhanced_models]
 
-    async def get_enhanced_models(self) -> list["BaseEnhancedModelInfo"]:
+    async def get_enhanced_models(self) -> list[BaseEnhancedModelInfo]:
         """Get enhanced model information with filtering and classification."""
         if not self._client:
             logger.warning("OpenRouter client not initialized - no API key")
             return []
 
         try:
-            from dialectus.engine.models.openrouter.openrouter_models_response import OpenRouterModelsResponse
-            from dialectus.engine.models.openrouter.openrouter_model_filter import OpenRouterModelFilter
             from dialectus.engine.models.cache_manager import cache_manager
+            from dialectus.engine.models.openrouter.openrouter_model_filter import (
+                OpenRouterModelFilter,
+            )
+            from dialectus.engine.models.openrouter.openrouter_models_response import (
+                OpenRouterModelsResponse,
+            )
 
             # Check cache first (6 hour default TTL)
             cached_models = cache_manager.get("openrouter", "models")
-            enhanced_models: list["OpenRouterEnhancedModelInfo"] = []
+            enhanced_models: list[OpenRouterEnhancedModelInfo] = []
             if isinstance(cached_models, list):
-                from dialectus.engine.models.openrouter.openrouter_enhanced_model_info import OpenRouterEnhancedModelInfo
+                from dialectus.engine.models.openrouter.openrouter_enhanced_model_info import (
+                    OpenRouterEnhancedModelInfo,
+                )
 
                 cached_list = cast(list[object], cached_models)
                 for model_candidate in cached_list:
@@ -227,7 +241,7 @@ class OpenRouterProvider(BaseModelProvider):
             raise  # Fail fast - don't hide errors from the frontend
 
     async def generate_response(
-        self, model_config: "ModelConfig", messages: list[dict[str, str]], **overrides: object
+        self, model_config: ModelConfig, messages: list[dict[str, str]], **overrides: object
     ) -> str:
         """Generate a response using OpenRouter."""
         if not self._client:
@@ -325,7 +339,7 @@ class OpenRouterProvider(BaseModelProvider):
             logger.error("OpenRouter generation failed for %s: %s", model_config.name, exc)
             raise
 
-    def validate_model_config(self, model_config: "ModelConfig") -> bool:
+    def validate_model_config(self, model_config: ModelConfig) -> bool:
         """Validate OpenRouter model configuration."""
         return model_config.provider == "openrouter"
 
@@ -335,7 +349,7 @@ class OpenRouterProvider(BaseModelProvider):
 
     async def generate_response_stream(
         self,
-        model_config: "ModelConfig",
+        model_config: ModelConfig,
         messages: list[dict[str, str]],
         chunk_callback: Callable[[str, bool], Awaitable[None]],
         **overrides: object,
@@ -504,7 +518,7 @@ class OpenRouterProvider(BaseModelProvider):
             raise
 
     async def generate_response_with_metadata(
-        self, model_config: "ModelConfig", messages: list[dict[str, str]], **overrides: object
+        self, model_config: ModelConfig, messages: list[dict[str, str]], **overrides: object
     ) -> GenerationMetadata:
         """Generate response with full metadata including generation ID for cost tracking."""
         if not self._client:

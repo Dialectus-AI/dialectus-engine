@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import Callable, Awaitable, Any, TYPE_CHECKING
+from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING, Any
 
-from .types import DebatePhase, Position
 from .models import DebateContext, DebateMessage
 from .response_handler import ResponseHandler
+from .types import DebatePhase, Position
 
 if TYPE_CHECKING:
     from formats import DebateFormat, FormatPhase

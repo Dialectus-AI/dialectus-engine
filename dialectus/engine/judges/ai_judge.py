@@ -1,16 +1,18 @@
 """AI-powered debate judge using language models."""
 
+import asyncio
 import json
 import logging
 import re
-import uuid
-import asyncio
 import time
+import uuid
 from datetime import datetime
-from dialectus.engine.models.manager import ModelManager
+
 from dialectus.engine.config.settings import SystemConfig
 from dialectus.engine.debate_engine.models import DebateContext
-from .base import BaseJudge, JudgeDecision, CriterionScore, JudgmentCriterion
+from dialectus.engine.models.manager import ModelManager
+
+from .base import BaseJudge, CriterionScore, JudgeDecision, JudgmentCriterion
 
 logger = logging.getLogger(__name__)
 
