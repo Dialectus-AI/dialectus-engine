@@ -1,0 +1,53 @@
+name: CI - Test & Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test with Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.10', '3.11', '3.12', '3.13']
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key:
+            ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml',
+            '**/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: Lint with ruff
+        run: |
+          ruff check . --fix  # Auto-fix
+          ruff format . --check  # Ensure formatting
+      - name: Type check with pyright
+        run: |
+          npm install -g @microsoft/pyright
+          pyright .  # Respects pyrightconfig.json
+      - name: Run tests
+        run: pytest
+      - name: Build package
+        run: |
+          python -m pip install build --user
+          python -m build --sdist --wheel
+      - name: Check package integrity
+        run: |
+          pip install twine
+          twine check dist/*
