@@ -66,15 +66,11 @@ pyrightconfig.json
 ehthumbs.db
 Thumbs.db
 
-# Debate-specific
-debate_config.json
-cache/
-transcripts/
-*.db
-*.sqlite
-TOURNAMENT.md
-
-# Claude
+# AI
 .claude/
-CLAUDE.md
-AGENTS.md
+.grok/
+claude.md
+agents.md
+
+# Dialectus
+debate_config.json
