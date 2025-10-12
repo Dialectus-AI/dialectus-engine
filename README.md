@@ -1,4 +1,4 @@
-<img src="./assets/logo.png" alt="Dialectus Engine" width="500">
+<img src="./assets/logo.png" alt="Dialectus Engine" width="350">
 
 <br />
 
