@@ -144,7 +144,8 @@ class ContextBuilder:
         messages.append(
             {
                 "role": "system",
-                "content": f"You are now speaking as {role_name}. {simplified_instruction}",
+                "content": (f"You are now speaking as {role_name}. "
+                f"{simplified_instruction}")
             }
         )
 
