@@ -25,7 +25,7 @@ class OxfordFormat(DebateFormat):
         )
 
     def get_phases(self, participants: list[str]) -> list[FormatPhase]:
-        """Oxford format: Proposition Opening -> Opposition Opening -> 
+        """Oxford format: Proposition Opening -> Opposition Opening ->
         Rebuttals -> Cross-Examination -> Closing"""
 
         if len(participants) < 2:
@@ -134,7 +134,8 @@ class OxfordFormat(DebateFormat):
 
     def get_format_instructions(self) -> str:
         """Oxford format-specific instructions."""
-        return ("OXFORD DEBATE FORMAT: "
+        return (
+            "OXFORD DEBATE FORMAT: "
             "- Maintain formal academic discourse and courtesy throughout"
             "- Proposition supports the motion, Opposition challenges it"
             "- Structure arguments clearly: premise, evidence, reasoning, conclusion"
@@ -143,7 +144,8 @@ class OxfordFormat(DebateFormat):
             "- Use evidence-based reasoning and logical analysis"
             "- Cross-examination should be strategic and respectful"
             "Remember: You are participating in a prestigious Oxford Union-style "
-            "debate.")
+            "debate."
+        )
 
     def get_max_participants(self) -> int:
         """Oxford format supports up to 4 participants (2 per side)."""

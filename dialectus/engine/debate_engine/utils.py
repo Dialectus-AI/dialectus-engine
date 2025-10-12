@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 def calculate_max_tokens(word_limit: int) -> int:
-    """Calculate maximum tokens based on word limit with buffer for incomplete 
+    """Calculate maximum tokens based on word limit with buffer for incomplete
     sentences.
 
     Args:

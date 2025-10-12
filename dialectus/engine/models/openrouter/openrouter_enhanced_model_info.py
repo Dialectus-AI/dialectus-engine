@@ -59,7 +59,7 @@ class OpenRouterEnhancedModelInfo(BaseEnhancedModelInfo):
         pricing_obj = payload.get("pricing")
         if isinstance(pricing_obj, OpenRouterPricing):
             # Fresh API data ships with provider-specific pricing; convert eagerly so
-            # downstream code never has to handle both shapes (keeps pyright and 
+            # downstream code never has to handle both shapes (keeps pyright and
             # business logic aligned).
             payload["pricing"] = ModelPricing(
                 prompt_cost_per_1k=pricing_obj.prompt_cost_per_1k,

@@ -126,7 +126,7 @@ class OpenRouterModelFilter:
     def classify_model(
         cls, model: OpenRouterModel
     ) -> tuple[ModelWeightClass, str | None]:
-        """Classify model into weight class and estimate parameters using dynamic 
+        """Classify model into weight class and estimate parameters using dynamic
         extraction."""
 
         # Use the new capability extractor for automatic classification
@@ -139,7 +139,7 @@ class OpenRouterModelFilter:
 
     @classmethod
     def calculate_value_score(cls, model: OpenRouterModel) -> float:
-        """Calculate value score (higher = better value) using debate-focused 
+        """Calculate value score (higher = better value) using debate-focused
         scoring."""
 
         # Use the new debate-focused scoring system
@@ -153,7 +153,7 @@ class OpenRouterModelFilter:
         weight_class: ModelWeightClass,
         model_filter: "OpenRouterModelFilter",
     ) -> ModelTier:
-        """Determine model tier based on debate performance, cost efficiency, and 
+        """Determine model tier based on debate performance, cost efficiency, and
         capabilities."""
 
         # Check if preview using provided filter instance or create minimal check
@@ -179,7 +179,7 @@ class OpenRouterModelFilter:
 
         # Cost-based tiers with context length consideration
         if weight_class == ModelWeightClass.ULTRAWEIGHT:
-            # Large models: Premium if reasonably priced, 
+            # Large models: Premium if reasonably priced,
             # Flagship if expensive but capable
             if avg_cost <= 0.01:
                 return ModelTier.PREMIUM  # Great large model at good price
@@ -229,7 +229,7 @@ class OpenRouterModelFilter:
         max_models_per_tier: int | None = None,
         filter_config: OpenRouterFilterConfig | None = None,
     ) -> list[OpenRouterEnhancedModelInfo]:
-        """Filter and enhance models with intelligent selection using configurable 
+        """Filter and enhance models with intelligent selection using configurable
         filters."""
 
         # Initialize filter config and get settings

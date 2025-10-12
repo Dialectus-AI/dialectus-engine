@@ -7,7 +7,7 @@ from .topic_themes import TopicTheme, TopicTone
 
 
 class PublicForumFormat(DebateFormat):
-    """Public Forum Debate format for discussing current events and real-world 
+    """Public Forum Debate format for discussing current events and real-world
     issues."""
 
     @property
@@ -26,7 +26,7 @@ class PublicForumFormat(DebateFormat):
         )
 
     def get_phases(self, participants: list[str]) -> list[FormatPhase]:
-        """Public Forum format: Constructive Speeches -> Crossfire -> 
+        """Public Forum format: Constructive Speeches -> Crossfire ->
         Rebuttals -> Final Focus"""
         if len(participants) < 2:
             raise ValueError("Public Forum format requires at least 2 participants")
@@ -143,7 +143,8 @@ class PublicForumFormat(DebateFormat):
 
     def get_format_instructions(self) -> str:
         """Public Forum format-specific instructions."""
-        return ("PUBLIC FORUM DEBATE FORMAT:"
+        return (
+            "PUBLIC FORUM DEBATE FORMAT:"
             "- Focus on current events and real-world policy issues"
             "- Make arguments accessible to a general audience, not just debate experts"
             "- Use concrete evidence from credible sources (news, studies, expert "
@@ -152,19 +153,17 @@ class PublicForumFormat(DebateFormat):
             "- Engage in respectful but direct clash with your opponent"
             "- Crossfire should be conversational but strategic"
             "- Final Focus should clearly explain why your side wins the debate"
-
             "ADVOCATE ROLE:"
             "- Support the resolution with clear, compelling arguments"
             "- Provide evidence that the proposed policy/position is beneficial"
             "- Address practical concerns and implementation challenges"
-
             "OPPONENT ROLE:"
             "- Challenge the resolution with substantive counter-arguments"
             "- Highlight negative consequences and practical problems"
             "- Offer alternative solutions or perspectives when appropriate"
-
             "Remember: This is a public forum - your arguments should be clear and "
-            "persuasive to ordinary citizens, not just debate judges.")
+            "persuasive to ordinary citizens, not just debate judges."
+        )
 
     def get_max_participants(self) -> int:
         """Public Forum format supports up to 4 participants (2 per side)."""

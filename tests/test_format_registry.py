@@ -150,10 +150,12 @@ def test_format_display_names(
     assert debate_format.display_name == expected_display_name
 
 
-@pytest.mark.parametrize("format_name", ["oxford", "parliamentary", "socratic",
-                                         "public_forum"])
+@pytest.mark.parametrize(
+    "format_name", ["oxford", "parliamentary", "socratic", "public_forum"]
+)
 def test_all_formats_have_descriptions(
-    registry: FormatRegistry, format_name: str) -> None:
+    registry: FormatRegistry, format_name: str
+) -> None:
     """Test that all formats have non-empty descriptions.
 
     Learning notes:
@@ -167,8 +169,9 @@ def test_all_formats_have_descriptions(
     assert isinstance(debate_format.description, str)
 
 
-@pytest.mark.parametrize("format_name", 
-                         ["oxford", "parliamentary", "socratic", "public_forum"])
+@pytest.mark.parametrize(
+    "format_name", ["oxford", "parliamentary", "socratic", "public_forum"]
+)
 def test_all_formats_return_phases(
     registry: FormatRegistry, format_name: str, sample_participants: list[str]
 ) -> None:
@@ -420,20 +423,22 @@ class TestFormatProperties:
     - Testing properties/attributes of returned objects
     """
 
-    @pytest.mark.parametrize("format_name",
-                             ["oxford", "parliamentary", "socratic", "public_forum"])
-    def test_formats_have_valid_names(self, 
-                                      registry: FormatRegistry, 
-                                      format_name: str) -> None:
+    @pytest.mark.parametrize(
+        "format_name", ["oxford", "parliamentary", "socratic", "public_forum"]
+    )
+    def test_formats_have_valid_names(
+        self, registry: FormatRegistry, format_name: str
+    ) -> None:
         """Test that format name property matches registry key."""
         debate_format = registry.get_format(format_name)
         assert debate_format.name == format_name
 
-    @pytest.mark.parametrize("format_name",
-                             ["oxford", "parliamentary", "socratic", "public_forum"])
-    def test_formats_have_format_instructions(self,
-                                              registry: FormatRegistry,
-                                              format_name: str) -> None:
+    @pytest.mark.parametrize(
+        "format_name", ["oxford", "parliamentary", "socratic", "public_forum"]
+    )
+    def test_formats_have_format_instructions(
+        self, registry: FormatRegistry, format_name: str
+    ) -> None:
         """Test that all formats provide instructions."""
         debate_format = registry.get_format(format_name)
         instructions = debate_format.get_format_instructions()
@@ -463,7 +468,8 @@ def test_list_formats_returns_copy_not_reference(registry: FormatRegistry) -> No
 
 
 def test_format_descriptions_with_empty_participants_list(
-        registry: FormatRegistry) -> None:
+    registry: FormatRegistry,
+) -> None:
     """Test that format descriptions work even with edge case inputs.
 
     Learning notes:
@@ -480,8 +486,9 @@ def test_format_descriptions_with_empty_participants_list(
 # =============================================================================
 
 
-def test_full_format_workflow(registry: FormatRegistry, 
-                              sample_participants: list[str]) -> None:
+def test_full_format_workflow(
+    registry: FormatRegistry, sample_participants: list[str]
+) -> None:
     """Test a complete workflow of listing, getting, and using a format.
 
     Learning notes:
@@ -508,8 +515,9 @@ def test_full_format_workflow(registry: FormatRegistry,
     assert len(instructions) > 0
 
 
-def test_all_formats_complete_workflow(registry: FormatRegistry, 
-                                       sample_participants: list[str]) -> None:
+def test_all_formats_complete_workflow(
+    registry: FormatRegistry, sample_participants: list[str]
+) -> None:
     """Test that all formats can be retrieved and used.
 
     Learning notes:

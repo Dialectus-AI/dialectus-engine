@@ -39,7 +39,7 @@ class FormatRegistry:
         return list(self._formats.keys())
 
     def get_format_descriptions(self) -> dict[str, dict[str, str]]:
-        """Get format names, display names, descriptions, and side labels with 
+        """Get format names, display names, descriptions, and side labels with
         descriptions."""
         descriptions: dict[str, dict[str, str]] = {}
         for name, format_class in self._formats.items():

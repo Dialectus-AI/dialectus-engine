@@ -71,7 +71,7 @@ class OpenRouterCapabilityExtractor:
     def determine_weight_class(
         cls, model: OpenRouterModel, estimated_params: str | None = None
     ) -> ModelWeightClass:
-        """Determine weight class based on context length, parameters, and 
+        """Determine weight class based on context length, parameters, and
         capabilities."""
 
         # Get parameter count if not provided
@@ -117,7 +117,7 @@ class OpenRouterCapabilityExtractor:
     def calculate_debate_score(
         cls, model: OpenRouterModel, weight_class: ModelWeightClass
     ) -> float:
-        """Calculate debate suitability score based on conversational and reasoning 
+        """Calculate debate suitability score based on conversational and reasoning
         capabilities."""
 
         # Base score from context length (important for following debate flow/context)

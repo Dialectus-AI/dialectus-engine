@@ -233,13 +233,15 @@ parsed programmatically. Be thorough but concise in your reasoning."""
 
         # Use current time and a random element for uniqueness
         evaluation_id = int(time.time() * 1000) % 10000
-        random_instruction = random.choice([
-            "Pay particular attention to the strength of evidence presented.",
-            "Focus especially on how well arguments address counterpoints.",
-            "Consider the persuasive impact and clarity of each argument.",
-            "Evaluate the logical consistency and reasoning quality.",
-            "Assess how effectively each side builds their case.",
-        ])
+        random_instruction = random.choice(
+            [
+                "Pay particular attention to the strength of evidence presented.",
+                "Focus especially on how well arguments address counterpoints.",
+                "Consider the persuasive impact and clarity of each argument.",
+                "Evaluate the logical consistency and reasoning quality.",
+                "Assess how effectively each side builds their case.",
+            ]
+        )
 
         # Create complete example showing all participants and criteria
         example_scores: list[str] = []

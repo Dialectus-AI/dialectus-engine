@@ -122,11 +122,12 @@ class ParliamentaryFormat(DebateFormat):
             "PARLIAMENTARY DEBATE FORMAT:"
             "- Address the Speaker and fellow members respectfully"
             "- Government defends the motion, Opposition opposes it"
-            "- Use parliamentary language: 'Honorable members', " 
+            "- Use parliamentary language: 'Honorable members', "
             "'The motion before the House'"
             "- Focus on policy implications and practical governance"
             "- Challenge opposing arguments while maintaining decorum"
-            "Remember: You are debating in a formal parliamentary setting.")
+            "Remember: You are debating in a formal parliamentary setting."
+        )
 
     def get_max_participants(self) -> int:
         """Parliamentary can support up to 4 participants (2 per side)."""
