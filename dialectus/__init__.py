@@ -1,3 +1,7 @@
 """Dialectus - AI Debate System"""
 
-__version__ = "0.1.0"
+from pkgutil import extend_path
+
+__path__ = extend_path(__path__, __name__)
+__all__: list[str] = []
+__version__ = "0.1.2"
