@@ -69,3 +69,11 @@ markers = [
     "integration: marks tests as integration tests",
     "unit: marks tests as unit tests",
 ]
+
+[tool.black]
+line-length = 88
+preview = true  # Enables unstable features
+
+[tool.ruff]
+line-length = 88
+preview = true  # Matches Black's unstable
