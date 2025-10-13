@@ -8,7 +8,13 @@
     "**/venv",
     "**/__pycache__",
     "**/*.egg-info",
-    "**/dist"
+    "**/dist",
+    ".ci-venv",
+    "ci-venv",
+    "venv-ci",
+    "cache",
+    ".pytest_cache",
+    ".ruff_cache"
   ],
   "extraPaths": [
     "."
