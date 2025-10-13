@@ -13,6 +13,7 @@
   "extraPaths": [
     "."
   ],
+  "stubPath": "typings",
   "pythonVersion": "3.13",
   "typeCheckingMode": "strict",
   "reportMissingImports": true,
