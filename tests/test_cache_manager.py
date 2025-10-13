@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, tzinfo
 from enum import Enum
+from pathlib import Path
+from typing import Any, Protocol
 
 import pytest
 
@@ -14,20 +16,32 @@ from dialectus.engine.models.cache_manager import CacheEntry, ModelCacheManager
 RealDateTime = datetime
 
 
-def freeze_time(monkeypatch: pytest.MonkeyPatch, frozen_at: datetime):
+class FrozenDateTimeProtocol(Protocol):
+    """Protocol for frozen datetime with advance method."""
+
+    @classmethod
+    def now(cls, tz: tzinfo | None = None) -> datetime: ...
+
+    @classmethod
+    def advance(cls, **delta_kwargs: float) -> datetime: ...
+
+
+def freeze_time(
+    monkeypatch: pytest.MonkeyPatch, frozen_at: datetime
+) -> FrozenDateTimeProtocol:
     """Freeze cache_manager.datetime at a specific moment and allow manual advancement."""
 
     class FrozenDateTime(RealDateTime):
         _now = frozen_at
 
         @classmethod
-        def now(cls, tz=None):
+        def now(cls, tz: tzinfo | None = None) -> datetime:
             if tz is not None:
                 return tz.fromutc(cls._now.replace(tzinfo=tz))
             return cls._now
 
         @classmethod
-        def advance(cls, **delta_kwargs):
+        def advance(cls, **delta_kwargs: float) -> datetime:
             cls._now = cls._now + timedelta(**delta_kwargs)
             return cls._now
 
@@ -36,7 +50,7 @@ def freeze_time(monkeypatch: pytest.MonkeyPatch, frozen_at: datetime):
     return FrozenDateTime
 
 
-def test_set_get_and_invalidate_memory_cache(tmp_path):
+def test_set_get_and_invalidate_memory_cache(tmp_path: Path) -> None:
     """Model responses are cached in memory with parameter-based keys."""
     cache_dir = tmp_path / "cache"
     manager = ModelCacheManager(cache_dir=cache_dir)
@@ -58,7 +72,9 @@ def test_set_get_and_invalidate_memory_cache(tmp_path):
     assert manager.get_cache_stats()["memory_entries"] == 0
 
 
-def test_entry_expires_after_ttl(monkeypatch, tmp_path):
+def test_entry_expires_after_ttl(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     """Expired entries are evicted on access based on TTL."""
     frozen_at = datetime(2024, 1, 1, 12, 0, 0)
     frozen_datetime = freeze_time(monkeypatch, frozen_at)
@@ -76,20 +92,20 @@ def test_entry_expires_after_ttl(monkeypatch, tmp_path):
 class Dumpable:
     """Object implementing model_dump for serialization testing."""
 
-    def __init__(self, value):
+    def __init__(self, value: Any) -> None:
         self.value = value
 
-    def model_dump(self, *, mode=None):
+    def model_dump(self, *, mode: str | None = None) -> dict[str, Any]:
         return {"value": self.value}
 
 
 class Dictable:
     """Object implementing dict() and returning nested non-serializable objects."""
 
-    def __init__(self, value):
+    def __init__(self, value: Any) -> None:
         self.value = value
 
-    def dict(self):
+    def dict(self) -> dict[str, Any]:
         return {"wrapped": Dumpable(self.value)}
 
 
@@ -97,9 +113,9 @@ class SampleEnum(Enum):
     OPTION = "option"
 
 
-def test_save_and_load_round_trip_with_serialization(tmp_path):
+def test_save_and_load_round_trip_with_serialization(tmp_path: Path) -> None:
     """Disk persistence serializes complex data and loads it back cleanly."""
-    cache_dir = tmp_path / "cache"
+    cache_dir: Path = tmp_path / "cache"
     manager = ModelCacheManager(cache_dir=cache_dir)
 
     complex_data = {
@@ -120,11 +136,11 @@ def test_save_and_load_round_trip_with_serialization(tmp_path):
     cache_key = manager._get_cache_key("provider", "endpoint")  # noqa: SLF001
 
     manager._save_to_disk(cache_key, entry)  # noqa: SLF001
-    cache_file = cache_dir / f"{cache_key}.json"
+    cache_file: Path = cache_dir / f"{cache_key}.json"
     assert cache_file.exists()
 
     with cache_file.open("r", encoding="utf-8") as handle:
-        payload = json.load(handle)
+        payload: dict[str, Any] = json.load(handle)
 
     expected_serialized = {
         "dump": {"value": "value"},
@@ -145,7 +161,9 @@ def test_save_and_load_round_trip_with_serialization(tmp_path):
     assert loaded_entry.endpoint == "endpoint"
 
 
-def test_cleanup_expired_removes_memory_and_disk(monkeypatch, tmp_path):
+def test_cleanup_expired_removes_memory_and_disk(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     """cleanup_expired removes expired entries from memory and disk."""
     frozen_at = datetime(2024, 1, 1, 12, 0, 0)
     freeze_time(monkeypatch, frozen_at)

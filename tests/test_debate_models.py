@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from datetime import datetime
 
-import pytest
-
 from dialectus.engine.config.settings import ModelConfig
 from dialectus.engine.debate_engine.models import DebateContext, DebateMessage
 from dialectus.engine.debate_engine.types import DebatePhase, Position

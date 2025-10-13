@@ -47,7 +47,8 @@ def test_system_config_topic_source_validation() -> None:
     assert system.debate_topic_source == "ollama"
 
     with pytest.raises(ValidationError) as excinfo:
-        SystemConfig(debate_topic_source="invalid")
+        # Use dict unpacking to bypass static type checking while testing runtime validation
+        SystemConfig(**{"debate_topic_source": "invalid"})  # type: ignore[arg-type]
 
     assert "ollama" in str(excinfo.value)
     assert "openrouter" in str(excinfo.value)
@@ -85,7 +86,9 @@ def test_app_config_load_from_file_missing_file(tmp_path: Path) -> None:
         ["debate", "judging"],
     ],
 )
-def test_app_config_missing_sections(tmp_path: Path, missing_section: list[str]) -> None:
+def test_app_config_missing_sections(
+    tmp_path: Path, missing_section: list[str]
+) -> None:
     """load_from_file raises when required top-level sections are missing."""
     config = build_minimal_config().model_dump()
     for section in missing_section:
