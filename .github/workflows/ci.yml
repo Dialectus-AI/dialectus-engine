@@ -40,13 +40,13 @@ jobs:
       - name: Run tests
         run: |
           status=0
-          venv/bin/python -m pytest || status=$?
+          python -m pytest || status=$?
           if [ "$status" = "5" ]; then
             echo "pytest exited with 5 (no tests collected); treating as success."
             exit 0
           fi
           exit "$status"
       - name: Build package
-        run: venv/bin/python -m build --sdist --wheel
+        run: python -m build --sdist --wheel
       - name: Check package integrity
-        run: venv/bin/python -m twine check dist/*
+        run: python -m twine check dist/*
