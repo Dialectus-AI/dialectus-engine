@@ -11,12 +11,11 @@ Upstream patch coming: https://github.com/microsoft/pyright/issues/11003
 
 from __future__ import annotations
 
-from typing import Any, Iterable, Sequence, Tuple
-
+from collections.abc import Iterable, Sequence
+from typing import Any
 
 class Interpolation(str):
     """Represents a single interpolation within a template string."""
-
 
 class Template(str):
     """Runtime type for template string literals (t-strings)."""
@@ -24,13 +23,9 @@ class Template(str):
     interpolations: Sequence[Interpolation]
 
     def __new__(cls, *parts: str | Interpolation) -> Template: ...
-
-    def __reduce__(self) -> Tuple[Any, ...]: ...
-
+    def __reduce__(self) -> tuple[Any, ...]: ...
 
 def convert(obj: Any, conversion: str | None) -> Any: ...
-
-
 def _template_unpickle(
     strings: Iterable[str],
     interpolations: Iterable[Interpolation],

@@ -54,12 +54,10 @@ class ContextBuilder:
 
         # Add system prompt
         if speaker_id in self.prompt_builder.system_prompts:
-            messages.append(
-                {
-                    "role": "system",
-                    "content": self.prompt_builder.system_prompts[speaker_id],
-                }
-            )
+            messages.append({
+                "role": "system",
+                "content": self.prompt_builder.system_prompts[speaker_id],
+            })
 
         # Add role-focused phase instruction
         model_ids = list(context.participants.keys())
@@ -67,12 +65,10 @@ class ContextBuilder:
         role_name = side_labels.get(speaker_id, "Speaker")
 
         phase_instruction = PromptBuilder.get_phase_instruction(phase)
-        messages.append(
-            {
-                "role": "system",
-                "content": f"You are now speaking as {role_name}. {phase_instruction}",
-            }
-        )
+        messages.append({
+            "role": "system",
+            "content": f"You are now speaking as {role_name}. {phase_instruction}",
+        })
 
         # Add relevant debate history
         for msg in context.messages[-6:]:  # Last 6 messages for context
@@ -86,12 +82,10 @@ class ContextBuilder:
                 messages.append({"role": role, "content": msg.content})
             else:
                 # When showing opponent messages, use a simple format
-                messages.append(
-                    {
-                        "role": role,
-                        "content": f"Opponent ({msg.position.value}): {msg.content}",
-                    }
-                )
+                messages.append({
+                    "role": role,
+                    "content": f"Opponent ({msg.position.value}): {msg.content}",
+                })
 
         # Add current turn prompt with role focus
         turn_prompt = (
@@ -122,12 +116,10 @@ class ContextBuilder:
 
         # Add system prompt
         if speaker_id in self.prompt_builder.system_prompts:
-            messages.append(
-                {
-                    "role": "system",
-                    "content": self.prompt_builder.system_prompts[speaker_id],
-                }
-            )
+            messages.append({
+                "role": "system",
+                "content": self.prompt_builder.system_prompts[speaker_id],
+            })
 
         # Add role-focused phase instruction instead of procedural description
         model_ids = list(context.participants.keys())
@@ -141,14 +133,10 @@ class ContextBuilder:
             .strip()
         )
 
-        messages.append(
-            {
-                "role": "system",
-                "content": (
-                    f"You are now speaking as {role_name}. {simplified_instruction}"
-                ),
-            }
-        )
+        messages.append({
+            "role": "system",
+            "content": f"You are now speaking as {role_name}. {simplified_instruction}",
+        })
 
         # Add relevant debate history
         for msg in context.messages[-6:]:  # Last 6 messages for context
@@ -162,12 +150,10 @@ class ContextBuilder:
                 messages.append({"role": role, "content": msg.content})
             else:
                 # When showing opponent messages, use a simple format
-                messages.append(
-                    {
-                        "role": role,
-                        "content": f"Opponent ({msg.position.value}): {msg.content}",
-                    }
-                )
+                messages.append({
+                    "role": role,
+                    "content": f"Opponent ({msg.position.value}): {msg.content}",
+                })
 
         # Add current turn prompt with role focus
         word_limit = int(self.config.debate.word_limit * format_phase.time_multiplier)
