@@ -35,7 +35,6 @@ Issues = "https://github.com/dialectus-ai/dialectus-engine/issues"
 
 [project.optional-dependencies]
 dev = [
-    "pip-tools",
     "ruff>=0.5.0",
     "pytest>=7.0",
     "twine",
