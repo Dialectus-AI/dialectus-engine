@@ -26,12 +26,32 @@ The Dialectus Engine is a standalone Python library that provides core debate or
 
 ### From PyPI
 
+**Using uv (recommended):**
+```bash
+uv pip install dialectus-engine
+```
+
+**Using pip:**
 ```bash
 pip install dialectus-engine
 ```
 
 ### From Source
 
+**Using uv (recommended, faster):**
+```bash
+# Clone the repository
+git clone https://github.com/dialectus-ai/dialectus-engine.git
+cd dialectus-engine
+
+# Install in development mode with all dev dependencies
+uv sync
+
+# Or install without dev dependencies
+uv pip install -e .
+```
+
+**Using pip:**
 ```bash
 # Clone the repository
 git clone https://github.com/dialectus-ai/dialectus-engine.git
@@ -46,15 +66,22 @@ pip install -e ".[dev]"
 
 ### As a Dependency
 
-Add to your `requirements.txt` or `pyproject.toml`:
+Add to your `pyproject.toml`:
 
-```
-dialectus-engine>=0.1.0
+```toml
+[project]
+dependencies = [
+    "dialectus-engine>=0.1.0",
+]
 ```
 
 Or install directly from git:
 
 ```bash
+# Using uv
+uv pip install git+https://github.com/dialectus-ai/dialectus-engine.git@main
+
+# Using pip
 pip install git+https://github.com/dialectus-ai/dialectus-engine.git@main
 ```
 
@@ -95,11 +122,16 @@ asyncio.run(run_debate())
 The engine uses `debate_config.json` for system configuration. To get started:
 
 ```bash
-# Copy the example configuration
+# Linux/Mac: Copy the example configuration
 cp debate_config.example.json debate_config.json
 
+# Windows (PowerShell):
+# copy debate_config.example.json debate_config.json
+
 # Edit with your settings and API keys
-nano debate_config.json
+# Linux/Mac: nano debate_config.json
+# Windows: notepad debate_config.json
+# Or use your preferred editor (VS Code, vim, etc.)
 ```
 
 Key configuration sections:
@@ -109,6 +141,98 @@ Key configuration sections:
 - **Debate**: Default topic, format, and word limits
 
 For detailed configuration documentation, see [CONFIG_GUIDE.md](CONFIG_GUIDE.md).
+
+## Development Workflows
+
+### Running Tests and Type Checking
+
+**Using uv (recommended):**
+```bash
+# Run tests
+uv run pytest
+
+# Type check with Pyright
+uv run pyright
+
+# Lint with ruff
+uv run ruff check .
+
+# Format with ruff
+uv run ruff format .
+```
+
+**Using pip:**
+```bash
+# Ensure dev dependencies are installed
+pip install -e ".[dev]"
+
+# Run tests
+pytest
+
+# Type check with Pyright
+pyright
+
+# Lint and format
+ruff check .
+ruff format .
+```
+
+### Building Distribution
+
+**Using uv:**
+```bash
+# Build wheel and sdist
+uv build
+
+# Install locally from wheel
+uv pip install dist/dialectus_engine-*.whl
+```
+
+**Using pip:**
+```bash
+# Build wheel and sdist
+python -m build
+
+# Install locally
+pip install dist/dialectus_engine-*.whl
+```
+
+### Managing Dependencies
+
+**Using uv:**
+```bash
+# Add a new dependency
+# 1. Edit pyproject.toml [project.dependencies] section
+# 2. Update lock file and sync environment:
+uv lock && uv sync
+
+# Upgrade all dependencies (within version constraints)
+uv lock --upgrade
+
+# Upgrade specific package
+uv lock --upgrade-package httpx
+
+# Add dev dependency
+# 1. Edit pyproject.toml [project.optional-dependencies.dev]
+# 2. Run:
+uv sync
+```
+
+**Using pip:**
+```bash
+# Add a new dependency
+# 1. Edit pyproject.toml dependencies
+# 2. Reinstall:
+pip install -e ".[dev]"
+```
+
+### Why uv?
+
+- **10-100x faster** than pip for installs and resolution
+- **Reproducible builds** via `uv.lock` (cross-platform, includes hashes)
+- **Python 3.14 ready** - Takes advantage of free-threading for even better performance
+- **Single source of truth** - Dependencies in `pyproject.toml`, lock file auto-generated
+- **Compatible** - `pip` still works perfectly with `pyproject.toml`
 
 ## Features
 
