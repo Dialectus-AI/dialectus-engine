@@ -173,7 +173,7 @@ wheels = [
 
 [[package]]
 name = "dialectus-engine"
-version = "0.1.2"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "httpx" },
