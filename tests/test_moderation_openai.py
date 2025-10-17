@@ -3,17 +3,20 @@
 from __future__ import annotations
 
 import json
+import math
 import asyncio
 from types import SimpleNamespace
+from typing import Any, cast
 
 import pytest
 
 from httpx import Request, Response
-from openai import RateLimitError
+from openai import AsyncOpenAI, RateLimitError
 from dialectus.engine.config.settings import ModerationConfig, SystemConfig
 from dialectus.engine.moderation.exceptions import ModerationProviderError
 from dialectus.engine.moderation.manager import ModerationManager
 from dialectus.engine.moderation.openai_moderator import OpenAIModerator
+from dialectus.engine.moderation import manager as manager_module
 
 
 class FakeModerationResponse:
@@ -40,7 +43,7 @@ class FakeModerationResponse:
         ]
         self._payload = payload
 
-    def model_dump_json(self, **kwargs) -> str:
+    def model_dump_json(self, **kwargs: Any) -> str:
         """Mirror the real response helper for raw logging."""
         return json.dumps({"results": [self._payload]}, **kwargs)
 
@@ -48,18 +51,23 @@ class FakeModerationResponse:
 class FakeModerationsClient:
     """Simplified AsyncOpenAI client for testing."""
 
-    def __init__(self, *responses):
-        self._responses = list(responses)
-        self.requests: list[dict] = []
+    def __init__(self, *responses: FakeModerationResponse | Exception) -> None:
+        self._responses: list[FakeModerationResponse | Exception] = list(responses)
+        self.requests: list[dict[str, object]] = []
 
-    async def create(self, **kwargs):
-        self.requests.append(kwargs)
+    async def create(self, **kwargs: object) -> FakeModerationResponse:
+        self.requests.append(dict(kwargs))
         if not self._responses:
             raise AssertionError("No fake responses left")
         item = self._responses.pop(0)
         if isinstance(item, Exception):
             raise item
         return item
+
+
+def make_fake_openai_client(client: FakeModerationsClient) -> AsyncOpenAI:
+    """Cast a fake moderations client into the AsyncOpenAI interface for tests."""
+    return cast(AsyncOpenAI, SimpleNamespace(moderations=client))
 
 
 def test_openai_moderator_marks_safe_content() -> None:
@@ -75,11 +83,12 @@ def test_openai_moderator_marks_safe_content() -> None:
             "hate": 0.08,
         },
     )
+    fake_client = FakeModerationsClient(response)
     moderator = OpenAIModerator(
         api_key="test-key",
         model="omni-moderation-latest",
         timeout=5.0,
-        client=SimpleNamespace(moderations=FakeModerationsClient(response)),
+        client=make_fake_openai_client(fake_client),
     )
 
     result = asyncio.run(
@@ -88,7 +97,7 @@ def test_openai_moderator_marks_safe_content() -> None:
 
     assert result.is_safe is True
     assert result.categories == []
-    assert result.confidence == pytest.approx(0.88, rel=1e-3)
+    assert math.isclose(result.confidence, 0.88, rel_tol=1e-3)
     assert "results" in (result.raw_response or "")
 
 
@@ -107,11 +116,12 @@ def test_openai_moderator_maps_flagged_categories() -> None:
             "violence": 0.81,
         },
     )
+    fake_client = FakeModerationsClient(response)
     moderator = OpenAIModerator(
         api_key="test-key",
         model="omni-moderation-latest",
         timeout=5.0,
-        client=SimpleNamespace(moderations=FakeModerationsClient(response)),
+        client=make_fake_openai_client(fake_client),
     )
 
     result = asyncio.run(
@@ -120,7 +130,7 @@ def test_openai_moderator_maps_flagged_categories() -> None:
 
     assert result.is_safe is False
     assert result.categories == ["hate_speech", "violence"]
-    assert result.confidence == pytest.approx(0.92, rel=1e-3)
+    assert math.isclose(result.confidence, 0.92, rel_tol=1e-3)
 
 
 def test_openai_moderator_retries_on_rate_limit(
@@ -156,7 +166,7 @@ def test_openai_moderator_retries_on_rate_limit(
         api_key="test-key",
         model="omni-moderation-latest",
         timeout=5.0,
-        client=SimpleNamespace(moderations=client),
+        client=make_fake_openai_client(client),
         max_retries=2,
         retry_base_delay=0.25,
     )
@@ -172,13 +182,14 @@ def test_manager_initialises_openai_provider(monkeypatch: pytest.MonkeyPatch) ->
     """Manager should build the specialised OpenAI moderator when requested."""
     captured: dict[str, object] = {}
 
-    def fake_openai_moderator(**kwargs):
-        captured.update(kwargs)
-        return SimpleNamespace()
+    def fake_openai_moderator(**kwargs: object) -> OpenAIModerator:
+        captured.update(dict(kwargs))
+        return cast(OpenAIModerator, SimpleNamespace())
 
     monkeypatch.setenv("OPENAI_API_KEY", "live-test-key")
     monkeypatch.setattr(
-        "dialectus.engine.moderation.manager.OpenAIModerator",
+        manager_module,
+        "OpenAIModerator",
         fake_openai_moderator,
     )
 
