@@ -1,49 +1,39 @@
-# Moderation Models Directory
+# Local Model Files Directory
 
-This directory is for **local moderation model files** when testing content safety functionality.
+This directory is for **local model files only** when testing the moderation system with custom or downloaded models.
 
 ## Purpose
 
-Users developing or testing the moderation system can place model files here (GGUF, safetensors, etc.) to use with Ollama or other compatible inference engines.
+Developers working on the Dialectus Engine can place local model files here (GGUF, safetensors, etc.) for testing with Ollama.
 
-## Not Distributed with Engine
+## Not Distributed
 
-⚠️ **Important**: Model files in this directory are:
-- **User-provided** - Not included in the repository or package
-- **Gitignored** - `*.gguf`, `*.bin`, `*.safetensors` are excluded
-- **Optional** - Most users will pull models from registries (Ollama, HuggingFace)
+⚠️ **Important**:
+- **Git-ignored** - `*.gguf`, `*.bin`, `*.safetensors` are excluded from version control
+- **Never distributed** - Model files are NOT included in the PyPI package
+- **Optional** - Most developers pull models directly from Ollama's registry
 
-The `dialectus-engine` package is model-agnostic and doesn't ship with any models.
+The `dialectus-engine` package is model-agnostic and ships without any AI models.
 
-## Usage Patterns
+## Usage
 
-### Option 1: Registry-Managed Models (Recommended)
+### Option 1: Pull from Registry (Recommended)
 
-Pull models from a registry like Ollama:
+Most developers should pull models directly from Ollama:
 
 ```bash
-# Example: Using any moderation model
-ollama pull <your-chosen-model>
+ollama pull <model-name>
 ```
 
-Configure in `debate_config.json`:
-```json
-{
-  "moderation": {
-    "enabled": true,
-    "provider": "ollama",
-    "model": "<your-chosen-model>",
-    "timeout": 10.0
-  }
-}
-```
+Then reference it in your test config. No files needed in this directory.
 
-### Option 2: Local Model Files
+### Option 2: Use Local Model Files
 
-If you have a GGUF or other model file:
+If you have a local GGUF file to test with:
 
-1. Place it in this directory: `moderation/your-model.gguf`
-2. Create an Ollama Modelfile:
+1. Place the file here: `moderation/your-model.gguf`
+
+2. Create an Ollama Modelfile in the repository root:
 
 ```bash
 cat > Modelfile <<EOF
@@ -57,32 +47,23 @@ EOF
 3. Import into Ollama:
 
 ```bash
-ollama create my-moderation-model -f Modelfile
+ollama create my-test-model -f Modelfile
 ```
 
-4. Use in config:
+4. Reference in your test scripts:
 
-```json
-{
-  "moderation": {
-    "model": "my-moderation-model"
-  }
-}
+```python
+moderator = LLMModerator(
+    base_url="http://localhost:11434/v1",
+    model="my-test-model",
+    timeout=15.0,
+)
 ```
 
-## Model Selection
+## Testing
 
-The moderation system works with any instruction-following LLM that can classify content as safe/unsafe. Popular choices include:
+See `MODERATION_TESTING.md` in the repository root for comprehensive testing instructions covering all supported providers (Ollama, OpenAI, OpenRouter, etc.).
 
-- **OpenAI moderation endpoint**: Use `provider: "openai"` with the `omni-moderation-latest` model for the native moderation API
-- **Safety-focused models**: Models trained specifically for content moderation
-- **General instruction models**: GPT, Claude, Llama, Mistral, etc.
-- **Custom fine-tuned models**: Your own models trained on your content policy
+## Notes
 
-> OpenAI's free moderation tier is heavily rate-limited (about one request per minute). The engine will retry automatically, but expect longer runtimes when batch testing.
-
-See `MODERATION_TESTING.md` for examples and guidance.
-
-## Cleanup
-
-This directory can remain empty if you use registry-managed models. It exists as a convention for developers who want to test with local model files.
+This directory will typically remain empty. It exists as a convention for developers who want to test with custom or unreleased model files.
