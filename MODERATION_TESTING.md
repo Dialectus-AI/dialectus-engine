@@ -129,6 +129,8 @@ export OPENAI_API_KEY="your-openai-key"
 
 No additional base URL is required for OpenAI; the engine defaults to `https://api.openai.com/v1`.
 
+> **Rate limits:** The free OpenAI moderation tier enforces ~1 request per minute. The engine automatically retries with exponential backoff, but expect the sample script to take a little longer or insert `time.sleep` between requests if you hit 429 errors.
+
 **Note**: The system uses OpenAI-compatible request/response formats, so other providers following the same schema will also work.
 
 ## Running Tests
