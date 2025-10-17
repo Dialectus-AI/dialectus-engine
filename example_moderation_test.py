@@ -38,10 +38,10 @@ MODERATION_PROVIDER = "ollama"  # "ollama", "openai", "openrouter", or custom
 MODERATION_MODEL = "your-moderation-model"  # Choose per provider
 
 # Examples:
-#   Local: MODERATION_PROVIDER = "ollama", MODERATION_MODEL = "llama-guard-2:8b"
+#   Local: MODERATION_PROVIDER = "ollama", MODERATION_MODEL = "<your-ollama-model>"
 #   OpenAI: MODERATION_PROVIDER = "openai", MODERATION_MODEL = "omni-moderation-latest"
-#   Cloud: MODERATION_PROVIDER = "openrouter", MODERATION_MODEL = "anthropic/claude-3-haiku"
-#   (OpenAI free tier allows ~1 request/minute; expect the test loop to pause if you hit 429s)
+#   Cloud: MODERATION_PROVIDER = "openrouter", MODERATION_MODEL = "<your-model>"
+#   Note: OpenAI requires billing setup with credits, even though moderation is free to use
 # ============================================================================
 
 # Test cases: safe and unsafe topics

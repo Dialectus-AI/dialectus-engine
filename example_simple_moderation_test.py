@@ -33,11 +33,11 @@ async def test_moderator():
     print("=" * 80)
     print()
 
-    # Create moderator with Qwen2.5 (general instruction-following model)
-    # Testing with general LLM vs specialized safety model
+    # Create moderator with any instruction-following model
+    # Update the model name below to match what you have available in Ollama
     moderator = LLMModerator(
         base_url="http://localhost:11434/v1",
-        model="qwen2.5:7b",
+        model="<your-ollama-model>",  # Change to your model
         api_key=None,  # Ollama doesn't need API key
         timeout=15.0,
     )
