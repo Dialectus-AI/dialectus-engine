@@ -21,6 +21,7 @@ The Dialectus Engine is a standalone Python library that provides core debate or
 - **Configuration** (`config/`) - System configuration management
 - **Judges** (`judges/`) - AI judge implementations with ensemble support
 - **Formats** (`formats/`) - Debate format definitions (Oxford, Parliamentary, Socratic, Public Forum)
+- **Moderation** (`moderation/`) - Optional content safety system for debate topics
 
 ## Installation
 
@@ -139,6 +140,7 @@ Key configuration sections:
 - **Providers**: Configure Ollama (local) and OpenRouter (cloud) settings
 - **Judging**: Set evaluation criteria and judge models
 - **Debate**: Default topic, format, and word limits
+- **Moderation** (optional): Content safety for user-provided topics
 
 For detailed configuration documentation, see [CONFIG_GUIDE.md](CONFIG_GUIDE.md).
 
@@ -255,6 +257,12 @@ pip install -e ".[dev]"
 - **Structured decisions**: JSON-serializable judge results
 - **Configurable criteria**: Logic, evidence, persuasiveness, etc.
 
+### Content Moderation (Optional)
+- **Multi-provider support**: Ollama (local), OpenRouter, OpenAI moderation API
+- **Safety categories**: Harassment, hate speech, violence, sexual content, dangerous activities
+- **Flexible deployment**: Enable for production APIs, disable for trusted environments
+- **Graceful error handling**: Provider-specific rate limit handling and retry logic
+
 ## Architecture
 
 Key architectural principles:
@@ -311,3 +319,26 @@ judge = JudgeFactory.create_judge(config.judging, model_manager)
 # Get aggregated decision
 decision = await judge.judge_debate(context)
 ```
+
+### Content Moderation
+
+```python
+from dialectus.engine.moderation import ModerationManager, TopicRejectedError
+
+# Create moderation manager
+manager = ModerationManager(config.moderation, config.system)
+
+# Validate user-provided topic
+user_topic = "Should AI be regulated?"
+
+try:
+    result = await manager.moderate_topic(user_topic)
+    # Topic is safe, proceed with debate
+    print(f"Topic approved with confidence: {result.confidence}")
+except TopicRejectedError as e:
+    # Topic violates content policy
+    print(f"Topic rejected: {e.reason}")
+    print(f"Violated categories: {', '.join(e.categories)}")
+```
+
+For comprehensive moderation testing and setup instructions, see [MODERATION_TESTING.md](MODERATION_TESTING.md).
