@@ -134,9 +134,7 @@ async def test_moderation():
                 print("  ✗ PASSED - Not blocked (FALSE NEGATIVE)")
                 unsafe_missed += 1
             else:
-                print(
-                    f"  ✓ BLOCKED - Categories: {', '.join(result.categories)}"
-                )
+                print(f"  ✓ BLOCKED - Categories: {', '.join(result.categories)}")
                 unsafe_blocked += 1
         except TopicRejectedError as e:
             print(f"  ✓ REJECTED - {e.reason}")

@@ -89,9 +89,7 @@ class ModerationConfig(BaseModel):
             "Can use system.openrouter.api_key as fallback."
         ),
     )
-    timeout: float = Field(
-        default=10.0, description="Request timeout in seconds", gt=0
-    )
+    timeout: float = Field(default=10.0, description="Request timeout in seconds", gt=0)
 
     @field_validator("provider")
     @classmethod

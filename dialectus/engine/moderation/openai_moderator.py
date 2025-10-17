@@ -33,7 +33,9 @@ _CATEGORY_MAPPING = {
 
 def _map_categories(category_names: Iterable[str]) -> list[str]:
     """Map OpenAI moderation categories into the engine taxonomy."""
-    mapped = {_CATEGORY_MAPPING.get(name, "policy_violation") for name in category_names}
+    mapped = {
+        _CATEGORY_MAPPING.get(name, "policy_violation") for name in category_names
+    }
     return sorted(mapped)
 
 
@@ -83,10 +85,7 @@ class OpenAIModerator(BaseModerator):
             except RateLimitError as exc:
                 attempt += 1
                 if attempt > self.max_retries:
-                    message = (
-                        "OpenAI moderation request failed: RateLimitError: "
-                        f"{exc}"
-                    )
+                    message = f"OpenAI moderation request failed: RateLimitError: {exc}"
                     logger.error(message)
                     raise ModerationProviderError("openai", message) from exc
 
@@ -98,8 +97,12 @@ class OpenAIModerator(BaseModerator):
                     delay,
                 )
                 await asyncio.sleep(delay)
-            except Exception as exc:  # pragma: no cover - network errors mocked in tests
-                message = f"OpenAI moderation request failed: {type(exc).__name__}: {exc}"
+            except (
+                Exception
+            ) as exc:  # pragma: no cover - network errors mocked in tests
+                message = (
+                    f"OpenAI moderation request failed: {type(exc).__name__}: {exc}"
+                )
                 logger.error(message)
                 raise ModerationProviderError("openai", message) from exc
 

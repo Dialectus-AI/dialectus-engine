@@ -151,7 +151,11 @@ class LLMModerator(BaseModerator):
         # "No" = doesn't violate = safe
         if response_clean.lower().startswith("yes"):
             # Content violates policy - extract which categories
-            detected = [cat for cat in self.safety_categories if cat.replace("_", " ") in response_lower]
+            detected = [
+                cat
+                for cat in self.safety_categories
+                if cat.replace("_", " ") in response_lower
+            ]
             if detected:
                 return False, detected
             else:
@@ -162,7 +166,13 @@ class LLMModerator(BaseModerator):
             return True, []
 
         # Fuzzy matching for models that don't follow format exactly
-        safe_indicators = ["safe", "appropriate", "acceptable", "allowed", "does not violate"]
+        safe_indicators = [
+            "safe",
+            "appropriate",
+            "acceptable",
+            "allowed",
+            "does not violate",
+        ]
         unsafe_indicators = [
             "unsafe",
             "inappropriate",
@@ -178,7 +188,9 @@ class LLMModerator(BaseModerator):
         # Prioritize unsafe indicators
         if has_unsafe:
             detected_categories = [
-                cat for cat in self.safety_categories if cat.replace("_", " ") in response_lower
+                cat
+                for cat in self.safety_categories
+                if cat.replace("_", " ") in response_lower
             ]
             if detected_categories:
                 return False, detected_categories

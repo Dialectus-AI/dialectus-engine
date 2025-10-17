@@ -27,7 +27,9 @@ class TopicRejectedError(ValueError):
         self.reason = reason
         self.categories = categories or []
 
-        categories_str = ", ".join(self.categories) if self.categories else "unsafe content"
+        categories_str = (
+            ", ".join(self.categories) if self.categories else "unsafe content"
+        )
         message = f"Topic rejected by moderation: {reason} (detected: {categories_str})"
         super().__init__(message)
 

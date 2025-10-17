@@ -149,7 +149,9 @@ def test_openai_moderator_retries_on_rate_limit(
         request=request,
         json={"error": {"message": "Too many requests"}},
     )
-    rate_error = RateLimitError("Too many requests", response=response, body=response.json())
+    rate_error = RateLimitError(
+        "Too many requests", response=response, body=response.json()
+    )
 
     sleeps: list[float] = []
 

@@ -22,7 +22,9 @@ class ModerationManager:
     and enforces content safety policies.
     """
 
-    def __init__(self, moderation_config: ModerationConfig, system_config: SystemConfig):
+    def __init__(
+        self, moderation_config: ModerationConfig, system_config: SystemConfig
+    ):
         """Initialize the moderation manager.
 
         Args:
@@ -45,7 +47,9 @@ class ModerationManager:
         provider = self.config.provider.lower()
 
         if provider == "ollama":
-            base_url = self.config.base_url or f"{self.system_config.ollama_base_url}/v1"
+            base_url = (
+                self.config.base_url or f"{self.system_config.ollama_base_url}/v1"
+            )
             api_key = None
 
             logger.info(
