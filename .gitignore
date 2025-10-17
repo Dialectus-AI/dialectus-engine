@@ -79,3 +79,6 @@ debate_config.json
 moderation/*.gguf
 moderation/*.bin
 moderation/*.safetensors
+
+# Example/manual test scripts (not distributed, but committed to repo)
+# example_*.py files are kept in repo for implementers
