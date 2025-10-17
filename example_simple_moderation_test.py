@@ -42,7 +42,7 @@ async def test_moderator():
         timeout=15.0,
     )
 
-    print(f"Moderator configured:")
+    print("Moderator configured:")
     print(f"  Base URL: {moderator.base_url}")
     print(f"  Model: {moderator.model}")
     print(f"  Timeout: {moderator.timeout}s")
@@ -61,7 +61,7 @@ async def test_moderator():
             if result.categories:
                 print(f"  Categories: {', '.join(result.categories)}")
             print(f"  Confidence: {result.confidence}")
-            print(f"  Raw response:")
+            print("  Raw response:")
             print(f"    {result.raw_response}")
         except Exception as e:
             print(f"  ERROR: {type(e).__name__}: {e}")
