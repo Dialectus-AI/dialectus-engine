@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Iterable
 
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, RateLimitError
 
 from .base_moderator import BaseModerator, ModerationResult
 from .exceptions import ModerationProviderError
@@ -47,12 +48,16 @@ class OpenAIModerator(BaseModerator):
         timeout: float = 10.0,
         base_url: str | None = None,
         client: AsyncOpenAI | None = None,
+        max_retries: int = 5,
+        retry_base_delay: float = 1.0,
     ) -> None:
         if not api_key:
             raise ValueError("OpenAI moderator requires an API key")
 
         self.model = model
         self.timeout = timeout
+        self.max_retries = max(0, max_retries)
+        self.retry_base_delay = max(0.1, retry_base_delay)
 
         self.client = client or AsyncOpenAI(
             api_key=api_key,
@@ -60,17 +65,43 @@ class OpenAIModerator(BaseModerator):
             base_url=base_url.rstrip("/") if base_url else None,
         )
 
+    async def _call_moderation_endpoint(self, text: str):
+        """Invoke the OpenAI moderation endpoint."""
+        return await self.client.moderations.create(
+            model=self.model,
+            input=text,
+        )
+
     async def moderate(self, text: str) -> ModerationResult:
         """Call OpenAI's moderation endpoint and normalise the result."""
-        try:
-            response = await self.client.moderations.create(
-                model=self.model,
-                input=text,
-            )
-        except Exception as exc:  # pragma: no cover - network errors mocked in tests
-            message = f"OpenAI moderation request failed: {type(exc).__name__}: {exc}"
-            logger.error(message)
-            raise ModerationProviderError("openai", message) from exc
+        attempt = 0
+
+        while True:
+            try:
+                response = await self._call_moderation_endpoint(text)
+                break
+            except RateLimitError as exc:
+                attempt += 1
+                if attempt > self.max_retries:
+                    message = (
+                        "OpenAI moderation request failed: RateLimitError: "
+                        f"{exc}"
+                    )
+                    logger.error(message)
+                    raise ModerationProviderError("openai", message) from exc
+
+                delay = self.retry_base_delay * (2 ** (attempt - 1))
+                logger.warning(
+                    "OpenAI moderation rate limited (attempt %s/%s). Retrying in %.2fs",
+                    attempt,
+                    self.max_retries,
+                    delay,
+                )
+                await asyncio.sleep(delay)
+            except Exception as exc:  # pragma: no cover - network errors mocked in tests
+                message = f"OpenAI moderation request failed: {type(exc).__name__}: {exc}"
+                logger.error(message)
+                raise ModerationProviderError("openai", message) from exc
 
         results = getattr(response, "results", None)
         if not results:

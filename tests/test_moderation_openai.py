@@ -8,9 +8,11 @@ from types import SimpleNamespace
 
 import pytest
 
+from httpx import Request, Response
+from openai import RateLimitError
 from dialectus.engine.config.settings import ModerationConfig, SystemConfig
-from dialectus.engine.moderation.manager import ModerationManager
 from dialectus.engine.moderation.exceptions import ModerationProviderError
+from dialectus.engine.moderation.manager import ModerationManager
 from dialectus.engine.moderation.openai_moderator import OpenAIModerator
 
 
@@ -46,13 +48,18 @@ class FakeModerationResponse:
 class FakeModerationsClient:
     """Simplified AsyncOpenAI client for testing."""
 
-    def __init__(self, response: FakeModerationResponse):
-        self._response = response
-        self.last_request: dict | None = None
+    def __init__(self, *responses):
+        self._responses = list(responses)
+        self.requests: list[dict] = []
 
     async def create(self, **kwargs):
-        self.last_request = kwargs
-        return self._response
+        self.requests.append(kwargs)
+        if not self._responses:
+            raise AssertionError("No fake responses left")
+        item = self._responses.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        return item
 
 
 def test_openai_moderator_marks_safe_content() -> None:
@@ -114,6 +121,51 @@ def test_openai_moderator_maps_flagged_categories() -> None:
     assert result.is_safe is False
     assert result.categories == ["hate_speech", "violence"]
     assert result.confidence == pytest.approx(0.92, rel=1e-3)
+
+
+def test_openai_moderator_retries_on_rate_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Rate limit responses should trigger exponential backoff retries."""
+    success_response = FakeModerationResponse(
+        flagged=False,
+        categories={"harassment": False},
+        scores={"harassment": 0.05},
+    )
+
+    request = Request("POST", "https://api.openai.com/v1/moderations")
+    response = Response(
+        429,
+        request=request,
+        json={"error": {"message": "Too many requests"}},
+    )
+    rate_error = RateLimitError("Too many requests", response=response, body=response.json())
+
+    sleeps: list[float] = []
+
+    async def fake_sleep(delay: float) -> None:
+        sleeps.append(delay)
+
+    monkeypatch.setattr(
+        "dialectus.engine.moderation.openai_moderator.asyncio.sleep",
+        fake_sleep,
+    )
+
+    client = FakeModerationsClient(rate_error, success_response)
+    moderator = OpenAIModerator(
+        api_key="test-key",
+        model="omni-moderation-latest",
+        timeout=5.0,
+        client=SimpleNamespace(moderations=client),
+        max_retries=2,
+        retry_base_delay=0.25,
+    )
+
+    result = asyncio.run(moderator.moderate("Check moderation with rate limit"))
+
+    assert result.is_safe is True
+    assert sleeps == [0.25]
+    assert len(client.requests) == 2
 
 
 def test_manager_initialises_openai_provider(monkeypatch: pytest.MonkeyPatch) -> None:

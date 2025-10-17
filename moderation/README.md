@@ -79,6 +79,8 @@ The moderation system works with any instruction-following LLM that can classify
 - **General instruction models**: GPT, Claude, Llama, Mistral, etc.
 - **Custom fine-tuned models**: Your own models trained on your content policy
 
+> OpenAI's free moderation tier is heavily rate-limited (about one request per minute). The engine will retry automatically, but expect longer runtimes when batch testing.
+
 See `MODERATION_TESTING.md` for examples and guidance.
 
 ## Cleanup
