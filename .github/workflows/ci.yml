@@ -37,7 +37,7 @@ jobs:
           restore-keys: ${{ runner.os }}-uv-
 
       - name: Install project and dev dependencies
-        run: uv sync --locked --dev
+        run: uv sync --locked --extra dev
 
       - name: Lint with ruff
         run: uv run ruff check .
