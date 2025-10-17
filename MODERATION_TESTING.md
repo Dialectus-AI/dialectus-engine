@@ -48,13 +48,14 @@ curl http://localhost:11434/api/tags
 
 **3. Pull a Moderation Model**
 
-Choose any instruction-following model:
+Pull any instruction-following model from the Ollama registry:
 
 ```bash
-# Examples (pick one):
-ollama pull llama-guard-2:8b     # Meta's safety-focused model
-ollama pull mistral:7b           # General instruction-following
-ollama pull qwen2.5:7b           # Fast general-purpose model
+# Example:
+ollama pull <your-chosen-model>
+
+# Any instruction-following LLM will work
+# The system uses prompt-based classification
 ```
 
 **4. Configure Local Moderation**
@@ -66,7 +67,7 @@ Edit your `debate_config.json`:
   "moderation": {
     "enabled": true,
     "provider": "ollama",
-    "model": "llama-guard-2:8b",
+    "model": "<your-chosen-model>",
     "base_url": null,
     "api_key": null,
     "timeout": 10.0
@@ -105,16 +106,17 @@ export OPENROUTER_API_KEY="your-key-here"
 }
 ```
 
-**Option 2: OpenAI Moderation API (Free Tier)**
+**Option 2: OpenAI Moderation API**
 
-1. Generate an API key from https://platform.openai.com/
-2. Export it (recommended) or set it directly in config:
+1. Create an account at https://platform.openai.com/ and add billing/credits
+2. Generate an API key
+3. Export it (recommended) or set it directly in config:
 
 ```bash
 export OPENAI_API_KEY="your-openai-key"
 ```
 
-3. Update your moderation config:
+4. Update your moderation config:
 
 ```json
 {
@@ -122,14 +124,13 @@ export OPENAI_API_KEY="your-openai-key"
     "enabled": true,
     "provider": "openai",
     "model": "omni-moderation-latest",
+    "base_url": "https://api.openai.com/v1",
     "timeout": 10.0
   }
 }
 ```
 
-No additional base URL is required for OpenAI; the engine defaults to `https://api.openai.com/v1`.
-
-> **Rate limits:** The free OpenAI moderation tier enforces ~1 request per minute. The engine automatically retries with exponential backoff, but expect the sample script to take a little longer or insert `time.sleep` between requests if you hit 429 errors.
+> **Important:** OpenAI's moderation API requires billing to be set up and credits in your account, even though the moderation endpoint itself is free to use. Without billing configured, you'll receive 429 errors immediately.
 
 **Note**: The system uses OpenAI-compatible request/response formats, so other providers following the same schema will also work.
 
@@ -137,10 +138,10 @@ No additional base URL is required for OpenAI; the engine defaults to `https://a
 
 ### Method 1: Automated Test Script (Recommended)
 
-Run the provided test script:
+Run the provided example test script:
 
 ```bash
-python test_moderation.py
+python example_moderation_test.py
 ```
 
 This will:
@@ -156,16 +157,16 @@ DIALECTUS MODERATION TEST
 ================================================================================
 
 Initializing moderation manager...
-✓ Moderation enabled: True
-✓ Provider: ollama
-✓ Model: shieldgemma:2b
+Moderation enabled: True
+Provider: ollama
+Model: <your-model-name>
 
 --------------------------------------------------------------------------------
 TESTING SAFE TOPICS
 --------------------------------------------------------------------------------
 
 Topic: Should governments invest more in renewable energy?
-  ✓ PASSED - Confidence: 1.0
+  PASSED - Confidence: 1.0
 
 ...
 
@@ -173,12 +174,12 @@ Topic: Should governments invest more in renewable energy?
 SUMMARY
 ================================================================================
 Safe topics:
-  ✓ Passed: 5/5
-  ✗ Failed: 0/5
+  Passed: 5/5
+  Failed: 0/5
 
 Unsafe topics:
-  ✓ Blocked: 5/5
-  ✗ Missed: 0/5
+  Blocked: 5/5
+  Missed: 0/5
 
 Overall accuracy: 100.0%
 ================================================================================
@@ -199,7 +200,7 @@ config = AppConfig.load_from_file(Path("debate_config.json"))
 config.moderation = ModerationConfig(
     enabled=True,
     provider="ollama",
-    model="shieldgemma:2b",
+    model="<your-model-name>",
     timeout=15.0,
 )
 
@@ -334,10 +335,12 @@ ollama serve
 ```json
 {
   "moderation": {
-    "timeout": 30.0  // Increase from 10 to 30 seconds
+    "timeout": 30.0
   }
 }
 ```
+
+Or use a smaller/faster model.
 
 ### False Positives/Negatives
 
@@ -345,39 +348,40 @@ ollama serve
 
 **Solutions**:
 - Adjust prompt in `llm_moderator.py` (conservative vs permissive)
-- Try different models: `llama-guard-2`, `mistral-guard`
+- Try different models (any instruction-following model works)
 - Add custom pre-filtering for known patterns
 - Implement multi-judge ensemble (multiple models vote)
 
-## Alternative Models
+## Using Different Providers
 
-While ShieldGemma is recommended, you can use other models:
+The moderation system supports multiple providers:
 
-### Llama Guard 2
+### Ollama (Local)
+Any instruction-following model from Ollama's registry works. The system uses prompt-based classification.
 
-```bash
-ollama pull llama-guard-2:8b
-```
-
-Config:
-```json
-{
-  "moderation": {
-    "model": "llama-guard-2:8b"
-  }
-}
-```
-
-### Custom OpenRouter Model
-
-For higher accuracy (cloud-based):
+### OpenRouter (Cloud)
+For cloud-based moderation with various models:
 
 ```json
 {
   "moderation": {
     "provider": "openrouter",
-    "model": "anthropic/claude-3-haiku",  // Or any other model
+    "model": "anthropic/claude-3-haiku",
     "api_key": "your-key-here",
+    "timeout": 10.0
+  }
+}
+```
+
+### OpenAI (Native Moderation API)
+Uses OpenAI's dedicated moderation endpoint (requires billing setup):
+
+```json
+{
+  "moderation": {
+    "provider": "openai",
+    "model": "omni-moderation-latest",
+    "base_url": "https://api.openai.com/v1",
     "timeout": 10.0
   }
 }
@@ -385,9 +389,9 @@ For higher accuracy (cloud-based):
 
 ## Performance Notes
 
-- **ShieldGemma 2B** (CPU): 1-5 seconds per check
-- **ShieldGemma 2B** (GPU): <1 second per check
-- **OpenRouter/Cloud**: <1 second (network latency)
+- **Local models** (CPU): 1-5 seconds per check (varies by model size)
+- **Local models** (GPU): <1 second per check
+- **OpenAI/OpenRouter**: <1 second (network latency)
 - **Caching**: Consider caching results for repeated topics
 
 ## Production Recommendations
@@ -454,8 +458,8 @@ async def create_debate(request: CreateDebateRequest):
 ## Next Steps
 
 1. ✅ Moderation code is complete and type-safe
-2. ✅ Test script is ready (`test_moderation.py`)
-3. ⏭️ Run tests after starting Ollama
+2. ✅ Example test scripts are ready (`example_moderation_test.py`, `example_simple_moderation_test.py`)
+3. ⏭️ Run example tests after starting Ollama
 4. ⏭️ Integrate into CLI (dialectus-cli)
 5. ⏭️ Integrate into API (dialectus-web-api)
 6. ⏭️ Add monitoring/logging for production use
