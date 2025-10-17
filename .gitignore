@@ -74,3 +74,8 @@ agents.md
 
 # Dialectus
 debate_config.json
+
+# Moderation models (user-provided, not distributed)
+moderation/*.gguf
+moderation/*.bin
+moderation/*.safetensors

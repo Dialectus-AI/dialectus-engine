@@ -54,6 +54,54 @@ class JudgingConfig(BaseModel):
     )
 
 
+class ModerationConfig(BaseModel):
+    """Content moderation configuration."""
+
+    enabled: bool = Field(
+        default=False, description="Enable content moderation for user topics"
+    )
+    provider: str = Field(
+        default="ollama",
+        description=(
+            "Moderation provider (ollama, openrouter, openai, or custom). "
+            "All providers use OpenAI-compatible endpoints."
+        ),
+    )
+    model: str = Field(
+        default="your-moderation-model",
+        description=(
+            "Model to use for moderation (e.g., 'omni-moderation-latest' for OpenAI "
+            "or an instruction-following LLM name for other providers)"
+        ),
+    )
+    base_url: str | None = Field(
+        default=None,
+        description=(
+            "Custom API base URL (optional). "
+            "Defaults to system ollama_base_url for ollama, "
+            "openrouter.base_url for openrouter."
+        ),
+    )
+    api_key: str | None = Field(
+        default=None,
+        description=(
+            "API key for moderation provider (optional, required for openrouter). "
+            "Can use system.openrouter.api_key as fallback."
+        ),
+    )
+    timeout: float = Field(
+        default=10.0, description="Request timeout in seconds", gt=0
+    )
+
+    @field_validator("provider")
+    @classmethod
+    def validate_provider(cls, v: str):
+        # Provider names are case-insensitive
+        # Ollama and openrouter have automatic URL/key resolution
+        # Custom providers require explicit base_url
+        return v.lower()
+
+
 class OllamaConfig(BaseModel):
     """Ollama-specific configuration for hardware optimization."""
 
@@ -150,6 +198,9 @@ class AppConfig(BaseModel):
     debate: DebateConfig
     models: dict[str, ModelConfig]
     judging: JudgingConfig
+    moderation: ModerationConfig = Field(
+        default_factory=ModerationConfig, description="Content moderation settings"
+    )
     system: SystemConfig
 
     @classmethod

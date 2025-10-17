@@ -9,6 +9,7 @@ from typing import Any
 from dialectus.engine.config.settings import AppConfig
 from dialectus.engine.judges.base import BaseJudge
 from dialectus.engine.models.manager import ModelManager
+from dialectus.engine.moderation import ModerationManager
 
 from .context_builder import ContextBuilder
 from .judge_coordinator import JudgeCoordinator
@@ -47,16 +48,34 @@ class DebateEngine:
         self.round_manager = RoundManager(self.format, self.response_handler)
         self.judge_coordinator = JudgeCoordinator()
 
-    async def initialize_debate(self, topic: str | None = None) -> DebateContext:
+        # Initialize moderation manager if enabled
+        self.moderation_manager: ModerationManager | None = None
+        if config.moderation.enabled:
+            self.moderation_manager = ModerationManager(
+                config.moderation, config.system
+            )
+
+    async def initialize_debate(
+        self, topic: str | None = None, user_provided: bool = False
+    ) -> DebateContext:
         """Initialize a new debate with the given topic.
 
         Args:
             topic: Optional debate topic (uses config topic if not provided)
+            user_provided: Whether this topic was provided by a user (triggers moderation)
 
         Returns:
             Initialized debate context
+
+        Raises:
+            TopicRejectedError: If moderation is enabled and topic fails safety checks
+            ModerationProviderError: If moderation is enabled but provider fails
         """
         debate_topic = topic or self.config.debate.topic
+
+        # Moderate user-provided topics if moderation is enabled
+        if user_provided and self.moderation_manager:
+            await self.moderation_manager.moderate_topic(debate_topic)
 
         # Register models with manager
         for model_id, model_config in self.config.models.items():
