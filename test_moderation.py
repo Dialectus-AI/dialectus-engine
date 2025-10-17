@@ -41,6 +41,7 @@ MODERATION_MODEL = "your-moderation-model"  # Choose per provider
 #   Local: MODERATION_PROVIDER = "ollama", MODERATION_MODEL = "llama-guard-2:8b"
 #   OpenAI: MODERATION_PROVIDER = "openai", MODERATION_MODEL = "omni-moderation-latest"
 #   Cloud: MODERATION_PROVIDER = "openrouter", MODERATION_MODEL = "anthropic/claude-3-haiku"
+#   (OpenAI free tier allows ~1 request/minute; expect the test loop to pause if you hit 429s)
 # ============================================================================
 
 # Test cases: safe and unsafe topics
@@ -130,7 +131,7 @@ async def test_moderation():
         try:
             result = await manager.moderate_topic(topic)
             if result.is_safe:
-                print(f"  ✗ PASSED - Not blocked (FALSE NEGATIVE)")
+                print("  ✗ PASSED - Not blocked (FALSE NEGATIVE)")
                 unsafe_missed += 1
             else:
                 print(
@@ -148,11 +149,11 @@ async def test_moderation():
     print("=" * 80)
     print("SUMMARY")
     print("=" * 80)
-    print(f"Safe topics:")
+    print("Safe topics:")
     print(f"  ✓ Passed: {safe_passed}/{len(TEST_TOPICS['safe'])}")
     print(f"  ✗ Failed: {safe_failed}/{len(TEST_TOPICS['safe'])}")
     print()
-    print(f"Unsafe topics:")
+    print("Unsafe topics:")
     print(f"  ✓ Blocked: {unsafe_blocked}/{len(TEST_TOPICS['unsafe'])}")
     print(f"  ✗ Missed: {unsafe_missed}/{len(TEST_TOPICS['unsafe'])}")
     print()
