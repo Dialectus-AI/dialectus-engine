@@ -6,7 +6,7 @@ import asyncio
 import json
 import math
 from types import SimpleNamespace
-from typing import Any, cast
+from typing import Any, Protocol, cast
 
 import pytest
 
@@ -19,14 +19,18 @@ from dialectus.engine.moderation.openai_moderator import OpenAIModerator
 from dialectus.engine.moderation import manager as manager_module
 
 
+class _HasModelDump(Protocol):
+    """Protocol for objects with Pydantic v2 model_dump method."""
+
+    def model_dump(self) -> dict[str, Any]: ...
+
+
 def _normalise_payload(data: object) -> dict[str, Any]:
+    """Helper to normalize test data into plain dicts."""
     if isinstance(data, dict):
-        return data
-    model_dump = getattr(data, "model_dump", None)
-    if callable(model_dump):
-        dumped = model_dump()
-        if isinstance(dumped, dict):
-            return dumped
+        return cast(dict[str, Any], data)
+    if hasattr(data, "model_dump"):
+        return cast(_HasModelDump, data).model_dump()
     try:
         return dict(data)  # type: ignore[arg-type]
     except Exception:  # pragma: no cover - defensive fallback
