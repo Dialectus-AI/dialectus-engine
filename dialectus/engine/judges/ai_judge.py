@@ -38,6 +38,12 @@ class AIJudge(BaseJudge):
         # Initialize ensemble temperature (can be overridden for ensemble judges)
         self._ensemble_temperature: float = 0.3
 
+        # Generation metadata - tracked per evaluation
+        self._last_generation_time_ms: int | None = None
+        self._last_generation_cost: float | None = None
+        self._last_generation_id: str | None = None
+        self._last_generation_provider: str | None = None
+
         # Generate unique judge ID for model manager registration
         self.judge_id = str(uuid.uuid4())
 
@@ -176,7 +182,7 @@ class AIJudge(BaseJudge):
 
         # Use model manager to generate response
         # Add some randomness for ensemble judges to get different evaluations
-        temperature = getattr(self, "_ensemble_temperature", 0.3)
+        temperature = self._ensemble_temperature
 
         async with self.model_manager.model_session(self.judge_id):
             generation_metadata = (
@@ -459,15 +465,15 @@ parsed programmatically. Be thorough but concise in your reasoning."""
                 reasoning=reasoning,
                 judge_model=self.judge_model_name,
                 judge_provider=self.judge_provider,
-                generation_time_ms=getattr(self, "_last_generation_time_ms", None),
-                cost=getattr(self, "_last_generation_cost", None),
-                generation_id=getattr(self, "_last_generation_id", None),
+                generation_time_ms=self._last_generation_time_ms,
+                cost=self._last_generation_cost,
+                generation_id=self._last_generation_id,
             )
 
             # Schedule background cost query for OpenRouter judges
             if (
                 judge_decision.generation_id
-                and getattr(self, "_last_generation_provider", None) == "openrouter"
+                and self._last_generation_provider == "openrouter"
             ):
                 asyncio.create_task(self._query_and_update_judge_cost(judge_decision))
 
