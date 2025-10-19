@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Iterable, Mapping
-from typing import Any, cast
+from typing import Any, Protocol, cast
 
 from openai import AsyncOpenAI, RateLimitError
 
@@ -40,58 +40,40 @@ def _map_categories(category_names: Iterable[str]) -> list[str]:
     return sorted(mapped)
 
 
+class _HasModelDump(Protocol):
+    """Protocol for objects with Pydantic v2 model_dump method."""
+
+    def model_dump(self) -> dict[str, Any]: ...
+
+
 def _ensure_mapping(data: object) -> dict[str, Any]:
-    """Normalise OpenAI SDK structures into plain dictionaries."""
+    """Convert Pydantic models to plain dicts for iteration.
+
+    The OpenAI SDK returns Pydantic v2 models for moderation responses.
+    This function normalizes them into plain dictionaries.
+    """
     if data is None:
         return {}
 
-    # Handle Mapping objects (dicts, etc.)
+    # Pydantic v2 models (what OpenAI SDK actually returns)
+    if hasattr(data, "model_dump"):
+        model_dump = cast(_HasModelDump, data).model_dump
+        if callable(model_dump):
+            return model_dump()
+
+    # Already a plain dict (used in tests)
+    if isinstance(data, dict):
+        return cast(dict[str, Any], data)
+
+    # Generic Mapping fallback (defensive)
     if isinstance(data, Mapping):
-        # Cast to known Mapping type to satisfy type checker
-        mapping = cast(Mapping[Any, Any], data)
-        return {str(k): v for k, v in mapping.items()}
+        return {str(k): v for k, v in cast(Mapping[Any, Any], data).items()}
 
-    # Try Pydantic v2 model_dump() method
-    model_dump = getattr(data, "model_dump", None)
-    if callable(model_dump):
-        dumped = model_dump()
-        if isinstance(dumped, Mapping):
-            mapping = cast(Mapping[Any, Any], dumped)
-            return {str(k): v for k, v in mapping.items()}
-
-    # Try legacy to_dict() method
-    to_dict = getattr(data, "to_dict", None)
-    if callable(to_dict):
-        dumped = to_dict()
-        if isinstance(dumped, Mapping):
-            mapping = cast(Mapping[Any, Any], dumped)
-            return {str(k): v for k, v in mapping.items()}
-
-    # Try converting directly to dict
-    try:
-        return dict(data)  # type: ignore[arg-type]
-    except Exception:  # pragma: no cover - defensive fallback
-        pass
-
-    # Try extracting Pydantic model fields
-    model_fields = getattr(data, "model_fields", None)
-    if isinstance(model_fields, Mapping):
-        mapping = cast(Mapping[Any, Any], model_fields)
-        field_names = [str(name) for name in mapping.keys()]
-        return {name: getattr(data, name) for name in field_names}
-
-    # Last resort: extract public attributes that are primitive types
-    attrs: dict[str, Any] = {}
-    for attr in dir(data):
-        if attr.startswith("_"):
-            continue
-        try:
-            value = getattr(data, attr)
-        except AttributeError:
-            continue
-        if isinstance(value, (bool, float, int)):
-            attrs[attr] = value
-    return attrs
+    # If we get here, something unexpected happened
+    raise TypeError(
+        f"Cannot convert {type(data).__name__} to dict. "
+        f"Expected Pydantic model, dict, or Mapping."
+    )
 
 
 class OpenAIModerator(BaseModerator):
