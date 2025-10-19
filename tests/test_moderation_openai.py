@@ -61,12 +61,12 @@ class FakeModerationResponse:
         self,
         *,
         flagged: bool,
-        categories: object,
-        scores: object,
+        categories: dict[str, Any] | object,
+        scores: dict[str, Any] | object,
     ):
         # Normalize categories and scores to Pydantic-like objects
         if isinstance(categories, dict):
-            categories_obj = _PydanticLikeObject(categories)
+            categories_obj = _PydanticLikeObject(cast(dict[str, Any], categories))
         elif hasattr(categories, "model_dump"):
             categories_obj = categories
         else:
@@ -74,7 +74,7 @@ class FakeModerationResponse:
             categories_obj = categories
 
         if isinstance(scores, dict):
-            scores_obj = _PydanticLikeObject(scores)
+            scores_obj = _PydanticLikeObject(cast(dict[str, Any], scores))
         elif hasattr(scores, "model_dump"):
             scores_obj = scores
         else:
