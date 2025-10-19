@@ -1,7 +1,7 @@
 """Ensemble judging utilities - standalone functions for combining judge decisions."""
 
 import logging
-from typing import Any, TypedDict
+from typing import TypedDict
 
 from dialectus.engine.debate_engine.models import DebateContext
 
@@ -32,10 +32,22 @@ class SerializedJudgeDecision(TypedDict):
     generation_time_ms: int | None
 
 
+class EnsembleResult(TypedDict):
+    """Result from ensemble judging combining multiple judge decisions."""
+
+    final_winner_id: str
+    final_margin: float
+    ensemble_method: str
+    num_judges: int
+    consensus_level: float
+    summary_reasoning: str
+    summary_feedback: str
+
+
 def calculate_ensemble_result(
     decisions: list[JudgeDecision],
     context: DebateContext,
-) -> dict[str, Any]:
+) -> EnsembleResult:
     """Calculate ensemble result from multiple judge decisions."""
 
     # Debug: Check if all decisions are identical
