@@ -6,6 +6,25 @@ from typing import Literal
 from pydantic import BaseModel, Field, field_validator
 
 
+def validate_provider_value(value: str, valid_providers: set[str]) -> str:
+    """Validate provider string against allowed values.
+
+    Args:
+        value: Provider name to validate
+        valid_providers: Set of valid provider names
+
+    Returns:
+        Lowercase provider name
+
+    Raises:
+        ValueError: If provider is not in valid_providers
+    """
+    normalized = value.lower()
+    if normalized not in valid_providers:
+        raise ValueError(f"Provider must be one of: {valid_providers}")
+    return normalized
+
+
 class ModelConfig(BaseModel):
     """Configuration for a debate model."""
 
@@ -24,11 +43,8 @@ class ModelConfig(BaseModel):
 
     @field_validator("provider")
     @classmethod
-    def validate_provider(cls, v: str):
-        valid_providers = {"ollama", "openrouter"}
-        if v not in valid_providers:
-            raise ValueError(f"Provider must be one of: {valid_providers}")
-        return v
+    def validate_provider(cls, v: str) -> str:
+        return validate_provider_value(v, {"ollama", "openrouter"})
 
 
 class DebateConfig(BaseModel):
@@ -93,9 +109,9 @@ class ModerationConfig(BaseModel):
 
     @field_validator("provider")
     @classmethod
-    def validate_provider(cls, v: str):
+    def validate_provider(cls, v: str) -> str:
         # Provider names are case-insensitive
-        # Ollama and openrouter have automatic URL/key resolution
+        # For moderation, we accept any provider (ollama, openrouter, openai, custom)
         # Custom providers require explicit base_url
         return v.lower()
 
@@ -183,11 +199,8 @@ class SystemConfig(BaseModel):
 
     @field_validator("debate_topic_source")
     @classmethod
-    def validate_topic_source(cls, v: str):
-        valid_sources = {"ollama", "openrouter"}
-        if v not in valid_sources:
-            raise ValueError(f"debate_topic_source must be one of: {valid_sources}")
-        return v
+    def validate_topic_source(cls, v: str) -> str:
+        return validate_provider_value(v, {"ollama", "openrouter"})
 
 
 class AppConfig(BaseModel):
@@ -203,14 +216,26 @@ class AppConfig(BaseModel):
 
     @classmethod
     def load_from_file(cls, config_path: Path) -> "AppConfig":
-        """Load configuration from JSON file."""
+        """Load configuration from JSON file.
+
+        Args:
+            config_path: Path to the JSON configuration file
+
+        Returns:
+            AppConfig instance loaded from the file
+
+        Raises:
+            FileNotFoundError: If config file doesn't exist
+            ValueError: If required sections are missing or invalid
+        """
         if not config_path.exists():
             raise FileNotFoundError(f"Config file not found: {config_path}")
 
+        # Use Pydantic's built-in JSON validation
         import json
 
-        with open(config_path, encoding="utf-8") as f:
-            data = json.load(f)
+        json_data = config_path.read_text(encoding="utf-8")
+        data = json.loads(json_data)
 
         # Validate required sections
         required_sections = ["debate", "models", "judging", "system"]
@@ -226,7 +251,7 @@ class AppConfig(BaseModel):
                 "Config must include at least one model in 'models' section"
             )
 
-        return cls(**data)
+        return cls.model_validate(data)
 
 
 def get_default_config() -> AppConfig:
