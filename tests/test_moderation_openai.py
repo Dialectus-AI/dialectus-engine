@@ -38,6 +38,22 @@ def _normalise_payload(data: object) -> dict[str, Any]:
     raise TypeError(f"Unsupported payload type: {type(data)}")
 
 
+class _PydanticLikeObject:
+    """Mock object that acts like a Pydantic model with model_dump()."""
+
+    def __init__(self, data: dict[str, Any]):
+        self._data = data
+
+    def model_dump(self) -> dict[str, Any]:
+        return dict(self._data)
+
+    def __getattr__(self, item: str) -> Any:
+        try:
+            return self._data[item]
+        except KeyError as exc:
+            raise AttributeError(item) from exc
+
+
 class FakeModerationResponse:
     """Lightweight stand-in for the OpenAI moderation response."""
 
@@ -48,16 +64,33 @@ class FakeModerationResponse:
         categories: object,
         scores: object,
     ):
+        # Normalize categories and scores to Pydantic-like objects
+        if isinstance(categories, dict):
+            categories_obj = _PydanticLikeObject(categories)
+        elif hasattr(categories, "model_dump"):
+            categories_obj = categories
+        else:
+            # Handle _ModelLike objects from tests
+            categories_obj = categories
+
+        if isinstance(scores, dict):
+            scores_obj = _PydanticLikeObject(scores)
+        elif hasattr(scores, "model_dump"):
+            scores_obj = scores
+        else:
+            # Handle _ModelLike objects from tests
+            scores_obj = scores
+
         payload = {
             "flagged": flagged,
-            "categories": _normalise_payload(categories),
-            "category_scores": _normalise_payload(scores),
+            "categories": _normalise_payload(categories_obj),
+            "category_scores": _normalise_payload(scores_obj),
         }
         self.results = [
             SimpleNamespace(
                 flagged=flagged,
-                categories=categories,
-                category_scores=scores,
+                categories=categories_obj,
+                category_scores=scores_obj,
             )
         ]
         self._payload = payload
