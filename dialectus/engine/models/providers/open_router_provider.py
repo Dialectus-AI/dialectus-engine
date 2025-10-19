@@ -5,7 +5,7 @@ import json
 import logging
 import os
 import time
-from typing import TYPE_CHECKING, ClassVar, cast
+from typing import TYPE_CHECKING, ClassVar, Unpack, cast
 
 import httpx
 from httpx import HTTPStatusError
@@ -13,7 +13,7 @@ from openai import OpenAI
 
 from dialectus.engine.models.base_types import BaseEnhancedModelInfo
 
-from .base_model_provider import BaseModelProvider, GenerationMetadata
+from .base_model_provider import BaseModelProvider, GenerationMetadata, ModelOverrides
 from .exceptions import ProviderRateLimitError
 from .openrouter_generation_types import (
     OpenRouterChatCompletionResponse,
@@ -259,7 +259,7 @@ class OpenRouterProvider(BaseModelProvider):
         self,
         model_config: ModelConfig,
         messages: list[dict[str, str]],
-        **overrides: object,
+        **overrides: Unpack[ModelOverrides],
     ) -> str:
         """Generate a response using OpenRouter."""
         if not self._client:
@@ -375,7 +375,7 @@ class OpenRouterProvider(BaseModelProvider):
         model_config: ModelConfig,
         messages: list[dict[str, str]],
         chunk_callback: ChunkCallback,
-        **overrides: object,
+        **overrides: Unpack[ModelOverrides],
     ) -> str:
         """Generate a streaming response using OpenRouter with SSE."""
         if not self._client:
@@ -557,7 +557,7 @@ class OpenRouterProvider(BaseModelProvider):
         self,
         model_config: ModelConfig,
         messages: list[dict[str, str]],
-        **overrides: object,
+        **overrides: Unpack[ModelOverrides],
     ) -> GenerationMetadata:
         """Generate response with full metadata including generation ID."""
         if not self._client:

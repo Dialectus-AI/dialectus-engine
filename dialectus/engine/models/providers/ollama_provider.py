@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Unpack, cast
 
 import httpx
 from openai import OpenAI
 
-from .base_model_provider import BaseModelProvider
+from .base_model_provider import BaseModelProvider, ModelOverrides
 
 if TYPE_CHECKING:
     from config.settings import ModelConfig, SystemConfig
@@ -75,7 +75,7 @@ class OllamaProvider(BaseModelProvider):
         self,
         model_config: ModelConfig,
         messages: list[dict[str, str]],
-        **overrides: object,
+        **overrides: Unpack[ModelOverrides],
     ) -> str:
         """Generate a response using Ollama."""
         if not self._client:
@@ -156,7 +156,7 @@ class OllamaProvider(BaseModelProvider):
         model_config: ModelConfig,
         messages: list[dict[str, str]],
         chunk_callback: ChunkCallback,
-        **overrides: object,
+        **overrides: Unpack[ModelOverrides],
     ) -> str:
         """Generate a streaming response using Ollama."""
         if not self._client:

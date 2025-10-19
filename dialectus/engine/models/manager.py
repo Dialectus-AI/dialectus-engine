@@ -5,13 +5,17 @@ from __future__ import annotations
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Protocol, cast
+from typing import Protocol, Unpack, cast
 
 from dialectus.engine.config.settings import ModelConfig, SystemConfig
 from dialectus.engine.debate_engine.types import ChunkCallback
 from dialectus.engine.models.base_types import BaseEnhancedModelInfo
 
-from .providers.base_model_provider import BaseModelProvider, GenerationMetadata
+from .providers.base_model_provider import (
+    BaseModelProvider,
+    GenerationMetadata,
+    ModelOverrides,
+)
 from .providers.providers import ProviderFactory
 
 type MessageDict = dict[str, str]
@@ -77,7 +81,7 @@ class ModelManager:
         )
 
     async def generate_response(
-        self, model_id: str, messages: MessageList, **overrides: object
+        self, model_id: str, messages: MessageList, **overrides: Unpack[ModelOverrides]
     ) -> str:
         """Generate a response from the specified model."""
         config = self._require_model_config(model_id)
@@ -94,7 +98,7 @@ class ModelManager:
         model_id: str,
         messages: MessageList,
         chunk_callback: ChunkCallback,
-        **overrides: object,
+        **overrides: Unpack[ModelOverrides],
     ) -> str:
         """Generate a streaming response from the specified model."""
         config = self._require_model_config(model_id)
@@ -218,7 +222,7 @@ class ModelManager:
         return filtered_models
 
     async def generate_response_with_metadata(
-        self, model_id: str, messages: MessageList, **overrides: object
+        self, model_id: str, messages: MessageList, **overrides: Unpack[ModelOverrides]
     ) -> GenerationMetadata:
         """Generate a response with full metadata for cost tracking."""
         config = self._require_model_config(model_id)
@@ -241,7 +245,7 @@ class ModelManager:
         model_id: str,
         messages: MessageList,
         chunk_callback: ChunkCallback,
-        **overrides: object,
+        **overrides: Unpack[ModelOverrides],
     ) -> GenerationMetadata:
         """Generate a streaming response with full metadata for cost tracking."""
         config = self._require_model_config(model_id)

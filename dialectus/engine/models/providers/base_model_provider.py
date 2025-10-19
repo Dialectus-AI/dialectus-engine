@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict, Unpack
 
 from openai import OpenAI
 
@@ -10,6 +10,17 @@ if TYPE_CHECKING:
     from config.settings import ModelConfig, SystemConfig
     from debate_engine.types import ChunkCallback
     from models.base_types import BaseEnhancedModelInfo
+
+
+class ModelOverrides(TypedDict, total=False):
+    """Optional overrides for model generation parameters.
+
+    All fields are optional and will override the corresponding
+    values from ModelConfig when provided.
+    """
+
+    max_tokens: int
+    temperature: float
 
 
 @dataclass
@@ -52,7 +63,7 @@ class BaseModelProvider(ABC):
         self,
         model_config: ModelConfig,
         messages: list[dict[str, str]],
-        **overrides: object,
+        **overrides: Unpack[ModelOverrides],
     ) -> str:
         """Generate a response using this provider."""
 
@@ -69,7 +80,7 @@ class BaseModelProvider(ABC):
         model_config: ModelConfig,
         messages: list[dict[str, str]],
         chunk_callback: ChunkCallback,
-        **overrides: object,
+        **overrides: Unpack[ModelOverrides],
     ) -> str:
         """Generate a streaming response using this provider."""
         complete_response = await self.generate_response(
@@ -82,7 +93,7 @@ class BaseModelProvider(ABC):
         self,
         model_config: ModelConfig,
         messages: list[dict[str, str]],
-        **overrides: object,
+        **overrides: Unpack[ModelOverrides],
     ) -> GenerationMetadata:
         """Generate a response with full metadata for cost tracking."""
         content = await self.generate_response(model_config, messages, **overrides)
@@ -93,7 +104,7 @@ class BaseModelProvider(ABC):
         model_config: ModelConfig,
         messages: list[dict[str, str]],
         chunk_callback: ChunkCallback,
-        **overrides: object,
+        **overrides: Unpack[ModelOverrides],
     ) -> GenerationMetadata:
         """Generate a streaming response with full metadata for cost tracking."""
         content = await self.generate_response_stream(
