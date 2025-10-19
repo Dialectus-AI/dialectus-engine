@@ -7,6 +7,7 @@ import re
 import time
 import uuid
 from datetime import datetime
+from textwrap import dedent
 
 from dialectus.engine.config.settings import SystemConfig
 from dialectus.engine.debate_engine.models import DebateContext
@@ -245,68 +246,72 @@ parsed programmatically. Be thorough but concise in your reasoning."""
         example_scores: list[str] = []
         for criterion in criteria:
             for side_label in side_labels:
-                example_scores.append(f"""    {{
-      "criterion": "{criterion}",
-      "participant": "{side_label}",
-      "score": 7.5,
-      "feedback": "specific feedback for {side_label} on {criterion}"
-    }}""")
+                example_scores.append(dedent(f"""
+                    {{
+                      "criterion": "{criterion}",
+                      "participant": "{side_label}",
+                      "score": 7.5,
+                      "feedback": "specific feedback for {side_label} on {criterion}"
+                    }}
+                    """).strip())
 
         participants_list = "\n".join(f"- {label}" for label in side_labels)
         scores_text = ",\n".join(example_scores)
 
-        return f"""Please evaluate this debate and provide your judgment
-in the following JSON format.
+        return dedent(f"""
+            Please evaluate this debate and provide your judgment
+            in the following JSON format.
 
-EVALUATION FOCUS: {random_instruction}
-EVALUATION ID: {evaluation_id}
+            EVALUATION FOCUS: {random_instruction}
+            EVALUATION ID: {evaluation_id}
 
-Please evaluate this debate and provide your judgment
-in the following JSON format:
+            Please evaluate this debate and provide your judgment
+            in the following JSON format:
 
-{{
-  "winner": "{side_labels[0]} or {side_labels[1]}",
-  "overall_feedback": "2-3 sentence summary of the debate quality",
-  "reasoning": "Write a detailed natural language explanation of your
-decision. Use complete sentences and paragraphs. Do NOT use structured
-data, dictionaries, or lists here - only descriptive text explaining
-your thought process.",
-  "criterion_scores": [
-{scores_text}
-  ]
-}}
+            {{
+              "winner": "{side_labels[0]} or {side_labels[1]}",
+              "overall_feedback": "2-3 sentence summary of the debate quality",
+              "reasoning": "Write a detailed natural language explanation of your
+            decision. Use complete sentences and paragraphs. Do NOT use structured
+            data, dictionaries, or lists here - only descriptive text explaining
+            your thought process.",
+              "criterion_scores": [
+            {scores_text}
+              ]
+            }}
 
-EVALUATION CRITERIA: {", ".join(criteria)}
+            EVALUATION CRITERIA: {", ".join(criteria)}
 
-PARTICIPANTS:
-{participants_list}
+            PARTICIPANTS:
+            {participants_list}
 
-CRITICAL INSTRUCTIONS:
-- You MUST evaluate BOTH participants on ALL criteria - do not skip
-any participant-criterion combinations
-- Reference participants by their side labels only
-(e.g., "{side_labels[0]}", "{side_labels[1]}")
-- The "reasoning" field must contain ONLY natural language text
-explaining your decision
-- Do NOT put structured data, scores, or dictionaries in the
-"reasoning" field
-- All numerical scores belong ONLY in the "criterion_scores" array
-- Focus on argument quality, evidence, and debate performance
-- Provide specific feedback for each participant and criterion
-- Your response must include exactly {len(criteria) * len(side_labels)}
-criterion_scores entries
+            CRITICAL INSTRUCTIONS:
+            - You MUST evaluate BOTH participants on ALL criteria - do not skip
+            any participant-criterion combinations
+            - Reference participants by their side labels only
+            (e.g., "{side_labels[0]}", "{side_labels[1]}")
+            - The "reasoning" field must contain ONLY natural language text
+            explaining your decision
+            - Do NOT put structured data, scores, or dictionaries in the
+            "reasoning" field
+            - All numerical scores belong ONLY in the "criterion_scores" array
+            - Focus on argument quality, evidence, and debate performance
+            - Provide specific feedback for each participant and criterion
+            - Your response must include exactly {len(criteria) * len(side_labels)}
+            criterion_scores entries
 
-EXAMPLE of correct reasoning field:
-"The {side_labels[0]} presented stronger evidence with three concrete
-examples, while the {side_labels[1]} relied more on theoretical
-arguments. The {side_labels[0]} also did a better job addressing
-counterarguments in the rebuttal phase, showing deeper engagement
-with the opposing viewpoint."
+            EXAMPLE of correct reasoning field:
+            "The {side_labels[0]} presented stronger evidence with three concrete
+            examples, while the {side_labels[1]} relied more on theoretical
+            arguments. The {side_labels[0]} also did a better job addressing
+            counterarguments in the rebuttal phase, showing deeper engagement
+            with the opposing viewpoint."
 
-DEBATE TRANSCRIPT:
-{transcript}
+            DEBATE TRANSCRIPT:
+            {transcript}
 
-Provide your evaluation as valid JSON only, no additional text:"""
+            Provide your evaluation as valid JSON only, no additional text:
+            """).strip()
 
     def _parse_evaluation(
         self, evaluation: str, context: DebateContext

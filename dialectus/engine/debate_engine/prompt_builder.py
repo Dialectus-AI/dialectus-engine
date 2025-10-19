@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from textwrap import dedent
 from typing import TYPE_CHECKING
 
 from dialectus.engine.config.settings import AppConfig
@@ -78,31 +79,33 @@ class PromptBuilder:
         """
         format_instructions = self.format.get_format_instructions()
 
-        return f"""You are participating in a formal debate about: "{context.topic}"
+        return dedent(f"""
+            You are participating in a formal debate about: "{context.topic}"
 
-DEBATE FORMAT: {self.format.name.upper()}
-WORD LIMIT: {self.config.debate.word_limit} words or less per response
+            DEBATE FORMAT: {self.format.name.upper()}
+            WORD LIMIT: {self.config.debate.word_limit} words or less per response
 
-{format_instructions}
+            {format_instructions}
 
-GENERAL RULES:
-1. Stay focused on the topic
-2. Keep your response under {self.config.debate.word_limit} words
-3. Provide evidence and reasoning
-4. Address opponent's arguments
-5. Maintain a respectful tone
-6. Follow the debate format structure
+            GENERAL RULES:
+            1. Stay focused on the topic
+            2. Keep your response under {self.config.debate.word_limit} words
+            3. Provide evidence and reasoning
+            4. Address opponent's arguments
+            5. Maintain a respectful tone
+            6. Follow the debate format structure
 
-RESPONSE FORMAT:
-- Speak directly as your assigned role without any labels, prefixes, or announcements
-- Use plain text without markdown formatting (avoid **bold**, *italics*, # headers,
-  bullet points)
-- Write in natural conversational style as if speaking live to an audience
-- Do not add labels like "COUNTER:", "STATEMENT:", "OPENING:", etc. - just speak
-  your argument
-- Focus on content, not formatting or structure
+            RESPONSE FORMAT:
+            - Speak directly as your assigned role without any labels, prefixes, or announcements
+            - Use plain text without markdown formatting (avoid **bold**, *italics*, # headers,
+              bullet points)
+            - Write in natural conversational style as if speaking live to an audience
+            - Do not add labels like "COUNTER:", "STATEMENT:", "OPENING:", etc. - just speak
+              your argument
+            - Focus on content, not formatting or structure
 
-You will be told your specific role and speaking context for each response."""
+            You will be told your specific role and speaking context for each response.
+            """).strip()
 
     def _create_participant_prompt(
         self,
@@ -166,18 +169,20 @@ You will be told your specific role and speaking context for each response."""
             personality, "Speak in your natural style."
         )
 
-        return f"""{base_prompt}
+        return dedent(f"""
+            {base_prompt}
 
-YOUR ROLE: {role_instruction}
-You are not describing what {role_name} would say - you ARE {role_name} speaking
-directly. Speak as if you are standing at the podium addressing the audience.
-Do not announce your role, add labels, or use prefixes like "COUNTER:" or
-"STATEMENT:" - simply speak your argument.
+            YOUR ROLE: {role_instruction}
+            You are not describing what {role_name} would say - you ARE {role_name} speaking
+            directly. Speak as if you are standing at the podium addressing the audience.
+            Do not announce your role, add labels, or use prefixes like "COUNTER:" or
+            "STATEMENT:" - simply speak your argument.
 
-YOUR SPEAKING STYLE: {style_instruction}
+            YOUR SPEAKING STYLE: {style_instruction}
 
-Remember: You are embodying the {role_name} position throughout this debate.
-Speak naturally and directly as that person would speak."""
+            Remember: You are embodying the {role_name} position throughout this debate.
+            Speak naturally and directly as that person would speak.
+            """).strip()
 
     @staticmethod
     def get_phase_instruction(phase: DebatePhase) -> str:

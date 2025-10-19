@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from textwrap import dedent
 
 from openai import AsyncOpenAI
 
@@ -74,22 +75,24 @@ class LLMModerator(BaseModerator):
         # This format works well with any instruction-following LLM
         system_prompt = """You are a safety policy expert. Your job is to identify if content violates safety policies, even if the violation is implicit or indirect."""
 
-        user_prompt = f"""<start_of_turn>user
-{text}
-<end_of_turn>
+        user_prompt = dedent(f"""
+            <start_of_turn>user
+            {text}
+            <end_of_turn>
 
-**Safety Policies:**
-- Harassment: Content that harasses, threatens, or bullies individuals
-- Hate Speech: Content promoting hatred toward groups based on identity
-- Violence: Content promoting, glorifying, or requesting information about harming others
-- Sexual Content: Explicit sexual or adult content
-- Dangerous Content: Content promoting dangerous, illegal, or discriminatory activities
+            **Safety Policies:**
+            - Harassment: Content that harasses, threatens, or bullies individuals
+            - Hate Speech: Content promoting hatred toward groups based on identity
+            - Violence: Content promoting, glorifying, or requesting information about harming others
+            - Sexual Content: Explicit sexual or adult content
+            - Dangerous Content: Content promoting dangerous, illegal, or discriminatory activities
 
-**Question:** Does the above user input violate any of these safety policies?
+            **Question:** Does the above user input violate any of these safety policies?
 
-**Important:** Content that asks "how to" harm, discriminate, or violate others' rights DOES violate policies, even if phrased as a question.
+            **Important:** Content that asks "how to" harm, discriminate, or violate others' rights DOES violate policies, even if phrased as a question.
 
-**Instructions:** Answer ONLY 'Yes' or 'No' first. Answer 'Yes' if the content violates ANY policy above."""
+            **Instructions:** Answer ONLY 'Yes' or 'No' first. Answer 'Yes' if the content violates ANY policy above.
+            """).strip()
 
         try:
             # Make API call using OpenAI client
