@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Simple test of LLMModerator with direct prompts."""
 
 import asyncio
