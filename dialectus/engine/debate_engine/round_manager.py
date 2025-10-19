@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import logging
 import uuid
-from collections.abc import Awaitable, Callable
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from .models import DebateContext, DebateMessage
 from .response_handler import ResponseHandler
-from .types import DebatePhase, Position
+from .types import ChunkCallback, DebatePhase, MessageEventCallback, Position
 
 if TYPE_CHECKING:
     from formats import DebateFormat, FormatPhase
@@ -96,10 +95,8 @@ class RoundManager:
         self,
         format_phase: FormatPhase,
         context: DebateContext,
-        message_callback: (
-            Callable[[str, dict[str, Any]], Awaitable[None]] | None
-        ) = None,
-        chunk_callback: Callable[[str, bool], Awaitable[None]] | None = None,
+        message_callback: MessageEventCallback | None = None,
+        chunk_callback: ChunkCallback | None = None,
     ) -> list[DebateMessage]:
         """Conduct a round with streaming callbacks.
 

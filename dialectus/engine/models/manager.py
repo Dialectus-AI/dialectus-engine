@@ -3,17 +3,17 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Protocol, cast
 
 from dialectus.engine.config.settings import ModelConfig, SystemConfig
+from dialectus.engine.debate_engine.types import ChunkCallback
 from dialectus.engine.models.base_types import BaseEnhancedModelInfo
 
 from .providers.base_model_provider import BaseModelProvider, GenerationMetadata
 from .providers.providers import ProviderFactory
 
-type ChunkCallback = Callable[[str, bool], Awaitable[None]]
 type MessageDict = dict[str, str]
 type MessageList = list[MessageDict]
 type EnhancedModelRecord = dict[str, object]

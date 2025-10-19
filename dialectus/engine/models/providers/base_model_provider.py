@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -9,6 +8,7 @@ from openai import OpenAI
 
 if TYPE_CHECKING:
     from config.settings import ModelConfig, SystemConfig
+    from debate_engine.types import ChunkCallback
     from models.base_types import BaseEnhancedModelInfo
 
 
@@ -68,7 +68,7 @@ class BaseModelProvider(ABC):
         self,
         model_config: ModelConfig,
         messages: list[dict[str, str]],
-        chunk_callback: Callable[[str, bool], Awaitable[None]],
+        chunk_callback: ChunkCallback,
         **overrides: object,
     ) -> str:
         """Generate a streaming response using this provider."""
@@ -92,7 +92,7 @@ class BaseModelProvider(ABC):
         self,
         model_config: ModelConfig,
         messages: list[dict[str, str]],
-        chunk_callback: Callable[[str, bool], Awaitable[None]],
+        chunk_callback: ChunkCallback,
         **overrides: object,
     ) -> GenerationMetadata:
         """Generate a streaming response with full metadata for cost tracking."""

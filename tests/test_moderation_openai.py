@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import math
-import asyncio
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -19,6 +19,21 @@ from dialectus.engine.moderation.openai_moderator import OpenAIModerator
 from dialectus.engine.moderation import manager as manager_module
 
 
+def _normalise_payload(data: object) -> dict[str, Any]:
+    if isinstance(data, dict):
+        return data
+    model_dump = getattr(data, "model_dump", None)
+    if callable(model_dump):
+        dumped = model_dump()
+        if isinstance(dumped, dict):
+            return dumped
+    try:
+        return dict(data)  # type: ignore[arg-type]
+    except Exception:  # pragma: no cover - defensive fallback
+        pass
+    raise TypeError(f"Unsupported payload type: {type(data)}")
+
+
 class FakeModerationResponse:
     """Lightweight stand-in for the OpenAI moderation response."""
 
@@ -26,13 +41,13 @@ class FakeModerationResponse:
         self,
         *,
         flagged: bool,
-        categories: dict[str, bool],
-        scores: dict[str, float],
+        categories: object,
+        scores: object,
     ):
         payload = {
             "flagged": flagged,
-            "categories": categories,
-            "category_scores": scores,
+            "categories": _normalise_payload(categories),
+            "category_scores": _normalise_payload(scores),
         }
         self.results = [
             SimpleNamespace(
@@ -178,6 +193,48 @@ def test_openai_moderator_retries_on_rate_limit(
     assert result.is_safe is True
     assert sleeps == [0.25]
     assert len(client.requests) == 2
+
+
+class _ModelLike:
+    """Minimal stand-in for the Pydantic moderation types."""
+
+    def __init__(self, data: dict[str, Any]) -> None:
+        self._data = data
+
+    def model_dump(self) -> dict[str, Any]:
+        return dict(self._data)
+
+    def __getattr__(self, item: str) -> Any:
+        try:
+            return self._data[item]
+        except KeyError as exc:  # pragma: no cover - defensive
+            raise AttributeError(item) from exc
+
+
+def test_openai_moderator_handles_model_objects() -> None:
+    """Pydantic-style moderation objects should be normalised automatically."""
+    categories_model = _ModelLike({"hate": True, "violence": False})
+    scores_model = _ModelLike({"hate": 0.91, "violence": 0.05})
+    response = FakeModerationResponse(
+        flagged=True,
+        categories=categories_model,
+        scores=scores_model,
+    )
+    fake_client = FakeModerationsClient(response)
+    moderator = OpenAIModerator(
+        api_key="test-key",
+        model="omni-moderation-latest",
+        timeout=5.0,
+        client=make_fake_openai_client(fake_client),
+    )
+
+    result = asyncio.run(
+        moderator.moderate("Edge case flagged by typed moderation payloads.")
+    )
+
+    assert result.is_safe is False
+    assert result.categories == ["hate_speech"]
+    assert math.isclose(result.confidence, 0.91, rel_tol=1e-3)
 
 
 def test_manager_initialises_openai_provider(monkeypatch: pytest.MonkeyPatch) -> None:

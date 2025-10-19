@@ -6,7 +6,6 @@ import asyncio
 import logging
 import re
 import time
-from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING
 
 from dialectus.engine.config.settings import AppConfig
@@ -15,7 +14,7 @@ from dialectus.engine.models.providers import ProviderRateLimitError
 
 from .context_builder import ContextBuilder
 from .models import DebateContext, DebateMessage
-from .types import DebatePhase, Position
+from .types import ChunkCallback, DebatePhase, Position
 from .utils import calculate_max_tokens, query_and_update_cost, trim_incomplete_sentence
 
 if TYPE_CHECKING:
@@ -186,7 +185,7 @@ class ResponseHandler:
         speaker_id: str,
         format_phase: FormatPhase,
         context: DebateContext,
-        chunk_callback: Callable[[str, bool], Awaitable[None]],
+        chunk_callback: ChunkCallback,
         message_id: str | None = None,
     ) -> DebateMessage:
         """Get a streaming response from a specific speaker using format phase.

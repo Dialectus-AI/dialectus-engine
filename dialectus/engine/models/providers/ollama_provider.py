@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, cast
 
 import httpx
@@ -12,6 +11,7 @@ from .base_model_provider import BaseModelProvider
 
 if TYPE_CHECKING:
     from config.settings import ModelConfig, SystemConfig
+    from debate_engine.types import ChunkCallback
     from models.base_types import BaseEnhancedModelInfo, ModelWeightClass
     from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
 
@@ -155,7 +155,7 @@ class OllamaProvider(BaseModelProvider):
         self,
         model_config: ModelConfig,
         messages: list[dict[str, str]],
-        chunk_callback: Callable[[str, bool], Awaitable[None]],
+        chunk_callback: ChunkCallback,
         **overrides: object,
     ) -> str:
         """Generate a streaming response using Ollama."""

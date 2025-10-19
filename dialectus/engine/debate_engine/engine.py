@@ -3,7 +3,6 @@
 import asyncio
 import logging
 import time
-from collections.abc import Awaitable, Callable
 from typing import Any
 
 from dialectus.engine.config.settings import AppConfig
@@ -17,7 +16,7 @@ from .models import DebateContext
 from .prompt_builder import PromptBuilder
 from .response_handler import ResponseHandler
 from .round_manager import RoundManager
-from .types import DebatePhase
+from .types import ChunkCallback, DebatePhase, MessageEventCallback, PhaseEventCallback
 
 logger = logging.getLogger(__name__)
 
@@ -102,11 +101,9 @@ class DebateEngine:
 
     async def run_full_debate(
         self,
-        phase_callback: Callable[[str, dict[str, Any]], Awaitable[None]] | None = None,
-        message_callback: (
-            Callable[[str, dict[str, Any]], Awaitable[None]] | None
-        ) = None,
-        chunk_callback: Callable[[str, bool], Awaitable[None]] | None = None,
+        phase_callback: PhaseEventCallback | None = None,
+        message_callback: MessageEventCallback | None = None,
+        chunk_callback: ChunkCallback | None = None,
     ) -> DebateContext:
         """Run a complete debate from start to finish.
 

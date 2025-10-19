@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Iterable
+from collections.abc import Iterable, Mapping
+from typing import Any, cast
 
 from openai import AsyncOpenAI, RateLimitError
 
@@ -37,6 +38,60 @@ def _map_categories(category_names: Iterable[str]) -> list[str]:
         _CATEGORY_MAPPING.get(name, "policy_violation") for name in category_names
     }
     return sorted(mapped)
+
+
+def _ensure_mapping(data: object) -> dict[str, Any]:
+    """Normalise OpenAI SDK structures into plain dictionaries."""
+    if data is None:
+        return {}
+
+    # Handle Mapping objects (dicts, etc.)
+    if isinstance(data, Mapping):
+        # Cast to known Mapping type to satisfy type checker
+        mapping = cast(Mapping[Any, Any], data)
+        return {str(k): v for k, v in mapping.items()}
+
+    # Try Pydantic v2 model_dump() method
+    model_dump = getattr(data, "model_dump", None)
+    if callable(model_dump):
+        dumped = model_dump()
+        if isinstance(dumped, Mapping):
+            mapping = cast(Mapping[Any, Any], dumped)
+            return {str(k): v for k, v in mapping.items()}
+
+    # Try legacy to_dict() method
+    to_dict = getattr(data, "to_dict", None)
+    if callable(to_dict):
+        dumped = to_dict()
+        if isinstance(dumped, Mapping):
+            mapping = cast(Mapping[Any, Any], dumped)
+            return {str(k): v for k, v in mapping.items()}
+
+    # Try converting directly to dict
+    try:
+        return dict(data)  # type: ignore[arg-type]
+    except Exception:  # pragma: no cover - defensive fallback
+        pass
+
+    # Try extracting Pydantic model fields
+    model_fields = getattr(data, "model_fields", None)
+    if isinstance(model_fields, Mapping):
+        mapping = cast(Mapping[Any, Any], model_fields)
+        field_names = [str(name) for name in mapping.keys()]
+        return {name: getattr(data, name) for name in field_names}
+
+    # Last resort: extract public attributes that are primitive types
+    attrs: dict[str, Any] = {}
+    for attr in dir(data):
+        if attr.startswith("_"):
+            continue
+        try:
+            value = getattr(data, attr)
+        except AttributeError:
+            continue
+        if isinstance(value, (bool, float, int)):
+            attrs[attr] = value
+    return attrs
 
 
 class OpenAIModerator(BaseModerator):
@@ -115,11 +170,11 @@ class OpenAIModerator(BaseModerator):
 
         result = results[0]
         flagged = bool(getattr(result, "flagged", False))
-        categories_dict = getattr(result, "categories", {}) or {}
-        category_scores = getattr(result, "category_scores", {}) or {}
+        categories_dict = _ensure_mapping(getattr(result, "categories", None))
+        category_scores = _ensure_mapping(getattr(result, "category_scores", None))
 
         flagged_categories = [
-            name for name, is_flagged in categories_dict.items() if is_flagged
+            name for name, is_flagged in categories_dict.items() if bool(is_flagged)
         ]
         mapped_categories = _map_categories(flagged_categories)
 

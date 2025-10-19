@@ -5,7 +5,6 @@ import json
 import logging
 import os
 import time
-from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, ClassVar, cast
 
 import httpx
@@ -23,6 +22,7 @@ from .openrouter_generation_types import (
 
 if TYPE_CHECKING:
     from dialectus.engine.config.settings import ModelConfig, SystemConfig
+    from dialectus.engine.debate_engine.types import ChunkCallback
     from dialectus.engine.models.openrouter.openrouter_enhanced_model_info import (
         OpenRouterEnhancedModelInfo,
     )
@@ -374,7 +374,7 @@ class OpenRouterProvider(BaseModelProvider):
         self,
         model_config: ModelConfig,
         messages: list[dict[str, str]],
-        chunk_callback: Callable[[str, bool], Awaitable[None]],
+        chunk_callback: ChunkCallback,
         **overrides: object,
     ) -> str:
         """Generate a streaming response using OpenRouter with SSE."""
