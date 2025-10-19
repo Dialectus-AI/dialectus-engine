@@ -246,14 +246,16 @@ parsed programmatically. Be thorough but concise in your reasoning."""
         example_scores: list[str] = []
         for criterion in criteria:
             for side_label in side_labels:
-                example_scores.append(dedent(f"""
+                example_scores.append(
+                    dedent(f"""
                     {{
                       "criterion": "{criterion}",
                       "participant": "{side_label}",
                       "score": 7.5,
                       "feedback": "specific feedback for {side_label} on {criterion}"
                     }}
-                    """).strip())
+                    """).strip()
+                )
 
         participants_list = "\n".join(f"- {label}" for label in side_labels)
         scores_text = ",\n".join(example_scores)

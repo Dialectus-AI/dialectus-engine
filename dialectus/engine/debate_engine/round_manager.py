@@ -8,7 +8,13 @@ from typing import TYPE_CHECKING
 
 from .models import DebateContext, DebateMessage
 from .response_handler import ResponseHandler
-from .types import ChunkCallback, DebatePhase, MessageEventCallback, Position
+from .types import (
+    ChunkCallback,
+    DebatePhase,
+    MessageEventCallback,
+    MessageEventType,
+    Position,
+)
 
 if TYPE_CHECKING:
     from formats import DebateFormat, FormatPhase
@@ -124,7 +130,7 @@ class RoundManager:
             # Call message_start callback
             if message_callback:
                 await message_callback(
-                    "message_start",
+                    MessageEventType.MESSAGE_START,
                     {
                         "message_id": message_id,
                         "speaker_id": speaker_id,
@@ -149,7 +155,7 @@ class RoundManager:
             # Call message_complete callback
             if message_callback:
                 await message_callback(
-                    "message_complete",
+                    MessageEventType.MESSAGE_COMPLETE,
                     {
                         "message_id": message_id,
                         "speaker_id": message.speaker_id,

@@ -16,7 +16,13 @@ from .models import DebateContext
 from .prompt_builder import PromptBuilder
 from .response_handler import ResponseHandler
 from .round_manager import RoundManager
-from .types import ChunkCallback, DebatePhase, MessageEventCallback, PhaseEventCallback
+from .types import (
+    ChunkCallback,
+    DebatePhase,
+    MessageEventCallback,
+    PhaseEventCallback,
+    PhaseEventType,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -164,7 +170,7 @@ class DebateEngine:
             # Invoke phase callback if provided
             if phase_callback:
                 await phase_callback(
-                    "phase_started",
+                    PhaseEventType.PHASE_STARTED,
                     {
                         "phase": format_phase.name,
                         "instruction": format_phase.instruction,
