@@ -62,6 +62,35 @@ class BaseJudge(ABC):
         """Judge name/identifier."""
         pass
 
+    def _get_participant_averages(
+        self, criterion_scores: list[CriterionScore]
+    ) -> dict[str, float]:
+        """Calculate average scores for each participant across all criteria.
+
+        Args:
+            criterion_scores: List of criterion scores from the debate
+
+        Returns:
+            Dictionary mapping participant IDs to their average scores
+        """
+        participant_totals: dict[str, float] = {}
+        participant_counts: dict[str, int] = {}
+
+        for score in criterion_scores:
+            participant_id = score.participant_id
+            participant_totals[participant_id] = (
+                participant_totals.get(participant_id, 0.0) + score.score
+            )
+            participant_counts[participant_id] = (
+                participant_counts.get(participant_id, 0) + 1
+            )
+
+        return {
+            pid: participant_totals[pid] / participant_counts[pid]
+            for pid in participant_totals
+            if participant_counts[pid] > 0
+        }
+
     def _calculate_total_score(
         self, scores: list[CriterionScore], participant_id: str
     ) -> float:
@@ -80,34 +109,13 @@ class BaseJudge(ABC):
         if not criterion_scores:
             return 0.0
 
-        # Group scores by participant
-        participant_totals: dict[str, float] = {}
-        participant_counts: dict[str, int] = {}
-
-        for score in criterion_scores:
-            participant_id = score.participant_id
-            if participant_id not in participant_totals:
-                participant_totals[participant_id] = 0.0
-                participant_counts[participant_id] = 0
-
-            participant_totals[participant_id] += score.score
-            participant_counts[participant_id] += 1
-
-        # Calculate average scores for each participant
-        participant_averages: dict[str, float] = {}
-        for participant_id in participant_totals:
-            if participant_counts[participant_id] > 0:
-                participant_averages[participant_id] = (
-                    participant_totals[participant_id]
-                    / participant_counts[participant_id]
-                )
+        participant_averages = self._get_participant_averages(criterion_scores)
 
         # Find margin between highest and second highest
         if len(participant_averages) < 2:
             return 0.0
 
-        averages = list(participant_averages.values())
-        averages.sort(reverse=True)
+        averages = sorted(participant_averages.values(), reverse=True)
         return averages[0] - averages[1]
 
     def _determine_winner_from_scores(
@@ -117,26 +125,7 @@ class BaseJudge(ABC):
         if not criterion_scores:
             return "unknown"
 
-        participant_averages: dict[str, float] = {}
-        participant_totals: dict[str, float] = {}
-        participant_counts: dict[str, int] = {}
-
-        for score in criterion_scores:
-            participant_id = score.participant_id
-            if participant_id not in participant_totals:
-                participant_totals[participant_id] = 0.0
-                participant_counts[participant_id] = 0
-
-            participant_totals[participant_id] += score.score
-            participant_counts[participant_id] += 1
-
-        # Calculate averages
-        for participant_id in participant_totals:
-            if participant_counts[participant_id] > 0:
-                participant_averages[participant_id] = (
-                    participant_totals[participant_id]
-                    / participant_counts[participant_id]
-                )
+        participant_averages = self._get_participant_averages(criterion_scores)
 
         # Return participant with highest average
         return (
