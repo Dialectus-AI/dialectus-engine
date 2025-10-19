@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Iterable, Mapping
-from typing import Any, Protocol, cast
+from typing import TYPE_CHECKING
 
 from openai import AsyncOpenAI, RateLimitError
 
 from .base_moderator import BaseModerator, ModerationResult
 from .exceptions import ModerationProviderError
+
+if TYPE_CHECKING:
+    from openai.types import ModerationCreateResponse
 
 logger = logging.getLogger(__name__)
 
@@ -32,48 +34,12 @@ _CATEGORY_MAPPING = {
 }
 
 
-def _map_categories(category_names: Iterable[str]) -> list[str]:
+def _map_categories(category_names: list[str]) -> list[str]:
     """Map OpenAI moderation categories into the engine taxonomy."""
     mapped = {
         _CATEGORY_MAPPING.get(name, "policy_violation") for name in category_names
     }
     return sorted(mapped)
-
-
-class _HasModelDump(Protocol):
-    """Protocol for objects with Pydantic v2 model_dump method."""
-
-    def model_dump(self) -> dict[str, Any]: ...
-
-
-def _ensure_mapping(data: object) -> dict[str, Any]:
-    """Convert Pydantic models to plain dicts for iteration.
-
-    The OpenAI SDK returns Pydantic v2 models for moderation responses.
-    This function normalizes them into plain dictionaries.
-    """
-    if data is None:
-        return {}
-
-    # Pydantic v2 models (what OpenAI SDK actually returns)
-    if hasattr(data, "model_dump"):
-        model_dump = cast(_HasModelDump, data).model_dump
-        if callable(model_dump):
-            return model_dump()
-
-    # Already a plain dict (used in tests)
-    if isinstance(data, dict):
-        return cast(dict[str, Any], data)
-
-    # Generic Mapping fallback (defensive)
-    if isinstance(data, Mapping):
-        return {str(k): v for k, v in cast(Mapping[Any, Any], data).items()}
-
-    # If we get here, something unexpected happened
-    raise TypeError(
-        f"Cannot convert {type(data).__name__} to dict. "
-        f"Expected Pydantic model, dict, or Mapping."
-    )
 
 
 class OpenAIModerator(BaseModerator):
@@ -104,7 +70,7 @@ class OpenAIModerator(BaseModerator):
             base_url=base_url.rstrip("/") if base_url else None,
         )
 
-    async def _call_moderation_endpoint(self, text: str):
+    async def _call_moderation_endpoint(self, text: str) -> ModerationCreateResponse:
         """Invoke the OpenAI moderation endpoint."""
         return await self.client.moderations.create(
             model=self.model,
@@ -143,18 +109,18 @@ class OpenAIModerator(BaseModerator):
                 logger.error(message)
                 raise ModerationProviderError("openai", message) from exc
 
-        results = getattr(response, "results", None)
-        if not results:
+        # Direct property access - OpenAI SDK guarantees these fields exist
+        if not response.results:
             raise ModerationProviderError(
                 "openai",
                 "Moderation response contained no results",
             )
 
-        result = results[0]
-        flagged = bool(getattr(result, "flagged", False))
-        categories_dict = _ensure_mapping(getattr(result, "categories", None))
-        category_scores = _ensure_mapping(getattr(result, "category_scores", None))
+        result = response.results[0]
+        flagged = result.flagged
 
+        # Extract flagged categories from the Categories object
+        categories_dict = result.categories.model_dump()
         flagged_categories = [
             name for name, is_flagged in categories_dict.items() if bool(is_flagged)
         ]
@@ -163,17 +129,16 @@ class OpenAIModerator(BaseModerator):
         if flagged and not mapped_categories:
             mapped_categories = ["policy_violation"]
 
-        max_score = max(category_scores.values(), default=0.0)
+        # Get max score from CategoryScores object
+        category_scores_dict = result.category_scores.model_dump()
+        max_score = max(category_scores_dict.values(), default=0.0)
         confidence = max_score if flagged else max(0.0, 1.0 - max_score)
 
-        raw_response: str
-        if hasattr(response, "model_dump_json"):
-            try:
-                raw_response = response.model_dump_json(indent=2)
-            except TypeError:
-                raw_response = response.model_dump_json()
-        else:
-            raw_response = str(response)
+        # Serialize response - OpenAI SDK uses Pydantic v2
+        try:
+            raw_response = response.model_dump_json(indent=2)
+        except TypeError:
+            raw_response = response.model_dump_json()
 
         if flagged:
             logger.info(
