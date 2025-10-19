@@ -13,6 +13,9 @@ from .types import DebatePhase
 if TYPE_CHECKING:
     from dialectus.engine.formats import DebateFormat, FormatPhase
 
+# Maximum number of recent messages to include in conversation context
+MAX_CONTEXT_MESSAGES = 6
+
 
 class ContextBuilder:
     """Builds conversation context for model prompts during debates."""
@@ -71,7 +74,7 @@ class ContextBuilder:
         })
 
         # Add relevant debate history
-        for msg in context.messages[-6:]:  # Last 6 messages for context
+        for msg in context.messages[-MAX_CONTEXT_MESSAGES:]:
             role = "assistant" if msg.speaker_id == speaker_id else "user"
 
             # Use a cleaner format that's less likely to be repeated by small
@@ -139,7 +142,7 @@ class ContextBuilder:
         })
 
         # Add relevant debate history
-        for msg in context.messages[-6:]:  # Last 6 messages for context
+        for msg in context.messages[-MAX_CONTEXT_MESSAGES:]:
             role = "assistant" if msg.speaker_id == speaker_id else "user"
 
             # Use a cleaner format that's less likely to be repeated by small

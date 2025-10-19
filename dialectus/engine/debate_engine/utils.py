@@ -10,6 +10,14 @@ from .models import DebateMessage
 
 logger = logging.getLogger(__name__)
 
+# Token calculation constants
+# Average tokens per word ratio (1 token ≈ 0.75 words, so multiply words by 1.33)
+TOKENS_PER_WORD_RATIO = 1.33
+# Buffer for sentence completion in words
+SENTENCE_BUFFER_WORDS = 100
+# Buffer for sentence completion in tokens (100 words * 1.33)
+SENTENCE_BUFFER_TOKENS = 133
+
 
 def calculate_max_tokens(word_limit: int) -> int:
     """Calculate maximum tokens based on word limit with buffer for incomplete
@@ -19,13 +27,10 @@ def calculate_max_tokens(word_limit: int) -> int:
         word_limit: Maximum number of words allowed
 
     Returns:
-        Maximum number of tokens with ~100 word buffer (1 token ≈ 0.75 words)
+        Maximum number of tokens with buffer for sentence completion
     """
-    # Base conversion: word_limit * 1.33 (since 1 token ≈ 0.75 words)
-    # Add buffer: ~100 words = 133 tokens
-    base_tokens = int(word_limit * 1.33)
-    buffer_tokens = 133  # ~100 words of buffer for sentence completion
-    return base_tokens + buffer_tokens
+    base_tokens = int(word_limit * TOKENS_PER_WORD_RATIO)
+    return base_tokens + SENTENCE_BUFFER_TOKENS
 
 
 def trim_incomplete_sentence(text: str) -> str:
