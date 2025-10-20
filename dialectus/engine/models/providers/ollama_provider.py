@@ -273,7 +273,7 @@ class OllamaProvider(BaseModelProvider):
         basic_models = await self.get_available_models()
         enhanced_models: list[BaseEnhancedModelInfo] = []
 
-        from models.base_types import (
+        from dialectus.engine.models.base_types import (
             BaseEnhancedModelInfo,
             ModelPricing,
             ModelTier,
