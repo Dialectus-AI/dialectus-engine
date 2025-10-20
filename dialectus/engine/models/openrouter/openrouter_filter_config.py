@@ -47,7 +47,9 @@ class OpenRouterFilterConfig:
         if config_path is None:
             # Default to config/openrouter_filters.json relative to this file
             config_path = (
-                Path(__file__).parent.parent.parent / "config" / "openrouter_filters.json"
+                Path(__file__).parent.parent.parent
+                / "config"
+                / "openrouter_filters.json"
             )
 
         self.config_path = config_path
