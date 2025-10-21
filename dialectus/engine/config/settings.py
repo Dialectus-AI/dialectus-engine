@@ -44,7 +44,7 @@ class ModelConfig(BaseModel):
     @field_validator("provider")
     @classmethod
     def validate_provider(cls, v: str) -> str:
-        return validate_provider_value(v, {"ollama", "openrouter"})
+        return validate_provider_value(v, {"ollama", "openrouter", "anthropic"})
 
 
 class DebateConfig(BaseModel):
@@ -169,6 +169,24 @@ class OpenRouterConfig(BaseModel):
     timeout: int = Field(default=60, description="API request timeout in seconds")
 
 
+class AnthropicConfig(BaseModel):
+    """Anthropic-specific configuration."""
+
+    api_key: str | None = Field(
+        default=None,
+        description=(
+            "Anthropic API key (can also be set via ANTHROPIC_API_KEY env var)"
+        ),
+    )
+    base_url: str = Field(
+        default="https://api.anthropic.com/v1", description="Anthropic API base URL"
+    )
+    max_retries: int = Field(
+        default=3, description="Maximum number of API call retries"
+    )
+    timeout: int = Field(default=60, description="API request timeout in seconds")
+
+
 class SystemConfig(BaseModel):
     """System-wide configuration."""
 
@@ -184,12 +202,15 @@ class SystemConfig(BaseModel):
     openrouter: OpenRouterConfig = Field(
         default_factory=OpenRouterConfig, description="OpenRouter-specific settings"
     )
+    anthropic: AnthropicConfig = Field(
+        default_factory=AnthropicConfig, description="Anthropic-specific settings"
+    )
 
     # System settings
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = Field(default="INFO")
 
     # Topic generation settings
-    debate_topic_source: Literal["ollama", "openrouter"] = Field(
+    debate_topic_source: Literal["ollama", "openrouter", "anthropic"] = Field(
         default="openrouter", description="Provider for topic generation model"
     )
     debate_topic_model: str = Field(
@@ -200,7 +221,7 @@ class SystemConfig(BaseModel):
     @field_validator("debate_topic_source")
     @classmethod
     def validate_topic_source(cls, v: str) -> str:
-        return validate_provider_value(v, {"ollama", "openrouter"})
+        return validate_provider_value(v, {"ollama", "openrouter", "anthropic"})
 
 
 class AppConfig(BaseModel):
@@ -323,6 +344,14 @@ def get_template_config() -> AppConfig:
                 base_url="https://openrouter.ai/api/v1",
                 site_url=None,  # Your site URL for referrer tracking (optional)
                 app_name="Dialectus AI Debate System",
+                max_retries=3,
+                timeout=60,
+            ),
+            anthropic=AnthropicConfig(
+                # Set your Anthropic API key here or use
+                # ANTHROPIC_API_KEY env var
+                api_key=None,
+                base_url="https://api.anthropic.com/v1",
                 max_retries=3,
                 timeout=60,
             ),

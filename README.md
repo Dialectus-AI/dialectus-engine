@@ -23,7 +23,7 @@ The Dialectus Engine is a standalone Python library that provides core debate or
 ## Components
 
 - **Core Engine** (`debate_engine/`) - Main debate orchestration logic
-- **Models** (`models/`) - AI model provider integrations (Ollama, OpenRouter)
+- **Models** (`models/`) - AI model provider integrations (Ollama, OpenRouter, Anthropic)
 - **Configuration** (`config/`) - System configuration management
 - **Judges** (`judges/`) - AI judge implementations with ensemble support
 - **Formats** (`formats/`) - Debate format definitions (Oxford, Parliamentary, Socratic, Public Forum)
@@ -143,7 +143,7 @@ cp debate_config.example.json debate_config.json
 
 Key configuration sections:
 - **Models**: Define debate participants with provider, personality, and parameters
-- **Providers**: Configure Ollama (local) and OpenRouter (cloud) settings
+- **Providers**: Configure Ollama (local), OpenRouter (cloud), and Anthropic (cloud) settings
 - **Judging**: Set evaluation criteria and judge models
 - **Debate**: Default topic, format, and word limits
 - **Moderation** (optional): Content safety for user-provided topics
@@ -247,9 +247,11 @@ pip install -e ".[dev]"
 ### Multi-Provider Model Support
 - **Ollama**: Local model management with hardware optimization
 - **OpenRouter**: Cloud model access to 100+ models
-- **Async streaming**: Chunk-by-chunk response generation
+- **Anthropic**: Direct access to Claude models (3.5 Sonnet, Haiku, Opus, etc.)
+- **Async streaming**: Chunk-by-chunk response generation for all providers
 - **Auto-discovery**: Dynamic model listing from all configured providers
 - **Caching**: In-memory cache with TTL for model metadata
+- **Cost tracking**: Token usage and cost calculation for cloud providers
 
 ### Debate Formats
 - **Oxford**: Classic opening/rebuttal/closing structure
@@ -348,3 +350,110 @@ except TopicRejectedError as e:
 ```
 
 For comprehensive moderation testing and setup instructions, see [MODERATION_TESTING.md](MODERATION_TESTING.md).
+
+## Provider Setup
+
+### Anthropic (Claude Models)
+
+To use Anthropic's Claude models, you'll need an API key:
+
+1. **Get an API key**: Sign up at [console.anthropic.com](https://console.anthropic.com/)
+
+2. **Set your API key** (choose one method):
+
+   **Environment variable (recommended):**
+   ```bash
+   export ANTHROPIC_API_KEY="sk-ant-api03-..."
+   ```
+
+   **Or in `debate_config.json`:**
+   ```json
+   {
+     "system": {
+       "anthropic": {
+         "api_key": "sk-ant-api03-...",
+         "base_url": "https://api.anthropic.com/v1",
+         "max_retries": 3,
+         "timeout": 60
+       }
+     }
+   }
+   ```
+
+3. **Configure a model**:
+   ```json
+   {
+     "models": {
+       "model_a": {
+         "name": "claude-3-5-sonnet-20241022",
+         "provider": "anthropic",
+         "personality": "analytical",
+         "max_tokens": 300,
+         "temperature": 0.7
+       }
+     }
+   }
+   ```
+
+**Available Claude models:**
+- `claude-3-5-sonnet-20241022` - Latest, most intelligent (best for debates)
+- `claude-3-5-haiku-20241022` - Fastest and most economical
+- `claude-3-opus-20240229` - Most capable Claude 3 model
+- `claude-3-sonnet-20240229` - Balanced performance
+- `claude-3-haiku-20240307` - Budget-friendly option
+
+### OpenRouter
+
+To use OpenRouter's model marketplace:
+
+1. **Get an API key**: Sign up at [openrouter.ai](https://openrouter.ai/)
+
+2. **Set your API key**:
+   ```bash
+   export OPENROUTER_API_KEY="sk-or-v1-..."
+   ```
+
+3. **Configure a model**:
+   ```json
+   {
+     "models": {
+       "model_a": {
+         "name": "anthropic/claude-3.5-sonnet",
+         "provider": "openrouter",
+         "personality": "analytical",
+         "max_tokens": 300,
+         "temperature": 0.7
+       }
+     }
+   }
+   ```
+
+### Ollama (Local Models)
+
+To use local models via Ollama:
+
+1. **Install Ollama**: Download from [ollama.com](https://ollama.com/)
+
+2. **Pull models**:
+   ```bash
+   ollama pull llama3.2:3b
+   ollama pull qwen2.5:7b
+   ```
+
+3. **Configure**:
+   ```json
+   {
+     "models": {
+       "model_a": {
+         "name": "llama3.2:3b",
+         "provider": "ollama",
+         "personality": "analytical",
+         "max_tokens": 300,
+         "temperature": 0.7
+       }
+     },
+     "system": {
+       "ollama_base_url": "http://localhost:11434"
+     }
+   }
+   ```

@@ -72,7 +72,11 @@ class BaseEnhancedModelInfo(BaseModel):
     @property
     def sort_key(self) -> tuple[int, int, float, float]:
         """Sorting key: provider (ollama first), tier, value_score desc, cost asc."""
-        provider_order = {"ollama": 0, "openrouter": 1}  # Local models first
+        provider_order = {
+            "ollama": 0,  # Local models first
+            "anthropic": 1,  # Anthropic second (high quality)
+            "openrouter": 2,  # OpenRouter third (aggregator)
+        }
         tier_order = {
             ModelTier.FLAGSHIP: 0,
             ModelTier.PREMIUM: 1,

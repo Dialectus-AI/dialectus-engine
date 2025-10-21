@@ -154,6 +154,9 @@ class RoundManager:
 
             # Call message_complete callback
             if message_callback:
+                # Convert metadata values to strings for MessageCompleteEventData
+                metadata_str = {k: str(v) for k, v in message.metadata.items()}
+
                 complete_event = MessageCompleteEventData(
                     message_id=message_id,
                     speaker_id=message.speaker_id,
@@ -163,7 +166,7 @@ class RoundManager:
                     content=message.content,
                     timestamp=message.timestamp.isoformat(),
                     word_count=len(message.content.split()),
-                    metadata=message.metadata,
+                    metadata=metadata_str,
                     cost=message.cost,
                     generation_id=message.generation_id,
                 )

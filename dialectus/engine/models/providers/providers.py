@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING
 
+from .anthropic_provider import AnthropicProvider
 from .base_model_provider import BaseModelProvider
 from .ollama_provider import OllamaProvider
 from .open_router_provider import OpenRouterProvider
@@ -14,6 +15,7 @@ class ProviderFactory:
     _providers = {
         "ollama": OllamaProvider,
         "openrouter": OpenRouterProvider,
+        "anthropic": AnthropicProvider,
     }
 
     @classmethod
