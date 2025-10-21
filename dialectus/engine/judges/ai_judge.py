@@ -8,10 +8,12 @@ import time
 import uuid
 from datetime import datetime
 from textwrap import dedent
+from typing import cast
 
 from dialectus.engine.config.settings import SystemConfig
 from dialectus.engine.debate_engine.models import DebateContext
 from dialectus.engine.models.manager import ModelManager
+from dialectus.engine.models.providers.base_model_provider import ChatMessage
 
 from .base import BaseJudge, CriterionScore, JudgeDecision, JudgmentCriterion
 
@@ -172,10 +174,13 @@ class AIJudge(BaseJudge):
             transcript, participants, criteria_list, context
         )
 
-        messages = [
-            {"role": "system", "content": self._get_judge_system_prompt()},
-            {"role": "user", "content": evaluation_prompt},
-        ]
+        messages: list[ChatMessage] = cast(
+            list[ChatMessage],
+            [
+                {"role": "system", "content": self._get_judge_system_prompt()},
+                {"role": "user", "content": evaluation_prompt},
+            ],
+        )
 
         # Capture evaluation timing
         start_time = time.time()

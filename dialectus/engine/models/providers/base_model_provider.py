@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, TypedDict, Unpack
+from typing import TYPE_CHECKING, Literal, TypedDict, Unpack
 
 from openai import OpenAI
 
@@ -10,6 +10,17 @@ if TYPE_CHECKING:
     from config.settings import ModelConfig, SystemConfig
     from debate_engine.types import ChunkCallback
     from models.base_types import BaseEnhancedModelInfo
+
+
+class ChatMessage(TypedDict):
+    """OpenAI/OpenRouter-compatible chat message format.
+
+    This is the standard message format used across all providers
+    that support OpenAI-compatible APIs (OpenRouter, Ollama, etc).
+    """
+
+    role: Literal["system", "user", "assistant"]
+    content: str
 
 
 class ModelOverrides(TypedDict, total=False):
@@ -62,7 +73,7 @@ class BaseModelProvider(ABC):
     async def generate_response(
         self,
         model_config: ModelConfig,
-        messages: list[dict[str, str]],
+        messages: list[ChatMessage],
         **overrides: Unpack[ModelOverrides],
     ) -> str:
         """Generate a response using this provider."""
@@ -78,7 +89,7 @@ class BaseModelProvider(ABC):
     async def generate_response_stream(
         self,
         model_config: ModelConfig,
-        messages: list[dict[str, str]],
+        messages: list[ChatMessage],
         chunk_callback: ChunkCallback,
         **overrides: Unpack[ModelOverrides],
     ) -> str:
@@ -92,7 +103,7 @@ class BaseModelProvider(ABC):
     async def generate_response_with_metadata(
         self,
         model_config: ModelConfig,
-        messages: list[dict[str, str]],
+        messages: list[ChatMessage],
         **overrides: Unpack[ModelOverrides],
     ) -> GenerationMetadata:
         """Generate a response with full metadata for cost tracking."""
@@ -102,7 +113,7 @@ class BaseModelProvider(ABC):
     async def generate_response_stream_with_metadata(
         self,
         model_config: ModelConfig,
-        messages: list[dict[str, str]],
+        messages: list[ChatMessage],
         chunk_callback: ChunkCallback,
         **overrides: Unpack[ModelOverrides],
     ) -> GenerationMetadata:

@@ -51,6 +51,22 @@ class OpenRouterChatCompletionUsage(TypedDict):
     total_tokens: int
 
 
+class OpenRouterChatCompletionMessage(TypedDict, total=False):
+    """Message structure in OpenRouter chat completion choice."""
+
+    role: str
+    content: str | list[dict[str, object]] | None
+    reasoning: str | list[dict[str, object]] | None
+
+
+class OpenRouterChatCompletionChoice(TypedDict, total=False):
+    """Individual choice in OpenRouter chat completion response."""
+
+    index: int
+    message: OpenRouterChatCompletionMessage
+    finish_reason: str | None
+
+
 class OpenRouterChatCompletionResponse(TypedDict):
     """Chat completion response from OpenRouter with generation ID."""
 
@@ -58,7 +74,32 @@ class OpenRouterChatCompletionResponse(TypedDict):
     object: str
     created: int
     model: str
-    choices: list[
-        dict[str, object]
-    ]  # We'll keep this generic since we only need content
+    choices: list[OpenRouterChatCompletionChoice]
     usage: OpenRouterChatCompletionUsage | None
+
+
+class OpenRouterStreamDelta(TypedDict, total=False):
+    """Delta content in streaming response chunks."""
+
+    role: str | None
+    content: str | list[dict[str, object]] | None
+    reasoning: str | list[dict[str, object]] | None
+
+
+class OpenRouterStreamChoice(TypedDict, total=False):
+    """Individual choice in OpenRouter streaming chunk."""
+
+    index: int
+    delta: OpenRouterStreamDelta
+    finish_reason: str | None
+
+
+class OpenRouterStreamChunk(TypedDict, total=False):
+    """Streaming chunk from OpenRouter SSE stream."""
+
+    id: str
+    object: str
+    created: int
+    model: str
+    choices: list[OpenRouterStreamChoice]
+    error: dict[str, object] | None

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Unpack, cast
 import httpx
 from openai import OpenAI
 
-from .base_model_provider import BaseModelProvider, ModelOverrides
+from .base_model_provider import BaseModelProvider, ChatMessage, ModelOverrides
 
 if TYPE_CHECKING:
     from config.settings import ModelConfig, SystemConfig
@@ -74,7 +74,7 @@ class OllamaProvider(BaseModelProvider):
     async def generate_response(
         self,
         model_config: ModelConfig,
-        messages: list[dict[str, str]],
+        messages: list[ChatMessage],
         **overrides: Unpack[ModelOverrides],
     ) -> str:
         """Generate a response using Ollama."""
@@ -154,7 +154,7 @@ class OllamaProvider(BaseModelProvider):
     async def generate_response_stream(
         self,
         model_config: ModelConfig,
-        messages: list[dict[str, str]],
+        messages: list[ChatMessage],
         chunk_callback: ChunkCallback,
         **overrides: Unpack[ModelOverrides],
     ) -> str:

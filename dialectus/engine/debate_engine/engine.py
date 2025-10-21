@@ -22,6 +22,7 @@ from .types import (
     MessageEventCallback,
     PhaseEventCallback,
     PhaseEventType,
+    PhaseStartedEventData,
 )
 
 logger = logging.getLogger(__name__)
@@ -169,18 +170,14 @@ class DebateEngine:
 
             # Invoke phase callback if provided
             if phase_callback:
-                await phase_callback(
-                    PhaseEventType.PHASE_STARTED,
-                    {
-                        "phase": format_phase.name,
-                        "instruction": format_phase.instruction,
-                        "current_phase": self.context.current_round,
-                        "total_phases": total_phases,
-                        "progress_percentage": round(
-                            (phase_index / total_phases) * 100
-                        ),
-                    },
+                phase_event = PhaseStartedEventData(
+                    phase=format_phase.name,
+                    instruction=format_phase.instruction,
+                    current_phase=self.context.current_round,
+                    total_phases=total_phases,
+                    progress_percentage=round((phase_index / total_phases) * 100),
                 )
+                await phase_callback(PhaseEventType.PHASE_STARTED, phase_event)
 
             # If streaming callbacks provided, use streaming version
             if message_callback or chunk_callback:

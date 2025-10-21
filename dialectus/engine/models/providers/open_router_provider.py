@@ -5,7 +5,8 @@ import json
 import logging
 import os
 import time
-from typing import TYPE_CHECKING, ClassVar, Unpack, cast
+from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING, Any, ClassVar, Unpack, cast
 
 import httpx
 from httpx import HTTPStatusError
@@ -13,11 +14,17 @@ from openai import OpenAI
 
 from dialectus.engine.models.base_types import BaseEnhancedModelInfo
 
-from .base_model_provider import BaseModelProvider, GenerationMetadata, ModelOverrides
+from .base_model_provider import (
+    BaseModelProvider,
+    ChatMessage,
+    GenerationMetadata,
+    ModelOverrides,
+)
 from .exceptions import ProviderRateLimitError
 from .openrouter_generation_types import (
     OpenRouterChatCompletionResponse,
     OpenRouterGenerationApiResponse,
+    OpenRouterStreamChunk,
 )
 
 if TYPE_CHECKING:
@@ -77,6 +84,44 @@ class OpenRouterProvider(BaseModelProvider):
                 max_retries=system_config.openrouter.max_retries,
                 default_headers=headers,
             )
+
+    @staticmethod
+    def _coerce_content_to_text(content: object) -> str:
+        """Return textual content from OpenAI-style message content payloads."""
+        if isinstance(content, str):
+            return content
+
+        if isinstance(content, Sequence):
+            parts: list[str] = []
+            content_seq = cast(Sequence[object], content)
+            for element in content_seq:
+                if isinstance(element, str):
+                    parts.append(element)
+                    continue
+                if isinstance(element, Mapping):
+                    element_typed = cast(Mapping[str, object], element)
+                    part_type: object | None = element_typed.get("type")
+                    text_value: object | None = element_typed.get("text")
+                    if isinstance(text_value, str):
+                        if isinstance(part_type, str):
+                            normalized_type = part_type.lower()
+                            if normalized_type in {"reasoning", "tool"}:
+                                continue
+                        parts.append(text_value)
+                        continue
+                    nested_value: object | None = element_typed.get("content")
+                    if isinstance(nested_value, str):
+                        parts.append(nested_value)
+                        continue
+            return "".join(parts)
+
+        if isinstance(content, Mapping):
+            content_typed = cast(Mapping[str, object], content)
+            for key in ("text", "content", "message"):
+                candidate: object | None = content_typed.get(key)
+                if isinstance(candidate, str):
+                    return candidate
+        return ""
 
     def _get_api_key(self) -> str | None:
         """Get OpenRouter API key from environment or config.
@@ -258,7 +303,7 @@ class OpenRouterProvider(BaseModelProvider):
     async def generate_response(
         self,
         model_config: ModelConfig,
-        messages: list[dict[str, str]],
+        messages: list[ChatMessage],
         **overrides: Unpack[ModelOverrides],
     ) -> str:
         """Generate a response using OpenRouter."""
@@ -310,15 +355,16 @@ class OpenRouterProvider(BaseModelProvider):
 
             response_data = cast(OpenRouterChatCompletionResponse, response_json)
             content = ""
-            choices_raw = response_data["choices"]
-            if choices_raw:
-                first_choice = choices_raw[0]
-                message_data = first_choice.get("message")
-                if isinstance(message_data, dict):
-                    message_dict = cast(dict[str, object], message_data)
-                    content_value = message_dict.get("content")
-                    if isinstance(content_value, str):
-                        content = content_value
+            choices = response_data["choices"]
+            if choices:
+                first_choice = choices[0]
+                message = first_choice.get("message")
+                if isinstance(message, dict):
+                    content_value = message.get("content")
+                    content = self._coerce_content_to_text(content_value)
+                    if not content:
+                        reasoning_value = message.get("reasoning")
+                        content = self._coerce_content_to_text(reasoning_value)
 
             if not content.strip():
                 logger.warning(
@@ -373,7 +419,7 @@ class OpenRouterProvider(BaseModelProvider):
     async def generate_response_stream(
         self,
         model_config: ModelConfig,
-        messages: list[dict[str, str]],
+        messages: list[ChatMessage],
         chunk_callback: ChunkCallback,
         **overrides: Unpack[ModelOverrides],
     ) -> str:
@@ -470,11 +516,12 @@ class OpenRouterProvider(BaseModelProvider):
                             if not isinstance(parsed_obj, dict):
                                 continue
 
-                            parsed_dict = cast(dict[str, object], parsed_obj)
+                            chunk = cast(OpenRouterStreamChunk, parsed_obj)
 
-                            error_obj = parsed_dict.get("error")
-                            if isinstance(error_obj, dict):
-                                error_dict = cast(dict[str, object], error_obj)
+                            # Check for errors in the stream
+                            error_obj = chunk.get("error")
+                            if isinstance(error_obj, Mapping):
+                                error_dict = cast(dict[str, Any], error_obj)
                                 message_value = error_dict.get("message")
                                 error_msg = (
                                     message_value
@@ -486,33 +533,25 @@ class OpenRouterProvider(BaseModelProvider):
                                 )
                                 raise RuntimeError(f"Streaming error: {error_msg}")
 
-                            choices_value = parsed_dict.get("choices")
-                            if not isinstance(choices_value, list) or not choices_value:
+                            # Process choices from the stream chunk
+                            choices = chunk.get("choices")
+                            if not isinstance(choices, list) or not choices:
                                 continue
 
-                            choice_candidates = cast(list[object], choices_value)
-                            typed_choices: list[dict[str, object]] = []
-                            for choice_candidate in choice_candidates:
-                                if isinstance(choice_candidate, dict):
-                                    typed_choices.append(
-                                        cast(dict[str, object], choice_candidate)
-                                    )
+                            first_choice = choices[0]
 
-                            if not typed_choices:
-                                continue
+                            # Extract content from delta
+                            delta = first_choice.get("delta")
+                            if isinstance(delta, Mapping):
+                                content_value = delta.get("content")
+                                chunk_text = self._coerce_content_to_text(content_value)
+                                if chunk_text:
+                                    complete_content += chunk_text
+                                    await chunk_callback(chunk_text, False)
 
-                            first_choice = typed_choices[0]
-
-                            delta_obj = first_choice.get("delta")
-                            if isinstance(delta_obj, dict):
-                                delta_dict = cast(dict[str, object], delta_obj)
-                                content_value = delta_dict.get("content")
-                                if isinstance(content_value, str) and content_value:
-                                    complete_content += content_value
-                                    await chunk_callback(content_value, False)
-
-                            finish_value = first_choice.get("finish_reason")
-                            if isinstance(finish_value, str) and finish_value:
+                            # Check for completion
+                            finish_reason = first_choice.get("finish_reason")
+                            if isinstance(finish_reason, str) and finish_reason:
                                 await chunk_callback("", True)
                                 stream_finished = True
                                 break
@@ -556,7 +595,7 @@ class OpenRouterProvider(BaseModelProvider):
     async def generate_response_with_metadata(
         self,
         model_config: ModelConfig,
-        messages: list[dict[str, str]],
+        messages: list[ChatMessage],
         **overrides: Unpack[ModelOverrides],
     ) -> GenerationMetadata:
         """Generate response with full metadata including generation ID."""
@@ -612,15 +651,16 @@ class OpenRouterProvider(BaseModelProvider):
             generation_time_ms = int((time.time() - start_time) * 1000)
 
             content = ""
-            choices_raw = response_data["choices"]
-            if choices_raw:
-                first_choice = choices_raw[0]
-                message_data = first_choice.get("message")
-                if isinstance(message_data, dict):
-                    message_dict = cast(dict[str, object], message_data)
-                    content_value = message_dict.get("content")
-                    if isinstance(content_value, str):
-                        content = content_value
+            choices = response_data["choices"]
+            if choices:
+                first_choice = choices[0]
+                message = first_choice.get("message")
+                if isinstance(message, dict):
+                    content_value = message.get("content")
+                    content = self._coerce_content_to_text(content_value)
+                    if not content:
+                        reasoning_value = message.get("reasoning")
+                        content = self._coerce_content_to_text(reasoning_value)
 
             generation_id = response_data["id"]
             if not generation_id:

@@ -2,7 +2,9 @@
 
 from collections.abc import Awaitable, Callable
 from enum import Enum
-from typing import Protocol, TypedDict
+from typing import Protocol
+
+from pydantic import BaseModel
 
 
 class PhaseEventType(str, Enum):
@@ -19,7 +21,7 @@ class MessageEventType(str, Enum):
     MESSAGE_COMPLETE = "message_complete"
 
 
-class PhaseStartedEventData(TypedDict):
+class PhaseStartedEventData(BaseModel):
     """Data structure for phase_started event callbacks."""
 
     phase: str
@@ -29,7 +31,7 @@ class PhaseStartedEventData(TypedDict):
     progress_percentage: int
 
 
-class MessageStartEventData(TypedDict):
+class MessageStartEventData(BaseModel):
     """Data structure for message_start event callbacks."""
 
     message_id: str
@@ -39,7 +41,7 @@ class MessageStartEventData(TypedDict):
     round_number: int
 
 
-class MessageCompleteEventData(TypedDict):
+class MessageCompleteEventData(BaseModel):
     """Data structure for message_complete event callbacks."""
 
     message_id: str
@@ -51,8 +53,8 @@ class MessageCompleteEventData(TypedDict):
     timestamp: str
     word_count: int
     metadata: dict[str, str]
-    cost: float | None
-    generation_id: str | None
+    cost: float | None = None
+    generation_id: str | None = None
 
 
 # Callback protocols with proper type narrowing

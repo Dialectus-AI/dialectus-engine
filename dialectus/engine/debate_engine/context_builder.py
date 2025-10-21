@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from dialectus.engine.config.settings import AppConfig
+from dialectus.engine.models.providers.base_model_provider import ChatMessage
 
 from .models import DebateContext
 from .prompt_builder import PromptBuilder
@@ -42,7 +43,7 @@ class ContextBuilder:
         speaker_id: str,
         phase: DebatePhase,
         context: DebateContext,
-    ) -> list[dict[str, str]]:
+    ) -> list[ChatMessage]:
         """Build conversation context for the model.
 
         Args:
@@ -97,14 +98,14 @@ class ContextBuilder:
         )
         messages.append({"role": "user", "content": turn_prompt})
 
-        return messages
+        return cast(list[ChatMessage], messages)
 
     def build_format_conversation_context(
         self,
         speaker_id: str,
         format_phase: FormatPhase,
         context: DebateContext,
-    ) -> list[dict[str, str]]:
+    ) -> list[ChatMessage]:
         """Build conversation context for the model using format phase.
 
         Args:
@@ -163,4 +164,4 @@ class ContextBuilder:
         turn_prompt = f"Now speak as {role_name}. Stay under {word_limit} words."
         messages.append({"role": "user", "content": turn_prompt})
 
-        return messages
+        return cast(list[ChatMessage], messages)

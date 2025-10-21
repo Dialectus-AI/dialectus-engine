@@ -11,8 +11,10 @@ from .response_handler import ResponseHandler
 from .types import (
     ChunkCallback,
     DebatePhase,
+    MessageCompleteEventData,
     MessageEventCallback,
     MessageEventType,
+    MessageStartEventData,
     Position,
 )
 
@@ -129,16 +131,14 @@ class RoundManager:
 
             # Call message_start callback
             if message_callback:
-                await message_callback(
-                    MessageEventType.MESSAGE_START,
-                    {
-                        "message_id": message_id,
-                        "speaker_id": speaker_id,
-                        "position": speaker_position.value,
-                        "phase": format_phase.phase.value,
-                        "round_number": context.current_round,
-                    },
+                start_event = MessageStartEventData(
+                    message_id=message_id,
+                    speaker_id=speaker_id,
+                    position=speaker_position.value,
+                    phase=format_phase.phase.value,
+                    round_number=context.current_round,
                 )
+                await message_callback(MessageEventType.MESSAGE_START, start_event)
 
             # Create streaming wrapper that calls chunk_callback
             async def chunk_wrapper(chunk: str, is_complete: bool):
@@ -154,22 +154,20 @@ class RoundManager:
 
             # Call message_complete callback
             if message_callback:
-                await message_callback(
-                    MessageEventType.MESSAGE_COMPLETE,
-                    {
-                        "message_id": message_id,
-                        "speaker_id": message.speaker_id,
-                        "position": message.position.value,
-                        "phase": message.phase.value,
-                        "round_number": message.round_number,
-                        "content": message.content,
-                        "timestamp": message.timestamp.isoformat(),
-                        "word_count": len(message.content.split()),
-                        "metadata": message.metadata,
-                        "cost": message.cost,
-                        "generation_id": message.generation_id,
-                    },
+                complete_event = MessageCompleteEventData(
+                    message_id=message_id,
+                    speaker_id=message.speaker_id,
+                    position=message.position.value,
+                    phase=message.phase.value,
+                    round_number=message.round_number,
+                    content=message.content,
+                    timestamp=message.timestamp.isoformat(),
+                    word_count=len(message.content.split()),
+                    metadata=message.metadata,
+                    cost=message.cost,
+                    generation_id=message.generation_id,
                 )
+                await message_callback(MessageEventType.MESSAGE_COMPLETE, complete_event)
 
             logger.info(
                 f"Round {context.current_round}, {format_phase.name}: {speaker_id}"

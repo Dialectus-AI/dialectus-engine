@@ -13,13 +13,13 @@ from dialectus.engine.models.base_types import BaseEnhancedModelInfo
 
 from .providers.base_model_provider import (
     BaseModelProvider,
+    ChatMessage,
     GenerationMetadata,
     ModelOverrides,
 )
 from .providers.providers import ProviderFactory
 
-type MessageDict = dict[str, str]
-type MessageList = list[MessageDict]
+type MessageList = list[ChatMessage]
 type EnhancedModelRecord = dict[str, object]
 type ModelCatalog = dict[str, list[str]]
 
