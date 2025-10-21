@@ -10,9 +10,15 @@ A Python library for orchestrating AI-powered debates with multi-provider model 
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Status](https://img.shields.io/badge/status-Production%20Ready-brightgreen.svg)
 
+> **Ready-to-Use CLI:** Want to run debates right away? Check out the [dialectus-cli](https://github.com/dialectus-ai/dialectus-cli) - a command-line interface that uses this engine to run debates locally with a beautiful terminal UI.
+
 ## Overview
 
 The Dialectus Engine is a standalone Python library that provides core debate orchestration logic, including participant coordination, turn management, AI judge integration, and multi-provider model support. It's designed to be imported and used by other applications to build debate systems.
+
+**Applications using this engine:**
+- **[dialectus-cli](https://github.com/dialectus-ai/dialectus-cli)** - Command-line interface with Rich terminal UI and SQLite storage
+- **dialectus-web** - Web application with React frontend and FastAPI backend (private repository)
 
 ## Components
 
