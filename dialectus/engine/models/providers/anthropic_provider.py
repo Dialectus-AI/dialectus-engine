@@ -10,7 +10,8 @@ from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, ClassVar, Unpack, cast
 
 from httpx import HTTPStatusError
-from openai import OpenAI
+from openai import OpenAI, Stream
+from openai.types.chat import ChatCompletionChunk
 
 from dialectus.engine.models.base_types import BaseEnhancedModelInfo
 
@@ -331,22 +332,24 @@ class AnthropicProvider(BaseModelProvider):
                 max_tokens=max_tokens,
                 temperature=temperature,
                 stream=True,
-            ) as stream:  # type: ignore[attr-defined]
-                for chunk in stream:  # type: ignore[attr-defined]
-                    if not chunk.choices:  # type: ignore[attr-defined]
+            ) as raw_stream:  # type: ignore[attr-defined]
+                stream = cast(Stream[ChatCompletionChunk], raw_stream)
+                for chunk in stream:
+                    if not chunk.choices:
                         continue
 
-                    first_choice = chunk.choices[0]  # type: ignore[attr-defined]
-                    delta = first_choice.delta  # type: ignore[attr-defined]
+                    first_choice = chunk.choices[0]
+                    delta = first_choice.delta
 
-                    if hasattr(delta, "content") and delta.content:  # type: ignore[attr-defined]
-                        chunk_text = self._coerce_content_to_text(delta.content)  # type: ignore[attr-defined]
+                    content = delta.content
+                    if content:
+                        chunk_text = self._coerce_content_to_text(content)
                         if chunk_text:
                             complete_content += chunk_text
                             await chunk_callback(chunk_text, False)
 
                     # Check for completion
-                    if hasattr(first_choice, "finish_reason") and first_choice.finish_reason:  # type: ignore[attr-defined]
+                    if first_choice.finish_reason:
                         await chunk_callback("", True)
                         break
 

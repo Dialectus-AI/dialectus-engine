@@ -17,8 +17,12 @@ class AnthropicModel(BaseModel):
     max_output_tokens: int = Field(description="Maximum output tokens per request")
     pricing: AnthropicPricing = Field(description="Pricing information")
     release_date: str = Field(description="Release date (YYYY-MM-DD format)")
-    is_latest: bool = Field(default=False, description="Whether this is the latest version")
-    supports_vision: bool = Field(default=False, description="Whether model supports vision input")
+    is_latest: bool = Field(
+        default=False, description="Whether this is the latest version"
+    )
+    supports_vision: bool = Field(
+        default=False, description="Whether model supports vision input"
+    )
 
 
 # Curated list of Anthropic models with current pricing (as of 2025)
