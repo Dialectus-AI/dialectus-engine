@@ -7,7 +7,8 @@ from typing import TYPE_CHECKING, Unpack, cast
 import httpx
 from openai import OpenAI
 
-from .base_model_provider import BaseModelProvider, ChatMessage, ModelOverrides
+from .openai_compatible_provider import OpenAICompatibleProviderBase
+from .base_model_provider import ChatMessage, ModelOverrides
 
 if TYPE_CHECKING:
     from config.settings import ModelConfig, SystemConfig
@@ -18,8 +19,17 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class OllamaProvider(BaseModelProvider):
-    """Ollama model provider implementation."""
+class OllamaProvider(OpenAICompatibleProviderBase):
+    """Ollama model provider implementation.
+
+    Ollama provides local LLM hosting with OpenAI-compatible API.
+    This provider handles Ollama-specific configuration (keep_alive,
+    repeat_penalty, GPU settings) and uses the native Ollama streaming API
+    for better performance.
+    """
+
+    # No rate limiting for local Ollama server
+    _min_request_interval = 0.0
 
     def __init__(self, system_config: SystemConfig):
         super().__init__(system_config)
@@ -71,26 +81,12 @@ class OllamaProvider(BaseModelProvider):
             logger.error(f"Failed to get Ollama models: {e}")
             return []
 
-    async def generate_response(
-        self,
-        model_config: ModelConfig,
-        messages: list[ChatMessage],
-        **overrides: Unpack[ModelOverrides],
-    ) -> str:
-        """Generate a response using Ollama."""
-        if not self._client:
-            raise RuntimeError("Ollama client not initialized")
+    def _get_ollama_extra_body(self) -> dict[str, object]:
+        """Build Ollama-specific extra_body parameters from config.
 
-        max_tokens = model_config.max_tokens
-        max_tokens_override = overrides.get("max_tokens")
-        if isinstance(max_tokens_override, int):
-            max_tokens = max_tokens_override
-
-        temperature = model_config.temperature
-        temperature_override = overrides.get("temperature")
-        if isinstance(temperature_override, (int, float)):
-            temperature = float(temperature_override)
-
+        Returns:
+            Dictionary of Ollama-specific parameters for extra_body
+        """
         ollama_config = self.system_config.ollama
         extra_body: dict[str, object] = {}
         if ollama_config.keep_alive is not None:
@@ -103,10 +99,29 @@ class OllamaProvider(BaseModelProvider):
             extra_body["num_thread"] = ollama_config.num_thread
         if ollama_config.main_gpu is not None:
             extra_body["main_gpu"] = ollama_config.main_gpu
+        return extra_body
 
-        chat_messages = cast(list["ChatCompletionMessageParam"], messages)
+    async def generate_response(
+        self,
+        model_config: ModelConfig,
+        messages: list[ChatMessage],
+        **overrides: Unpack[ModelOverrides],
+    ) -> str:
+        """Generate a response using Ollama with provider-specific options.
+
+        Overrides base implementation to add Ollama-specific extra_body params.
+        """
+        if not self._client:
+            raise RuntimeError("Ollama client not initialized")
+
+        max_tokens, temperature = self._apply_overrides(model_config, overrides)
+        extra_body = self._get_ollama_extra_body()
 
         try:
+            await self._rate_limit_request()
+
+            chat_messages = cast(list["ChatCompletionMessageParam"], messages)
+
             response: ChatCompletion
             if extra_body:
                 response = self._client.chat.completions.create(
@@ -126,16 +141,23 @@ class OllamaProvider(BaseModelProvider):
 
             first_choice = response.choices[0]
             message = first_choice.message
-            content_text = message.content if message.content is not None else ""
-
-            logger.debug(
-                "Generated %s chars from Ollama model %s",
-                len(content_text),
-                model_config.name,
+            content_text = self._coerce_content_to_text(
+                message.content if message.content is not None else ""
             )
+
+            if not content_text.strip():
+                logger.warning("Ollama model %s returned empty content", model_config.name)
+            else:
+                logger.debug(
+                    "Generated %s chars from Ollama model %s",
+                    len(content_text),
+                    model_config.name,
+                )
+
             return content_text.strip()
 
         except Exception as exc:
+            self._handle_rate_limit_error(exc, model_config.name, "request")
             logger.error(
                 "Ollama generation failed for %s: %s",
                 model_config.name,
@@ -147,10 +169,6 @@ class OllamaProvider(BaseModelProvider):
         """Validate Ollama model configuration."""
         return model_config.provider == "ollama"
 
-    def supports_streaming(self) -> bool:
-        """Ollama supports streaming responses."""
-        return True
-
     async def generate_response_stream(
         self,
         model_config: ModelConfig,
@@ -158,34 +176,20 @@ class OllamaProvider(BaseModelProvider):
         chunk_callback: ChunkCallback,
         **overrides: Unpack[ModelOverrides],
     ) -> str:
-        """Generate a streaming response using Ollama."""
+        """Generate a streaming response using Ollama native API.
+
+        Note: Uses Ollama's native /api/chat endpoint instead of OpenAI SDK
+        for better streaming performance with Ollama.
+        """
         if not self._client:
             raise RuntimeError("Ollama client not initialized")
 
-        max_tokens = model_config.max_tokens
-        max_tokens_override = overrides.get("max_tokens")
-        if isinstance(max_tokens_override, int):
-            max_tokens = max_tokens_override
-
-        temperature = model_config.temperature
-        temperature_override = overrides.get("temperature")
-        if isinstance(temperature_override, (int, float)):
-            temperature = float(temperature_override)
-
-        ollama_config = self.system_config.ollama
-        extra_options: dict[str, object] = {}
-        if ollama_config.keep_alive is not None:
-            extra_options["keep_alive"] = ollama_config.keep_alive
-        if ollama_config.repeat_penalty is not None:
-            extra_options["repeat_penalty"] = ollama_config.repeat_penalty
-        if ollama_config.num_gpu_layers is not None:
-            extra_options["num_gpu"] = ollama_config.num_gpu_layers
-        if ollama_config.num_thread is not None:
-            extra_options["num_thread"] = ollama_config.num_thread
-        if ollama_config.main_gpu is not None:
-            extra_options["main_gpu"] = ollama_config.main_gpu
+        max_tokens, temperature = self._apply_overrides(model_config, overrides)
+        extra_options = self._get_ollama_extra_body()
 
         try:
+            await self._rate_limit_request()
+
             complete_content = ""
 
             async with httpx.AsyncClient() as client:

@@ -1,12 +1,8 @@
 from __future__ import annotations
 
-import asyncio
-import json
 import logging
 import os
-import time
-from collections.abc import Mapping, Sequence
-from typing import TYPE_CHECKING, Any, ClassVar, Unpack, cast
+from typing import TYPE_CHECKING, ClassVar, cast
 
 import httpx
 from httpx import HTTPStatusError
@@ -14,22 +10,14 @@ from openai import OpenAI
 
 from dialectus.engine.models.base_types import BaseEnhancedModelInfo
 
-from .base_model_provider import (
-    BaseModelProvider,
-    ChatMessage,
-    GenerationMetadata,
-    ModelOverrides,
-)
+from .openai_compatible_provider import OpenAICompatibleProviderBase
 from .exceptions import ProviderRateLimitError
 from .openrouter_generation_types import (
-    OpenRouterChatCompletionResponse,
     OpenRouterGenerationApiResponse,
-    OpenRouterStreamChunk,
 )
 
 if TYPE_CHECKING:
     from dialectus.engine.config.settings import ModelConfig, SystemConfig
-    from dialectus.engine.debate_engine.types import ChunkCallback
     from dialectus.engine.models.openrouter.openrouter_enhanced_model_info import (
         OpenRouterEnhancedModelInfo,
     )
@@ -37,15 +25,15 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class OpenRouterProvider(BaseModelProvider):
-    """OpenRouter model provider implementation."""
+class OpenRouterProvider(OpenAICompatibleProviderBase):
+    """OpenRouter model provider implementation.
 
-    # Class-level rate limiting to prevent 429 errors
-    _last_request_time: ClassVar[float | None] = None
-    _request_lock: ClassVar[asyncio.Lock] = asyncio.Lock()
-    _min_request_interval: ClassVar[float] = (
-        3.0  # Minimum 3 seconds between requests to prevent 429 errors
-    )
+    Uses OpenRouter's OpenAI-compatible API for all operations.
+    Provides dynamic model catalog fetching and post-generation cost queries.
+    """
+
+    # Class-level rate limiting to prevent 429 errors (3 seconds between requests)
+    _min_request_interval: ClassVar[float] = 3.0
 
     def __init__(self, system_config: SystemConfig):
         super().__init__(system_config)
@@ -85,44 +73,6 @@ class OpenRouterProvider(BaseModelProvider):
                 default_headers=headers,
             )
 
-    @staticmethod
-    def _coerce_content_to_text(content: object) -> str:
-        """Return textual content from OpenAI-style message content payloads."""
-        if isinstance(content, str):
-            return content
-
-        if isinstance(content, Sequence):
-            parts: list[str] = []
-            content_seq = cast(Sequence[object], content)
-            for element in content_seq:
-                if isinstance(element, str):
-                    parts.append(element)
-                    continue
-                if isinstance(element, Mapping):
-                    element_typed = cast(Mapping[str, object], element)
-                    part_type: object | None = element_typed.get("type")
-                    text_value: object | None = element_typed.get("text")
-                    if isinstance(text_value, str):
-                        if isinstance(part_type, str):
-                            normalized_type = part_type.lower()
-                            if normalized_type in {"reasoning", "tool"}:
-                                continue
-                        parts.append(text_value)
-                        continue
-                    nested_value: object | None = element_typed.get("content")
-                    if isinstance(nested_value, str):
-                        parts.append(nested_value)
-                        continue
-            return "".join(parts)
-
-        if isinstance(content, Mapping):
-            content_typed = cast(Mapping[str, object], content)
-            for key in ("text", "content", "message"):
-                candidate: object | None = content_typed.get(key)
-                if isinstance(candidate, str):
-                    return candidate
-        return ""
-
     def _get_api_key(self) -> str | None:
         """Get OpenRouter API key from environment or config.
 
@@ -147,24 +97,6 @@ class OpenRouterProvider(BaseModelProvider):
     @property
     def provider_name(self) -> str:
         return "openrouter"
-
-    async def _rate_limit_request(self) -> None:
-        """Ensure minimum time between requests to avoid 429 errors."""
-        async with self._request_lock:
-            current_time = time.time()
-
-            if self._last_request_time is not None:
-                time_since_last = current_time - self._last_request_time
-                if time_since_last < self._min_request_interval:
-                    sleep_time = self._min_request_interval - time_since_last
-                    logger.debug(
-                        f"Rate limiting: waiting {sleep_time:.2f}s before next"
-                        " OpenRouter request"
-                    )
-                    await asyncio.sleep(sleep_time)
-
-            # Update the class variable to track last request time
-            OpenRouterProvider._last_request_time = time.time()
 
     async def get_available_models(self) -> list[str]:
         """Get curated list of available models from OpenRouter.
@@ -300,430 +232,9 @@ class OpenRouterProvider(BaseModelProvider):
             logger.error(f"Failed to get enhanced OpenRouter models: {e}")
             raise  # Fail fast - don't hide errors from the frontend
 
-    async def generate_response(
-        self,
-        model_config: ModelConfig,
-        messages: list[ChatMessage],
-        **overrides: Unpack[ModelOverrides],
-    ) -> str:
-        """Generate a response using OpenRouter."""
-        if not self._client:
-            raise RuntimeError("OpenRouter client not initialized - check API key")
-
-        max_tokens = model_config.max_tokens
-        max_tokens_override = overrides.get("max_tokens")
-        if isinstance(max_tokens_override, int):
-            max_tokens = max_tokens_override
-
-        temperature = model_config.temperature
-        temperature_override = overrides.get("temperature")
-        if isinstance(temperature_override, (int, float)):
-            temperature = float(temperature_override)
-
-        try:
-            api_key = self._get_api_key()
-            headers: dict[str, str] = {
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            }
-
-            site_url = self._get_site_url()
-            if site_url:
-                headers["HTTP-Referer"] = site_url
-            if self.system_config.openrouter.app_name:
-                headers["X-Title"] = self.system_config.openrouter.app_name
-
-            payload: dict[str, object] = {
-                "model": model_config.name,
-                "messages": messages,
-                "max_tokens": max_tokens,
-                "temperature": temperature,
-                "reasoning": {"exclude": True},
-            }
-
-            await self._rate_limit_request()
-
-            async with httpx.AsyncClient() as client:
-                http_response = await client.post(
-                    f"{self.system_config.openrouter.base_url}/chat/completions",
-                    json=payload,
-                    headers=headers,
-                    timeout=self.system_config.openrouter.timeout,
-                )
-                http_response.raise_for_status()
-                response_json = http_response.json()
-
-            response_data = cast(OpenRouterChatCompletionResponse, response_json)
-            content = ""
-            choices = response_data["choices"]
-            if choices:
-                first_choice = choices[0]
-                message = first_choice.get("message")
-                if isinstance(message, dict):
-                    content_value = message.get("content")
-                    content = self._coerce_content_to_text(content_value)
-                    if not content:
-                        reasoning_value = message.get("reasoning")
-                        content = self._coerce_content_to_text(reasoning_value)
-
-            if not content.strip():
-                logger.warning(
-                    "OpenRouter model %s returned empty content. Response data: %s",
-                    model_config.name,
-                    response_data,
-                )
-            else:
-                logger.debug(
-                    "Generated %s chars from OpenRouter model %s",
-                    len(content),
-                    model_config.name,
-                )
-
-            return content.strip()
-
-        except HTTPStatusError as http_err:
-            status = http_err.response.status_code if http_err.response else None
-            if status == 429:
-                detail = "OpenRouter rate limited the request."
-                if ":free" in model_config.name:
-                    detail += (
-                        " Free-tier routes (suffix ':free') require sufficient balance"
-                        " on OpenRouter."
-                    )
-                raise ProviderRateLimitError(
-                    provider="openrouter",
-                    model=model_config.name,
-                    status_code=429,
-                    detail=detail,
-                ) from http_err
-            logger.error(
-                "OpenRouter generation HTTP failure for %s: status %s",
-                model_config.name,
-                status,
-            )
-            raise
-        except Exception as exc:
-            logger.error(
-                "OpenRouter generation failed for %s: %s", model_config.name, exc
-            )
-            raise
-
     def validate_model_config(self, model_config: ModelConfig) -> bool:
         """Validate OpenRouter model configuration."""
         return model_config.provider == "openrouter"
-
-    def supports_streaming(self) -> bool:
-        """OpenRouter supports streaming responses."""
-        return True
-
-    async def generate_response_stream(
-        self,
-        model_config: ModelConfig,
-        messages: list[ChatMessage],
-        chunk_callback: ChunkCallback,
-        **overrides: Unpack[ModelOverrides],
-    ) -> str:
-        """Generate a streaming response using OpenRouter with SSE."""
-        if not self._client:
-            raise RuntimeError("OpenRouter client not initialized - check API key")
-
-        max_tokens = model_config.max_tokens
-        max_tokens_override = overrides.get("max_tokens")
-        if isinstance(max_tokens_override, int):
-            max_tokens = max_tokens_override
-
-        temperature = model_config.temperature
-        temperature_override = overrides.get("temperature")
-        if isinstance(temperature_override, (int, float)):
-            temperature = float(temperature_override)
-
-        try:
-            api_key = self._get_api_key()
-            headers: dict[str, str] = {
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            }
-
-            site_url = self._get_site_url()
-            if site_url:
-                headers["HTTP-Referer"] = site_url
-            if self.system_config.openrouter.app_name:
-                headers["X-Title"] = self.system_config.openrouter.app_name
-
-            payload: dict[str, object] = {
-                "model": model_config.name,
-                "messages": messages,
-                "max_tokens": max_tokens,
-                "temperature": temperature,
-                "stream": True,
-                "reasoning": {"exclude": True},
-            }
-
-            await self._rate_limit_request()
-
-            complete_content = ""
-            stream_finished = False
-
-            async with httpx.AsyncClient() as client:
-                async with client.stream(
-                    "POST",
-                    f"{self.system_config.openrouter.base_url}/chat/completions",
-                    json=payload,
-                    headers=headers,
-                    timeout=self.system_config.openrouter.timeout,
-                ) as response:
-                    response.raise_for_status()
-
-                    buffer = ""
-                    async for chunk in response.aiter_text():
-                        buffer += chunk
-
-                        while True:
-                            line_end = buffer.find("\n")
-                            if line_end == -1:
-                                break
-
-                            line = buffer[:line_end].strip()
-                            buffer = buffer[line_end + 1 :]
-
-                            if not line or line.startswith(":"):
-                                continue
-
-                            if not line.startswith("data: "):
-                                continue
-
-                            data = line[6:]
-                            if data == "[DONE]":
-                                await chunk_callback("", True)
-                                stream_finished = True
-                                break
-
-                            try:
-                                parsed_obj = json.loads(data)
-                            except json.JSONDecodeError:
-                                logger.debug(
-                                    "Skipping invalid JSON in stream: %s...",
-                                    data[:100],
-                                )
-                                continue
-                            except Exception as exc:
-                                logger.error(
-                                    "Error processing stream chunk: %s",
-                                    exc,
-                                )
-                                continue
-
-                            if not isinstance(parsed_obj, dict):
-                                continue
-
-                            chunk = cast(OpenRouterStreamChunk, parsed_obj)
-
-                            # Check for errors in the stream
-                            error_obj = chunk.get("error")
-                            if isinstance(error_obj, Mapping):
-                                error_dict = cast(dict[str, Any], error_obj)
-                                message_value = error_dict.get("message")
-                                error_msg = (
-                                    message_value
-                                    if isinstance(message_value, str)
-                                    else "Unknown streaming error"
-                                )
-                                logger.error(
-                                    "OpenRouter streaming error: %s", error_msg
-                                )
-                                raise RuntimeError(f"Streaming error: {error_msg}")
-
-                            # Process choices from the stream chunk
-                            choices = chunk.get("choices")
-                            if not isinstance(choices, list) or not choices:
-                                continue
-
-                            first_choice = choices[0]
-
-                            # Extract content from delta
-                            delta = first_choice.get("delta")
-                            if isinstance(delta, Mapping):
-                                content_value = delta.get("content")
-                                chunk_text = self._coerce_content_to_text(content_value)
-                                if chunk_text:
-                                    complete_content += chunk_text
-                                    await chunk_callback(chunk_text, False)
-
-                            # Check for completion
-                            finish_reason = first_choice.get("finish_reason")
-                            if isinstance(finish_reason, str) and finish_reason:
-                                await chunk_callback("", True)
-                                stream_finished = True
-                                break
-                        if stream_finished:
-                            break
-
-            logger.debug(
-                "OpenRouter streaming completed: %s chars from %s",
-                len(complete_content),
-                model_config.name,
-            )
-            return complete_content.strip()
-
-        except HTTPStatusError as http_err:
-            status = http_err.response.status_code if http_err.response else None
-            if status == 429:
-                detail = "OpenRouter rate limited the request."
-                if ":free" in model_config.name:
-                    detail += (
-                        " Free-tier routes (suffix ':free') require sufficient balance"
-                        " on OpenRouter."
-                    )
-                raise ProviderRateLimitError(
-                    provider="openrouter",
-                    model=model_config.name,
-                    status_code=429,
-                    detail=detail,
-                ) from http_err
-            logger.error(
-                "OpenRouter streaming HTTP failure for %s: status %s",
-                model_config.name,
-                status,
-            )
-            raise
-        except Exception as exc:
-            logger.error(
-                "OpenRouter streaming failed for %s: %s", model_config.name, exc
-            )
-            raise
-
-    async def generate_response_with_metadata(
-        self,
-        model_config: ModelConfig,
-        messages: list[ChatMessage],
-        **overrides: Unpack[ModelOverrides],
-    ) -> GenerationMetadata:
-        """Generate response with full metadata including generation ID."""
-        if not self._client:
-            raise RuntimeError("OpenRouter client not initialized - check API key")
-
-        max_tokens = model_config.max_tokens
-        max_tokens_override = overrides.get("max_tokens")
-        if isinstance(max_tokens_override, int):
-            max_tokens = max_tokens_override
-
-        temperature = model_config.temperature
-        temperature_override = overrides.get("temperature")
-        if isinstance(temperature_override, (int, float)):
-            temperature = float(temperature_override)
-
-        try:
-            api_key = self._get_api_key()
-            headers: dict[str, str] = {
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            }
-
-            site_url = self._get_site_url()
-            if site_url:
-                headers["HTTP-Referer"] = site_url
-            if self.system_config.openrouter.app_name:
-                headers["X-Title"] = self.system_config.openrouter.app_name
-
-            payload: dict[str, object] = {
-                "model": model_config.name,
-                "messages": messages,
-                "max_tokens": max_tokens,
-                "temperature": temperature,
-                "reasoning": {"exclude": True},
-            }
-
-            await self._rate_limit_request()
-
-            start_time = time.time()
-
-            async with httpx.AsyncClient() as client:
-                http_response = await client.post(
-                    f"{self.system_config.openrouter.base_url}/chat/completions",
-                    json=payload,
-                    headers=headers,
-                    timeout=self.system_config.openrouter.timeout,
-                )
-                http_response.raise_for_status()
-                response_json = http_response.json()
-
-            response_data = cast(OpenRouterChatCompletionResponse, response_json)
-            generation_time_ms = int((time.time() - start_time) * 1000)
-
-            content = ""
-            choices = response_data["choices"]
-            if choices:
-                first_choice = choices[0]
-                message = first_choice.get("message")
-                if isinstance(message, dict):
-                    content_value = message.get("content")
-                    content = self._coerce_content_to_text(content_value)
-                    if not content:
-                        reasoning_value = message.get("reasoning")
-                        content = self._coerce_content_to_text(reasoning_value)
-
-            generation_id = response_data["id"]
-            if not generation_id:
-                raise RuntimeError(
-                    f"OpenRouter response missing generation ID: {response_data}"
-                )
-
-            usage_data = response_data["usage"]
-            prompt_tokens: int | None = None
-            completion_tokens: int | None = None
-            total_tokens: int | None = None
-            if usage_data is not None:
-                prompt_tokens = usage_data["prompt_tokens"]
-                completion_tokens = usage_data["completion_tokens"]
-                total_tokens = usage_data["total_tokens"]
-
-            logger.debug(
-                "Generated %s chars from OpenRouter %s, generation_id: %s, tokens: %s",
-                len(content),
-                model_config.name,
-                generation_id,
-                total_tokens,
-            )
-
-            return GenerationMetadata(
-                content=content,
-                generation_id=generation_id,
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
-                total_tokens=total_tokens,
-                generation_time_ms=generation_time_ms,
-                model=model_config.name,
-                provider="openrouter",
-            )
-
-        except HTTPStatusError as http_err:
-            status = http_err.response.status_code if http_err.response else None
-            if status == 429:
-                detail = "OpenRouter rate limited the request."
-                if ":free" in model_config.name:
-                    detail += (
-                        " Free-tier routes (suffix ':free') require sufficient balance"
-                        " on OpenRouter."
-                    )
-                raise ProviderRateLimitError(
-                    provider="openrouter",
-                    model=model_config.name,
-                    status_code=429,
-                    detail=detail,
-                ) from http_err
-            logger.error(
-                "OpenRouter metadata generation HTTP failure for %s: status %s",
-                model_config.name,
-                status,
-            )
-            raise
-        except Exception as exc:
-            logger.error(
-                "OpenRouter metadata generation failed for %s: %s",
-                model_config.name,
-                exc,
-            )
-            raise
 
     async def query_generation_cost(self, generation_id: str) -> float:
         """Query OpenRouter for the cost of a specific generation."""
