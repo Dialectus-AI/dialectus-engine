@@ -44,7 +44,7 @@ class ModelConfig(BaseModel):
     @field_validator("provider")
     @classmethod
     def validate_provider(cls, v: str) -> str:
-        return validate_provider_value(v, {"ollama", "openrouter", "anthropic"})
+        return validate_provider_value(v, {"ollama", "openrouter", "anthropic", "openai"})
 
 
 class DebateConfig(BaseModel):
@@ -169,6 +169,24 @@ class OpenRouterConfig(BaseModel):
     timeout: int = Field(default=60, description="API request timeout in seconds")
 
 
+class OpenAIConfig(BaseModel):
+    """OpenAI-specific configuration."""
+
+    api_key: str | None = Field(
+        default=None,
+        description=(
+            "OpenAI API key (can also be set via OPENAI_API_KEY environment variable)"
+        ),
+    )
+    base_url: str = Field(
+        default="https://api.openai.com/v1", description="OpenAI API base URL"
+    )
+    max_retries: int = Field(
+        default=3, description="Maximum number of API call retries"
+    )
+    timeout: int = Field(default=60, description="API request timeout in seconds")
+
+
 class AnthropicConfig(BaseModel):
     """Anthropic-specific configuration."""
 
@@ -202,6 +220,9 @@ class SystemConfig(BaseModel):
     openrouter: OpenRouterConfig = Field(
         default_factory=OpenRouterConfig, description="OpenRouter-specific settings"
     )
+    openai: OpenAIConfig = Field(
+        default_factory=OpenAIConfig, description="OpenAI-specific settings"
+    )
     anthropic: AnthropicConfig = Field(
         default_factory=AnthropicConfig, description="Anthropic-specific settings"
     )
@@ -210,7 +231,7 @@ class SystemConfig(BaseModel):
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = Field(default="INFO")
 
     # Topic generation settings
-    debate_topic_source: Literal["ollama", "openrouter", "anthropic"] = Field(
+    debate_topic_source: Literal["ollama", "openrouter", "anthropic", "openai"] = Field(
         default="openrouter", description="Provider for topic generation model"
     )
     debate_topic_model: str = Field(
@@ -221,7 +242,7 @@ class SystemConfig(BaseModel):
     @field_validator("debate_topic_source")
     @classmethod
     def validate_topic_source(cls, v: str) -> str:
-        return validate_provider_value(v, {"ollama", "openrouter", "anthropic"})
+        return validate_provider_value(v, {"ollama", "openrouter", "anthropic", "openai"})
 
 
 class AppConfig(BaseModel):
@@ -344,6 +365,14 @@ def get_template_config() -> AppConfig:
                 base_url="https://openrouter.ai/api/v1",
                 site_url=None,  # Your site URL for referrer tracking (optional)
                 app_name="Dialectus AI Debate System",
+                max_retries=3,
+                timeout=60,
+            ),
+            openai=OpenAIConfig(
+                # Set your OpenAI API key here or use
+                # OPENAI_API_KEY env var
+                api_key=None,
+                base_url="https://api.openai.com/v1",
                 max_retries=3,
                 timeout=60,
             ),

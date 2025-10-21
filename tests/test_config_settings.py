@@ -35,10 +35,14 @@ def test_model_config_rejects_unknown_provider() -> None:
     assert "Provider must be one of" in str(excinfo.value)
 
 
-def test_model_config_accepts_known_providers() -> None:
+@pytest.mark.parametrize(
+    "provider",
+    ["ollama", "openrouter", "anthropic", "openai"],
+)
+def test_model_config_accepts_known_providers(provider: str) -> None:
     """Known providers pass validation."""
-    config = ModelConfig(name="model", provider="openrouter")
-    assert config.provider == "openrouter"
+    config = ModelConfig(name="model", provider=provider)
+    assert config.provider == provider
 
 
 def test_system_config_topic_source_validation() -> None:
@@ -46,12 +50,16 @@ def test_system_config_topic_source_validation() -> None:
     system = SystemConfig(debate_topic_source="ollama")
     assert system.debate_topic_source == "ollama"
 
+    system_openai = SystemConfig(debate_topic_source="openai")
+    assert system_openai.debate_topic_source == "openai"
+
     with pytest.raises(ValidationError) as excinfo:
         # Use dict unpacking to bypass static type checking while testing runtime validation
         SystemConfig(**{"debate_topic_source": "invalid"})  # type: ignore[arg-type]
 
-    assert "ollama" in str(excinfo.value)
-    assert "openrouter" in str(excinfo.value)
+    message = str(excinfo.value)
+    for provider in ["ollama", "openrouter", "anthropic", "openai"]:
+        assert provider in message
 
 
 def test_app_config_load_from_file_success(tmp_path: Path) -> None:

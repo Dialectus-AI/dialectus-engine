@@ -4,6 +4,7 @@ from .anthropic_provider import AnthropicProvider
 from .base_model_provider import BaseModelProvider
 from .ollama_provider import OllamaProvider
 from .open_router_provider import OpenRouterProvider
+from .openai_provider import OpenAIProvider
 
 if TYPE_CHECKING:
     from config.settings import SystemConfig
@@ -16,6 +17,7 @@ class ProviderFactory:
         "ollama": OllamaProvider,
         "openrouter": OpenRouterProvider,
         "anthropic": AnthropicProvider,
+        "openai": OpenAIProvider,
     }
 
     @classmethod

@@ -61,6 +61,13 @@
       "max_retries": 3,
       "timeout": 60
     },
+    "openai": {
+      "_comment": "api_key can be set here OR via OPENAI_API_KEY environment variable",
+      "api_key": null,
+      "base_url": "https://api.openai.com/v1",
+      "max_retries": 3,
+      "timeout": 60
+    },
     "log_level": "INFO",
     "debate_topic_source": "openrouter",
     "debate_topic_model": "anthropic/claude-3-haiku"

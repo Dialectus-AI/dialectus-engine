@@ -74,8 +74,9 @@ class BaseEnhancedModelInfo(BaseModel):
         """Sorting key: provider (ollama first), tier, value_score desc, cost asc."""
         provider_order = {
             "ollama": 0,  # Local models first
-            "anthropic": 1,  # Anthropic second (high quality)
-            "openrouter": 2,  # OpenRouter third (aggregator)
+            "openai": 1,  # Direct OpenAI models next
+            "anthropic": 2,  # Anthropic afterwards
+            "openrouter": 3,  # OpenRouter last (aggregator)
         }
         tier_order = {
             ModelTier.FLAGSHIP: 0,
