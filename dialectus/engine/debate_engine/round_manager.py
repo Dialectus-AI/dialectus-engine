@@ -167,7 +167,9 @@ class RoundManager:
                     cost=message.cost,
                     generation_id=message.generation_id,
                 )
-                await message_callback(MessageEventType.MESSAGE_COMPLETE, complete_event)
+                await message_callback(
+                    MessageEventType.MESSAGE_COMPLETE, complete_event
+                )
 
             logger.info(
                 f"Round {context.current_round}, {format_phase.name}: {speaker_id}"
