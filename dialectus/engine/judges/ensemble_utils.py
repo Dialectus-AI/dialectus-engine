@@ -1,7 +1,7 @@
 """Ensemble judging utilities - standalone functions for combining judge decisions."""
 
 import logging
-from typing import TypedDict
+from dataclasses import dataclass
 
 from dialectus.engine.debate_engine.models import DebateContext
 
@@ -10,7 +10,8 @@ from .base import CriterionScore, JudgeDecision
 logger = logging.getLogger(__name__)
 
 
-class SerializedCriterionScore(TypedDict):
+@dataclass
+class SerializedCriterionScore:
     """Serialized criterion score for storage."""
 
     criterion: str
@@ -19,7 +20,8 @@ class SerializedCriterionScore(TypedDict):
     feedback: str
 
 
-class SerializedJudgeDecision(TypedDict):
+@dataclass
+class SerializedJudgeDecision:
     """Serialized judge decision for storage in ensemble metadata."""
 
     winner_id: str
@@ -32,7 +34,8 @@ class SerializedJudgeDecision(TypedDict):
     generation_time_ms: int | None
 
 
-class EnsembleResult(TypedDict):
+@dataclass
+class EnsembleResult:
     """Result from ensemble judging combining multiple judge decisions."""
 
     final_winner_id: str
@@ -158,41 +161,41 @@ def calculate_ensemble_result(
     # Calculate consensus level (agreement rate)
     consensus_level = max_votes / len(decisions) if decisions else 0.0
 
-    return {
-        "final_winner_id": ensemble_winner,
-        "final_margin": ensemble_margin,
-        "ensemble_method": "majority_vote_with_tiebreaker",
-        "num_judges": len(decisions),
-        "consensus_level": consensus_level,
-        "summary_reasoning": f"Winner determined by {decision_method}",
-        "summary_feedback": (
+    return EnsembleResult(
+        final_winner_id=ensemble_winner,
+        final_margin=ensemble_margin,
+        ensemble_method="majority_vote_with_tiebreaker",
+        num_judges=len(decisions),
+        consensus_level=consensus_level,
+        summary_reasoning=f"Winner determined by {decision_method}",
+        summary_feedback=(
             f"Ensemble decision from {len(decisions)} judges. Consensus level:"
             f" {consensus_level:.1%}"
         ),
-    }
+    )
 
 
 def serialize_individual_decision(decision: JudgeDecision) -> SerializedJudgeDecision:
     """Serialize an individual judge decision for storage in ensemble metadata."""
-    return {
-        "winner_id": decision.winner_id,
-        "winner_margin": decision.winner_margin,
-        "overall_feedback": decision.overall_feedback,
-        "reasoning": decision.reasoning,
-        "criterion_scores": [
-            {
-                "criterion": (
+    return SerializedJudgeDecision(
+        winner_id=decision.winner_id,
+        winner_margin=decision.winner_margin,
+        overall_feedback=decision.overall_feedback,
+        reasoning=decision.reasoning,
+        criterion_scores=[
+            SerializedCriterionScore(
+                criterion=(
                     score.criterion
                     if isinstance(score.criterion, str)
                     else score.criterion.value
                 ),
-                "participant_id": score.participant_id,
-                "score": score.score,
-                "feedback": score.feedback,
-            }
+                participant_id=score.participant_id,
+                score=score.score,
+                feedback=score.feedback,
+            )
             for score in decision.criterion_scores
         ],
-        "judge_model": decision.judge_model,
-        "judge_provider": decision.judge_provider,
-        "generation_time_ms": decision.generation_time_ms,
-    }
+        judge_model=decision.judge_model,
+        judge_provider=decision.judge_provider,
+        generation_time_ms=decision.generation_time_ms,
+    )
