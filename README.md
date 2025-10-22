@@ -236,8 +236,8 @@ pip install -e ".[dev]"
 
 ### Multi-Provider Model Support
 - **Ollama**: Local model management with hardware optimization
-- **OpenRouter**: Cloud model access to 100+ models
-- **Anthropic**: Direct access to Claude models (3.5 Sonnet, Haiku, Opus, etc.)
+- **OpenRouter**: Cloud model access to a wide variety of models
+- **Anthropic**: Direct access to Claude models
 - **Async streaming**: Chunk-by-chunk response generation for all providers
 - **Auto-discovery**: Dynamic model listing from all configured providers
 - **Caching**: In-memory cache with TTL for model metadata
@@ -385,12 +385,9 @@ To use Anthropic's Claude models, you'll need an API key:
    }
    ```
 
-**Available Claude models:**
-- `claude-3-5-sonnet-20241022` - Latest, most intelligent (best for debates)
-- `claude-3-5-haiku-20241022` - Fastest and most economical
-- `claude-3-opus-20240229` - Most capable Claude 3 model
-- `claude-3-sonnet-20240229` - Balanced performance
-- `claude-3-haiku-20240307` - Budget-friendly option
+**Finding available models:**
+
+Anthropic provides a `/v1/models` API endpoint to list available models. You can also check [Anthropic's model documentation](https://docs.anthropic.com/en/docs/models-overview) for the latest models and their capabilities.
 
 ### OpenRouter
 
