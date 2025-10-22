@@ -21,7 +21,8 @@ class OpenAIModel(BaseModel):
         default=False, description="Whether the model is part of the latest lineup"
     )
     supports_vision: bool = Field(
-        default=True, description="Whether multimodal (vision/audio) inputs are supported"
+        default=True,
+        description="Whether multimodal (vision/audio) inputs are supported",
     )
 
 

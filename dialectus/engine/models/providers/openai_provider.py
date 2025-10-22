@@ -165,7 +165,9 @@ class OpenAIProvider(OpenAICompatibleProviderBase):
                 return None
 
             prompt_cost = (prompt_tokens / 1000) * pricing.prompt_cost_per_1k
-            completion_cost = (completion_tokens / 1000) * pricing.completion_cost_per_1k
+            completion_cost = (
+                completion_tokens / 1000
+            ) * pricing.completion_cost_per_1k
             return prompt_cost + completion_cost
         except Exception as exc:
             logger.warning("Failed to calculate cost for %s: %s", model_name, exc)

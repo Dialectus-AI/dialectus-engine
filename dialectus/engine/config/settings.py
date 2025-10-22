@@ -44,7 +44,9 @@ class ModelConfig(BaseModel):
     @field_validator("provider")
     @classmethod
     def validate_provider(cls, v: str) -> str:
-        return validate_provider_value(v, {"ollama", "openrouter", "anthropic", "openai"})
+        return validate_provider_value(
+            v, {"ollama", "openrouter", "anthropic", "openai"}
+        )
 
 
 class DebateConfig(BaseModel):
@@ -242,7 +244,9 @@ class SystemConfig(BaseModel):
     @field_validator("debate_topic_source")
     @classmethod
     def validate_topic_source(cls, v: str) -> str:
-        return validate_provider_value(v, {"ollama", "openrouter", "anthropic", "openai"})
+        return validate_provider_value(
+            v, {"ollama", "openrouter", "anthropic", "openai"}
+        )
 
 
 class AppConfig(BaseModel):

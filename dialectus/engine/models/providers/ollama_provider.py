@@ -146,7 +146,9 @@ class OllamaProvider(OpenAICompatibleProviderBase):
             )
 
             if not content_text.strip():
-                logger.warning("Ollama model %s returned empty content", model_config.name)
+                logger.warning(
+                    "Ollama model %s returned empty content", model_config.name
+                )
             else:
                 logger.debug(
                     "Generated %s chars from Ollama model %s",
