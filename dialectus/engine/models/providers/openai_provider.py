@@ -158,8 +158,8 @@ class OpenAIProvider(OpenAICompatibleProviderBase):
                     break
 
             if pricing is None:
-                logger.warning(
-                    "No pricing found for OpenAI model %s, cannot calculate cost",
+                logger.info(
+                    "OpenAI API does not return pricing metadata; skipping cost calculation for %s",
                     model_name,
                 )
                 return None
