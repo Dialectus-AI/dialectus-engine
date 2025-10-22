@@ -96,26 +96,20 @@ pip install git+https://github.com/dialectus-ai/dialectus-engine.git@main
 
 ```python
 import asyncio
-from debate_engine.core import DebateEngine
-from models.manager import ModelManager
-from config.settings import AppConfig, ModelConfig
+from pathlib import Path
+from dialectus.engine.debate_engine import DebateEngine
+from dialectus.engine.models.manager import ModelManager
+from dialectus.engine.config.settings import AppConfig
 
 async def run_debate():
     # Load configuration
-    config = AppConfig.from_json_file("debate_config.json")
+    config = AppConfig.load_from_file(Path("debate_config.json"))
 
-    # Set up model manager
-    model_manager = ModelManager()
-
-    # Register models
-    for model_id, model_config in config.models.items():
-        model_manager.register_model(model_id, model_config)
+    # Create model manager from config
+    model_manager = ModelManager.from_config(config)
 
     # Create debate engine
-    engine = DebateEngine(
-        config=config,
-        model_manager=model_manager
-    )
+    engine = DebateEngine(config=config, model_manager=model_manager)
 
     # Run debate
     transcript = await engine.run_debate()

@@ -7,7 +7,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Protocol, Unpack, cast
 
-from dialectus.engine.config.settings import ModelConfig, SystemConfig
+from dialectus.engine.config.settings import AppConfig, ModelConfig, SystemConfig
 from dialectus.engine.debate_engine.types import ChunkCallback
 from dialectus.engine.models.base_types import BaseEnhancedModelInfo
 
@@ -48,6 +48,25 @@ class ModelManager:
         self._system_config = system_config
         self._model_configs: dict[str, ModelConfig] = {}
         self._providers: dict[str, BaseModelProvider] = {}
+
+    @classmethod
+    def from_config(cls, config: AppConfig) -> ModelManager:
+        """Create a ModelManager with all models from config pre-registered.
+
+        Args:
+            config: Complete application configuration
+
+        Returns:
+            ModelManager instance with all models registered
+
+        Example:
+            >>> config = AppConfig.load_from_file(Path("debate_config.json"))
+            >>> model_manager = ModelManager.from_config(config)
+        """
+        manager = cls(config.system)
+        for model_id, model_config in config.models.items():
+            manager.register_model(model_id, model_config)
+        return manager
 
     def _get_provider(self, provider_name: str) -> BaseModelProvider:
         """Return (and cache) the provider instance identified by name."""
