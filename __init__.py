@@ -3,4 +3,4 @@
 Local-first debate orchestration between language models.
 """
 
-__version__ = "0.4.0"
+__version__ = "0.4.1"
