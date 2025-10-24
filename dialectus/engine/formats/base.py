@@ -10,6 +10,7 @@ from dialectus.engine.formats.topic_themes import (
     TopicTheme,
     TopicTone,
 )
+from dialectus.engine.models.providers.base_model_provider import ChatMessage
 
 
 @dataclass
@@ -114,7 +115,7 @@ class DebateFormat(ABC):
         self,
         theme: TopicTheme | None = None,
         tone: TopicTone | None = None,
-    ) -> list[dict[str, str]]:
+    ) -> list[ChatMessage]:
         """Get format-specific messages for AI topic generation.
 
         Args:
@@ -122,7 +123,7 @@ class DebateFormat(ABC):
             tone: Optional specific tone/sub-theme for more granular control
 
         Returns:
-            List of message dictionaries for the AI model
+            List of ChatMessage objects for the AI model
         """
         # Build the system prompt
         system_content = (

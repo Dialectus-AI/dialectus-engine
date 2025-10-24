@@ -1,6 +1,7 @@
 """Oxford-style debate format implementation."""
 
 from dialectus.engine.debate_engine.types import DebatePhase
+from dialectus.engine.models.providers.base_model_provider import ChatMessage
 
 from .base import DebateFormat, FormatPhase, Position
 from .topic_themes import TopicTheme, TopicTone
@@ -155,7 +156,7 @@ class OxfordFormat(DebateFormat):
         self,
         theme: TopicTheme | None = None,
         tone: TopicTone | None = None,
-    ) -> list[dict[str, str]]:
+    ) -> list[ChatMessage]:
         """Get Oxford specific messages for AI topic generation.
 
         Args:
@@ -163,7 +164,7 @@ class OxfordFormat(DebateFormat):
             tone: Optional specific tone/sub-theme for more granular control
 
         Returns:
-            List of message dictionaries for the AI model
+            List of ChatMessage objects for the AI model
         """
         # Customize system prompt for Oxford format
         oxford_system = (

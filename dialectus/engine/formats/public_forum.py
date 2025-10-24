@@ -1,6 +1,7 @@
 """Public Forum Debate format implementation."""
 
 from dialectus.engine.debate_engine.types import DebatePhase
+from dialectus.engine.models.providers.base_model_provider import ChatMessage
 
 from .base import DebateFormat, FormatPhase, Position
 from .topic_themes import TopicTheme, TopicTone
@@ -173,7 +174,7 @@ class PublicForumFormat(DebateFormat):
         self,
         theme: TopicTheme | None = None,
         tone: TopicTone | None = None,
-    ) -> list[dict[str, str]]:
+    ) -> list[ChatMessage]:
         """Get Public Forum specific messages for AI topic generation.
 
         Args:

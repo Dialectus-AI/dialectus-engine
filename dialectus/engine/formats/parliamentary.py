@@ -1,6 +1,7 @@
 """Parliamentary debate format implementation."""
 
 from dialectus.engine.debate_engine.types import DebatePhase
+from dialectus.engine.models.providers.base_model_provider import ChatMessage
 
 from .base import DebateFormat, FormatPhase, Position
 from .topic_themes import TopicTheme, TopicTone
@@ -137,7 +138,7 @@ class ParliamentaryFormat(DebateFormat):
         self,
         theme: TopicTheme | None = None,
         tone: TopicTone | None = None,
-    ) -> list[dict[str, str]]:
+    ) -> list[ChatMessage]:
         """Get Parliamentary specific messages for AI topic generation.
 
         Args:
