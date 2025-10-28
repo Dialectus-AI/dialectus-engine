@@ -1,4 +1,5 @@
-<img src="https://raw.githubusercontent.com/dialectus-ai/dialectus-engine/main/assets/logo.png" alt="Dialectus Engine" width="350">
+
+<img width="500" height="117" alt="dialectus-logo-horz" src="https://github.com/user-attachments/assets/438b8963-0652-4886-acd1-5c197040c606" />
 
 <br />
 
