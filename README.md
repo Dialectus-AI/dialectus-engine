@@ -9,7 +9,6 @@ A Python library for orchestrating AI-powered debates with multi-provider model 
 
 ![Python](https://img.shields.io/badge/python-3.12+-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
-![Status](https://img.shields.io/badge/status-Production%20Ready-brightgreen.svg)
 
 > **Ready-to-Use CLI:** Want to run debates right away? Check out the [dialectus-cli](https://github.com/dialectus-ai/dialectus-cli) - a command-line interface that uses this engine to run debates locally with a beautiful terminal UI.
 
