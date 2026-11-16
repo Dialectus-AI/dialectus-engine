@@ -19,7 +19,7 @@ The Dialectus Engine is a standalone Python library that provides core debate or
 ## Components
 
 - **Core Engine** (`debate_engine/`) - Main debate orchestration logic
-- **Models** (`models/`) - AI model provider integrations (Ollama, OpenRouter, Anthropic)
+- **Models** (`models/`) - AI model provider integrations (Ollama, OpenRouter, Anthropic, OpenAI)
 - **Configuration** (`config/`) - System configuration management
 - **Judges** (`judges/`) - AI judge implementations with ensemble support
 - **Formats** (`formats/`) - Debate format definitions (Oxford, Parliamentary, Socratic, Public Forum)
@@ -74,7 +74,7 @@ Add to your `pyproject.toml`:
 ```toml
 [project]
 dependencies = [
-    "dialectus-engine>=0.1.0",
+    "dialectus-engine>=0.4.2",
 ]
 ```
 
@@ -93,26 +93,53 @@ pip install git+https://github.com/dialectus-ai/dialectus-engine.git@main
 ```python
 import asyncio
 from pathlib import Path
-from dialectus.engine.debate_engine import DebateEngine
-from dialectus.engine.models.manager import ModelManager
+
+from dialectus.engine import DebateEngine
 from dialectus.engine.config.settings import AppConfig
+from dialectus.engine.debate_engine.types import (
+    MessageCompleteEventData,
+    MessageEventType,
+    MessageStartEventData,
+)
+from dialectus.engine.judges.factory import create_judges
+from dialectus.engine.models.manager import ModelManager
 
-async def run_debate():
-    # Load configuration
+
+async def on_message(
+    event: MessageEventType,
+    data: MessageStartEventData | MessageCompleteEventData,
+) -> None:
+    # Called once per turn, when the model has finished its response
+    if isinstance(data, MessageCompleteEventData):
+        print(f"[{data.position}] {data.speaker_id}:\n{data.content}\n")
+
+
+async def main() -> None:
     config = AppConfig.load_from_file(Path("debate_config.json"))
-
-    # Create model manager from config
     model_manager = ModelManager.from_config(config)
-
-    # Create debate engine
     engine = DebateEngine(config=config, model_manager=model_manager)
 
-    # Run debate
-    transcript = await engine.run_debate()
-    print(transcript)
+    # Build the debate context, then run every phase of the chosen format
+    await engine.initialize_debate()
+    context = await engine.run_full_debate(message_callback=on_message)
 
-asyncio.run(run_debate())
+    # Optional: have AI judges evaluate the finished debate
+    if config.judging.judge_provider:
+        judges = create_judges(
+            config.judging.judge_models,
+            config.judging.judge_provider,
+            config.system,
+            model_manager,
+            config.judging.criteria,
+        )
+        result = await engine.judge_debate_with_judges(judges)
+        print(result)  # JudgeDecision, or a dict with an ensemble summary
+
+
+asyncio.run(main())
 ```
+
+`run_full_debate` returns the completed `DebateContext` (topic, participants, messages and metadata). Pass `phase_callback` and `chunk_callback` as well if you want phase headers or token-by-token streaming.
 
 ## Configuration
 
@@ -133,7 +160,7 @@ cp debate_config.example.json debate_config.json
 
 Key configuration sections:
 - **Models**: Define debate participants with provider, personality, and parameters
-- **Providers**: Configure Ollama (local), OpenRouter (cloud), and Anthropic (cloud) settings
+- **Providers**: Configure Ollama (local), OpenRouter, Anthropic, and OpenAI (cloud) settings
 - **Judging**: Set evaluation criteria and judge models
 - **Debate**: Default topic, format, and word limits
 - **Moderation** (optional): Content safety for user-provided topics
@@ -195,6 +222,24 @@ python -m build
 pip install dist/dialectus_engine-*.whl
 ```
 
+### Releasing (maintainers)
+
+Releases are published to PyPI by GitHub Actions (`.github/workflows/publish.yml`) using trusted publishing, so no API token is needed.
+
+```bash
+# 1. Bump `version` in pyproject.toml, then refresh the lockfile
+#    (CI runs `uv sync --locked`, which fails if uv.lock is stale)
+uv lock
+
+# 2. Commit and push to main
+git commit -am "Bump version to X.Y.Z" && git push origin main
+
+# 3. Tag the release; pushing a v* tag publishes to TestPyPI, then PyPI
+git tag vX.Y.Z && git push origin vX.Y.Z
+```
+
+Watch the "Publish to PyPI" run under the repository's Actions tab. Downstream projects (the web API, the CLI) need their `dialectus-engine>=` constraint bumped and their lockfile refreshed to pick up the new version.
+
 ### Managing Dependencies
 
 **Using uv:**
@@ -228,7 +273,6 @@ pip install -e ".[dev]"
 
 - **10-100x faster** than pip for installs and resolution
 - **Reproducible builds** via `uv.lock` (cross-platform, includes hashes)
-- **Python 3.14 ready** - Takes advantage of free-threading for even better performance
 - **Single source of truth** - Dependencies in `pyproject.toml`, lock file auto-generated
 - **Compatible** - `pip` still works perfectly with `pyproject.toml`
 
@@ -238,10 +282,11 @@ pip install -e ".[dev]"
 - **Ollama**: Local model management with hardware optimization
 - **OpenRouter**: Cloud model access to a wide variety of models
 - **Anthropic**: Direct access to Claude models
+- **OpenAI**: Direct access to GPT models
 - **Async streaming**: Chunk-by-chunk response generation for all providers
 - **Auto-discovery**: Dynamic model listing from all configured providers
-- **Caching**: In-memory cache with TTL for model metadata
-- **Cost tracking**: Token usage and cost calculation for cloud providers
+- **Caching**: Model metadata cached in memory and on disk (`./cache`) with a TTL
+- **Cost tracking**: Token usage and cost for cloud providers (OpenRouter reports real costs; direct Anthropic/OpenAI costs use a built-in pricing catalog that may not include the newest models)
 
 ### Debate Formats
 - **Oxford**: Classic opening/rebuttal/closing structure
@@ -272,7 +317,7 @@ Key architectural principles:
 - **Configurable**: JSON-based configuration with validation
 
 ### Technology Stack
-- **Python 3.13+** with modern type hints (`X | None`, `list[T]`, `dict[K, V]`)
+- **Python 3.12+** with modern type hints (`X | None`, `list[T]`, `dict[K, V]`)
 - **Pydantic v2** for data validation and settings management
 - **OpenAI SDK** for OpenRouter API integration (streaming support)
 - **httpx** for async HTTP requests (Ollama provider)
@@ -283,40 +328,56 @@ Key architectural principles:
 ### Listing Available Models
 
 ```python
-from models.manager import ModelManager
+from pathlib import Path
 
-async def list_models():
-    manager = ModelManager()
-    models = await manager.get_all_models()
-    for model_id, model_info in models.items():
-        print(f"{model_id}: {model_info.description}")
+from dialectus.engine.config.settings import AppConfig
+from dialectus.engine.models.manager import ModelManager
+
+async def list_models() -> None:
+    config = AppConfig.load_from_file(Path("debate_config.json"))
+    manager = ModelManager(config.system)
+
+    # Curated, classified models from every configured provider
+    for model in await manager.get_enhanced_models():
+        print(f"{model['provider']}: {model['id']} ({model['tier']})")
 ```
 
-### Running a Custom Format
+### Exploring Debate Formats
 
 ```python
-from formats.registry import format_registry
+from dialectus.engine.formats import format_registry
 
-# Get available formats
-formats = format_registry.list_formats()
+# Available formats: oxford, parliamentary, socratic, public_forum
+print(format_registry.list_formats())
 
-# Load a specific format
+# Inspect a format's phases for a given set of participants
 oxford = format_registry.get_format("oxford")
-phases = oxford.phases()
+for phase in oxford.get_phases(["model_a", "model_b"]):
+    print(phase)
 ```
 
 ### Ensemble Judging
 
+Pass more than one judge model and the engine aggregates their decisions by majority vote, breaking ties with average criterion scores.
+
 ```python
-from judges.factory import JudgeFactory
+from dialectus.engine.judges.factory import create_judges
 
-# Create judge with multiple models
-config.judging.judge_models = ["openthinker:7b", "llama3.2:3b", "qwen2.5:3b"]
-judge = JudgeFactory.create_judge(config.judging, model_manager)
+judges = create_judges(
+    ["openthinker:7b", "llama3.2:3b", "qwen2.5:3b"],
+    "ollama",  # provider for all judge models
+    config.system,
+    model_manager,
+    config.judging.criteria,
+)
 
-# Get aggregated decision
-decision = await judge.judge_debate(context)
+# The debate must be complete (after run_full_debate)
+result = await engine.judge_debate_with_judges(judges)
+# One judge  -> a JudgeDecision
+# Many judges -> {"type": "ensemble", "decisions": [...], "ensemble_summary": ...}
 ```
+
+Ensemble judging requires **every** judge to succeed. If any judge fails (for example, a model your provider rejects), `judge_debate_with_judges` raises a `RuntimeError` listing the failures. Catch it if you want to keep the debate results regardless.
 
 ### Content Moderation
 
@@ -339,7 +400,7 @@ except TopicRejectedError as e:
     print(f"Violated categories: {', '.join(e.categories)}")
 ```
 
-For comprehensive moderation testing and setup instructions, see [MODERATION_TESTING.md](MODERATION_TESTING.md).
+You can also let the engine do this for you: enable moderation in the config and call `engine.initialize_debate(topic, user_provided=True)`. See the `moderation` section of [`debate_config.example.json`](debate_config.example.json) for the available settings.
 
 ## Provider Setup
 
@@ -375,7 +436,7 @@ To use Anthropic's Claude models, you'll need an API key:
    {
      "models": {
        "model_a": {
-         "name": "claude-3-5-sonnet-20241022",
+         "name": "claude-haiku-5-5",
          "provider": "anthropic",
          "personality": "analytical",
          "max_tokens": 300,
@@ -387,7 +448,35 @@ To use Anthropic's Claude models, you'll need an API key:
 
 **Finding available models:**
 
-Anthropic provides a `/v1/models` API endpoint to list available models. You can also check [Anthropic's model documentation](https://docs.anthropic.com/en/docs/models-overview) for the latest models and their capabilities.
+Use any model ID your Anthropic account can access. Anthropic provides a `/v1/models` API endpoint to list them, and [Anthropic's model documentation](https://docs.anthropic.com/en/docs/models-overview) covers the current lineup. Older Claude 3 and 3.5 models have been retired, so check there before reusing an old config.
+
+### OpenAI
+
+To use OpenAI's GPT models directly:
+
+1. **Get an API key** at [platform.openai.com](https://platform.openai.com/)
+
+2. **Set your API key** (or set `system.openai.api_key` in `debate_config.json`):
+   ```bash
+   export OPENAI_API_KEY="sk-..."
+   ```
+
+3. **Configure a model** with an OpenAI model ID:
+   ```json
+   {
+     "models": {
+       "model_a": {
+         "name": "gpt-4.1-mini",
+         "provider": "openai",
+         "personality": "analytical",
+         "max_tokens": 300,
+         "temperature": 0.7
+       }
+     }
+   }
+   ```
+
+Any model ID your OpenAI account can access will work; see [OpenAI's model documentation](https://platform.openai.com/docs/models) for the current lineup.
 
 ### OpenRouter
 
@@ -405,7 +494,7 @@ To use OpenRouter's model marketplace:
    {
      "models": {
        "model_a": {
-         "name": "anthropic/claude-3.5-sonnet",
+         "name": "anthropic/claude-haiku-5.5",
          "provider": "openrouter",
          "personality": "analytical",
          "max_tokens": 300,
@@ -414,6 +503,8 @@ To use OpenRouter's model marketplace:
      }
    }
    ```
+
+   Browse model IDs at [openrouter.ai/models](https://openrouter.ai/models). Variants with a `:batch` suffix only accept OpenRouter's batch API and fail on chat requests, so the engine's model discovery filters them out. Don't configure them by hand.
 
 ### Ollama (Local Models)
 
