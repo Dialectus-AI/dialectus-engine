@@ -118,6 +118,13 @@
         ]
       },
       {
+        "category": "batch_only_variants",
+        "description": "Batch-API-only model variants (e.g. ':batch' suffix) that reject chat/completions requests",
+        "patterns": [
+          ":batch$"
+        ]
+      },
+      {
         "category": "jailbreak_variants",
         "description": "Problematic jailbreak model variants",
         "patterns": [

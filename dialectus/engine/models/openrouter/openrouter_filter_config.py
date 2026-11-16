@@ -102,7 +102,11 @@ class OpenRouterFilterConfig:
                             "mixture.*expert",
                             "moe",
                         ],
-                    }
+                    },
+                    {
+                        "category": "batch_only_variants",
+                        "patterns": [":batch$"],
+                    },
                 ],
                 "preview_patterns": [
                     {
